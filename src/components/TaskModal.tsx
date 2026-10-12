@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Clock3, ImagePlus, Trash2, X } from 'lucide-react';
+import { Camera, Check, Clock3, ImagePlus, Play, Timer, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -15,6 +15,8 @@ interface Props {
   initialDate?: string | null;
   initialTime?: string | null;
   categories: CategoryConfig;
+  focusSeconds: number;
+  onFocus: (id: string) => void;
   onSave: (task: Task) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -25,7 +27,7 @@ const EMPTY: Omit<Task, 'id' | 'createdAt'> = {
   image: undefined, date: null, time: null, duration: 45, done: false, xp: 40,
 };
 
-export function TaskModal({ task, initialDate, initialTime, categories, onSave, onDelete, onClose }: Props) {
+export function TaskModal({ task, initialDate, initialTime, categories, focusSeconds, onFocus, onSave, onDelete, onClose }: Props) {
   const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null });
   const [imageError, setImageError] = useState('');
   const [picker, setPicker] = useState<'icons' | 'photos' | null>(null);
@@ -72,6 +74,7 @@ export function TaskModal({ task, initialDate, initialTime, categories, onSave, 
           </div>
           <label className="toggle-row"><span className={`toggle ${form.done ? 'on' : ''}`}><input type="checkbox" checked={form.done} onChange={e => change('done', e.target.checked)} /><Check size={13}/></span>Oznacz zadanie jako wykonane</label>
         </div>
+        {task && <div className="task-focus-row"><div><Timer size={17}/><span><strong>Focus Mode</strong><small>Realnie przepracowano: {Math.floor(focusSeconds/3600)>0?`${Math.floor(focusSeconds/3600)} h `:''}${Math.floor((focusSeconds%3600)/60)} min</small></span></div><button className="btn btn--focus" type="button" onClick={()=>onFocus(task.id)}><Play size={15} fill="currentColor"/> Rozpocznij Focus</button></div>}
         <div className="modal-bottom">{task ? <button className="btn btn--danger" onClick={() => { if (window.confirm('Usunąć to zadanie?')) onDelete(task.id); }}><Trash2 size={16} /> Usuń</button> : <span className="modal-tip">Szybkie zadanie może pozostać w Inbox.</span>}<div className="modal-bottom-right"><button className="btn btn--ghost" onClick={onClose}>Anuluj</button><button className="btn btn--primary" disabled={!form.title.trim()} onClick={save}><Check size={16} />{task ? 'Zapisz zmiany' : 'Dodaj zadanie'}</button></div></div>
       </div>
     </div>

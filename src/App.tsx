@@ -8,6 +8,9 @@ import { CalendarView, type CalendarBlock } from './components/CalendarView';
 import { ResizeConfirmModal } from './components/ResizeConfirmModal';
 import { RoutineMoveConfirmModal } from './components/RoutineMoveConfirmModal';
 import { TaskModal } from './components/TaskModal';
+import { FocusMode, FocusDock } from './components/FocusMode';
+import { useFocusTimer } from './lib/useFocusTimer';
+import { formatFocusClock, type FocusRecord } from './lib/focus';
 import { emptyLog, RoutineEditor, routineOccurs, RoutineSession } from './components/RoutineModal';
 import { TaskIcon } from './lib/icons';
 import { CategoryBadge, TaskVisual } from './components/VisualIdentity';
@@ -156,6 +159,8 @@ function App() {
   const [taskFilter, setTaskFilter] = useState<'all' | 'today' | 'inbox' | 'completed'>('all');
   const [toast, setToast] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
+  const focus = useFocusTimer();
+  const [focusOpen, setFocusOpen] = useState(false);
   const [achievementQueue, setAchievementQueue] = useState<AchievementView[]>([]);
   const [activeAchievement, setActiveAchievement] = useState<AchievementView | null>(null);
   const [earnedAchievementIds, setEarnedAchievementIds] = useState<string[]>(() => {
@@ -284,6 +289,35 @@ function App() {
     const timeout = window.setTimeout(() => setActiveAchievement(null), 5200);
     return () => window.clearTimeout(timeout);
   }, [activeAchievement]);
+
+  function startFocus(taskId: string) {
+    const task = data.tasks.find(item => item.id === taskId);
+    if (!task) { setToast('Nie znaleziono zadania.'); return; }
+    if (focus.active && focus.active.taskId !== taskId) {
+      setTaskDialog(null);
+      setFocusOpen(true);
+      setToast('Najpierw zakończ trwającą sesję Focus.');
+      return;
+    }
+    focus.start(task.id, task.title, task.duration);
+    setTaskDialog(null);
+    setFocusOpen(true);
+  }
+
+  function finishFocus(complete: boolean) {
+    const task = focus.active ? data.tasks.find(item => item.id === focus.active?.taskId) : undefined;
+    const shouldComplete = complete && Boolean(task);
+    const award = shouldComplete && !task?.done ? task!.xp : 0;
+    const record = focus.finish(shouldComplete, award);
+    if (!record) return;
+    if (shouldComplete) {
+      setData(previous => ({ ...previous, tasks: previous.tasks.map(item => item.id === record.taskId ? {...item, done: true} : item) }));
+    }
+    setFocusOpen(false);
+    setToast(shouldComplete
+      ? `Focus zakończony · ${formatFocusClock(record.focusSeconds)} pracy${award ? ` · +${award} XP` : ''}`
+      : `Zapisano ${formatFocusClock(record.focusSeconds)} pracy bez oznaczania zadania.`);
+  }
 
   function toggleTask(id: string) {
     const task=data.tasks.find(t=>t.id===id);
@@ -470,7 +504,7 @@ function App() {
       <div className="sidebar-spacer"/>
       <div className="sidebar-level-card"><div className="level-card-top"><div className="level-orb"><Trophy size={20}/></div><div><span>TWÓJ POZIOM</span><strong>Level {currentLevel}</strong></div><Sparkles size={17} className="level-twinkle"/></div><div className="level-progress"><div style={{width:`${xpIntoLevel/LEVEL_XP*100}%`}} /></div><div className="level-card-sub"><span>{xpIntoLevel} / {LEVEL_XP} XP</span><span>Do awansu <ArrowUpRight size={13}/></span></div></div>
       <button className="sidebar-settings" onClick={()=>setSettingsOpen(true)}><Settings2 size={18}/> Ustawienia <ChevronRight size={15}/></button>
-      <div className="sidebar-foot">Momentum v0.4.3 <span>✦</span> Made for progress</div>
+      <div className="sidebar-foot">Momentum v0.4.4 <span>✦</span> Made for progress</div>
     </aside>
     {mobileNav && <button className="sidebar-scrim" aria-label="Zamknij menu" onClick={()=>setMobileNav(false)}/>}
     <div className="app-workspace">
@@ -480,12 +514,12 @@ function App() {
           <div className="welcome-heading"><div><div className="eyebrow eyebrow--indigo">TWOJA PRZESTRZEŃ DO DZIAŁANIA <Sparkles size={13}/></div><h1>Twój dzień. <H>Twój progres.</H></h1><p>Każdy mały krok przybliża Cię do większego celu. Działaj po swojemu.</p></div><button className="btn btn--primary add-top" onClick={()=>setTaskDialog({date:today})}><Plus size={18}/> Nowe zadanie</button></div>
           <section className="welcome-banner"><div className="welcome-banner-content"><div className="banner-tag"><span/> TWOJA PODRÓŻ TRWA</div><h2>Masz dziś wszystko,<br/>żeby zrobić coś wielkiego<span>.</span></h2><p>Skup się na tym, co ma znaczenie. Resztą zajmie się Momentum.</p><button onClick={()=>{goPage('calendar');setCalendarMode('day');setReferenceDate(today);}}>Zaplanuj swój dzień <ArrowRight size={16}/></button></div><div className="hero-illustration" aria-hidden="true"><div className="hero-orbit hero-orbit--1"/><div className="hero-orbit hero-orbit--2"/><div className="hero-main-orb"><Zap size={76} strokeWidth={1.3} fill="currentColor"/></div><div className="hero-star star-a">✦</div><div className="hero-star star-b">✧</div><div className="hero-mini-card"><span>✦</span> +{xpToday} XP today <ArrowUpRight size={15}/></div><div className="hero-chip">LEVEL {currentLevel}</div></div></section>
           <div className="stats-grid"><StatCard label="Ukończone dzisiaj" main={`${completedToday} / ${totalToday}`} detail={`${completionPct}% dzisiejszego planu`} icon={CheckCircle2} iconClass="mint" progress={completionPct}/><StatCard label="Czas w skupieniu" main={formatDuration(focusMinutes)} detail="Ukończone bloki czasowe" icon={Focus} iconClass="purple"/><StatCard label="Zdobyte doświadczenie" main={`+${xpToday} XP`} detail={`Poziom ${currentLevel} · ${LEVEL_XP-xpIntoLevel} XP do awansu`} icon={Zap} iconClass="amber"/></div>
-          <div className="content-split"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode="day" onChangeMode={m=>{if(m==='week')goPage('calendar');setCalendarMode(m);}} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock} compact/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div>
+          <div className="content-split"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode="day" onChangeMode={m=>{if(m==='week')goPage('calendar');setCalendarMode(m);}} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onFocusBlock={block=>startFocus(block.sourceId)} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock} compact/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div>
         </>}
-        {page==='calendar'&&<><PageHeading kicker="TWÓJ CZAS MA ZNACZENIE" title="Kalendarz" accent=" & timeblocking" description="Zaplanuj dzień, przeciągaj zadania między godzinami i obserwuj swój progres. Kliknij puste miejsce, aby dodać blok."/><div className="calendar-page-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode={calendarMode} onChangeMode={setCalendarMode} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock}/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div></>}
+        {page==='calendar'&&<><PageHeading kicker="TWÓJ CZAS MA ZNACZENIE" title="Kalendarz" accent=" & timeblocking" description="Zaplanuj dzień, przeciągaj zadania między godzinami i obserwuj swój progres. Kliknij puste miejsce, aby dodać blok."/><div className="calendar-page-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode={calendarMode} onChangeMode={setCalendarMode} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onFocusBlock={block=>startFocus(block.sourceId)} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock}/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div></>}
         {page==='tasks'&&<><PageHeading kicker="MAŁE KROKI, WIELKIE EFEKTY" title="Moje" accent=" zadania" description="Wszystkie Twoje zadania w jednym miejscu. Zaplanuj je lub zrealizuj od razu." action={<button className="btn btn--primary" onClick={()=>setTaskDialog({})}><Plus size={18}/> Dodaj zadanie</button>}/><div className="tasks-page"><div className="task-filters">{([{id:'all',label:'Wszystkie'},{id:'today',label:'Na dzisiaj'},{id:'inbox',label:'Inbox'},{id:'completed',label:'Ukończone'}] as const).map(f=><button key={f.id} className={taskFilter===f.id?'active':''} onClick={()=>setTaskFilter(f.id)}>{f.label}{f.id==='inbox'&&<span>{data.tasks.filter(t=>!t.date&&!t.done).length}</span>}</button>)}</div><TaskGroups tasks={data.tasks.filter(t=>(!search||t.title.toLocaleLowerCase('pl-PL').includes(search.toLocaleLowerCase('pl-PL')))&&(taskFilter==='all'||(taskFilter==='today'&&t.date===today)||(taskFilter==='inbox'&&!t.date&&!t.done)||(taskFilter==='completed'&&t.done)))} categories={categories} onEdit={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({})}/></div></>}
         {page==='routines'&&<><PageHeading kicker="KONSEKWENCJA TWORZY NAWYKI" title="Twoje" accent=" rutyny" description="Jeden prosty rytuał, wiele małych zwycięstw. Kończ wszystkie kroki jednym kliknięciem." action={<button className="btn btn--primary" onClick={()=>setEditorDialog({})}><Plus size={18}/> Nowa rutyna</button>}/><div className="routines-intro"><div><span>✦ CODZIENNY RYTM</span><h3>Nie musisz robić wszystkiego naraz.</h3><p>Zaznacz kolejne kroki, a po zakończeniu rutyny zaktualizujemy kalendarz i XP automatycznie.</p></div><div className="routine-intro-ornament">☼</div></div><div className="routine-cards">{data.routines.map(r=>{const occurs=dueRoutines.some(item=>item.id===r.id),log=logFor(r.id,sourceForToday(r.id)),style=(categories[r.category] ?? categories.unpaid);return <button key={r.id} className="routine-card" onClick={()=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="large" className="routine-icon-large"/><div className="routine-card-top"><span className="routine-card-frequency">{r.weekdays.length===7?'Codziennie':`${r.weekdays.length} dni w tygodniu`}</span><CategoryBadge category={r.category} categories={categories} compact/></div><h3>{r.title}</h3><p>{r.description}</p><div className="routine-mini-stats"><span><Clock3 size={15}/> {r.time} · {r.duration} min</span><span><Zap size={14}/> +{r.xp} XP</span></div><div className="routine-card-progress"><div><span style={{width:`${log.checkedStepIds.length/Math.max(r.steps.length,1)*100}%`,background:style.color}}/></div><small>{log.completed?'Zakończona ✓':!occurs?'Poza planem na dziś':`${log.checkedStepIds.length}/${r.steps.length} kroków`}</small></div><div className="routine-card-cta">{log.completed?'Zobacz ukończoną': 'Otwórz rutynę'} <ArrowRight size={15}/></div></button>;})}<button className="routine-card routine-card--add" onClick={()=>setEditorDialog({})}><span><Plus size={27}/></span><strong>Stwórz własną rutynę</strong><p>Dodaj kroki, harmonogram i nagrodę XP.</p></button></div></>}
-        {page==='insights'&&<><PageHeading kicker="POSTĘP TO SUMA MAŁYCH KROKÓW" title="Twoje" accent=" statystyki" description="Zobacz, gdzie inwestujesz swój czas i jak rośnie Twoja regularność."/><Insights data={data} totalXp={totalXp} currentLevel={currentLevel} streak={daysStreak} achievements={achievements} rank={currentRank} nextRank={nextRank}/></>}
+        {page==='insights'&&<><PageHeading kicker="POSTĘP TO SUMA MAŁYCH KROKÓW" title="Twoje" accent=" statystyki" description="Zobacz, gdzie inwestujesz swój czas i jak rośnie Twoja regularność."/><Insights data={data} totalXp={totalXp} currentLevel={currentLevel} streak={daysStreak} achievements={achievements} rank={currentRank} nextRank={nextRank} focusHistory={focus.history}/></>}
         <footer className="main-footer"><span>✦ Momentum — małe kroki, wielki progres.</span><span>Wersja demonstracyjna · dane lokalne</span></footer>
       </main>
     </div>
@@ -495,10 +529,12 @@ function App() {
       shiftsWeekdays={new Date(`${pendingRoutineMove.block.occurrenceDate ?? pendingRoutineMove.block.date}T12:00:00`).getDay() !== new Date(`${pendingRoutineMove.date}T12:00:00`).getDay()}
       onOnlyThis={()=>confirmRoutineMove('single')} onAll={()=>confirmRoutineMove('all')} onCancel={()=>setPendingRoutineMove(null)}/>}
     {pendingResize&&<ResizeConfirmModal title={pendingResize.block.title} date={pendingResize.block.date} time={pendingResize.block.time} previousDuration={pendingResize.block.duration} nextDuration={pendingResize.nextDuration} onOnlyThis={()=>confirmResize('single')} onAll={()=>confirmResize('all')} onCancel={()=>setPendingResize(null)}/>}
-    {taskDialog&&<TaskModal task={taskDialog.id?data.tasks.find(t=>t.id===taskDialog.id):undefined} initialDate={taskDialog.date} initialTime={taskDialog.time} categories={categories} onSave={saveTask} onDelete={deleteTask} onClose={()=>setTaskDialog(null)}/>}
+    {taskDialog&&<TaskModal task={taskDialog.id?data.tasks.find(t=>t.id===taskDialog.id):undefined} initialDate={taskDialog.date} initialTime={taskDialog.time} categories={categories} focusSeconds={focus.history.filter(record=>record.taskId===taskDialog.id).reduce((sum,record)=>sum+record.focusSeconds,0)} onFocus={startFocus} onSave={saveTask} onDelete={deleteTask} onClose={()=>setTaskDialog(null)}/>}
     {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} duration={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).durationOverride ?? r.duration} displayTime={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,routineDialog.occurrenceDate ?? routineDialog.date,step)} onComplete={()=>completeRoutine(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,routineDialog.occurrenceDate ?? routineDialog.date,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onClose={()=>setRoutineDialog(null)}/>:null;})()}
     {editorDialog&&<RoutineEditor routine={editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined} categories={categories} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}/>}
     {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Twoje kolory i styl</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){eraseStoredData();window.location.reload();}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>Dane zapisują się tylko w pamięci tej przeglądarki (localStorage).</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
+    {focus.active && !focusOpen && <FocusDock title={focus.active.taskTitle} seconds={Math.floor(focus.elapsed.focusMs/1000)} phase={focus.active.phase} onOpen={()=>setFocusOpen(true)}/>}
+    {focus.active && focusOpen && <FocusMode task={data.tasks.find(task=>task.id===focus.active?.taskId)} session={focus.active} history={focus.history} focusMs={focus.elapsed.focusMs} breakMs={focus.elapsed.breakMs} breakElapsedMs={focus.breakElapsed} categories={categories} onPhase={focus.setPhase} onFinish={finishFocus} onClose={()=>setFocusOpen(false)}/>}
     {activeAchievement&&<AchievementPopup achievement={activeAchievement} onClose={()=>setActiveAchievement(null)}/>}
     {toast&&<div className="toast" role="status"><span><Sparkles size={17}/></span>{toast}<button onClick={()=>setToast('')} aria-label="Zamknij"><X size={15}/></button></div>}
     <nav className="mobile-bottom-nav">{NAV.slice(0,4).map(n=><button key={n.id} className={page===n.id?'active':''} onClick={()=>goPage(n.id)}><n.icon size={20}/><span>{n.label.split(' ')[0]}</span></button>)}</nav>
@@ -540,7 +576,7 @@ function AchievementPopup({ achievement, onClose }: { achievement: AchievementVi
   </div>;
 }
 
-function Insights({data,totalXp,currentLevel,streak,achievements,rank,nextRank}:{data:ReturnType<typeof useAppData>[0];totalXp:number;currentLevel:number;streak:number;achievements:AchievementView[];rank:RankView;nextRank:RankView | null}){
+function Insights({data,totalXp,currentLevel,streak,achievements,rank,nextRank,focusHistory}:{data:ReturnType<typeof useAppData>[0];totalXp:number;currentLevel:number;streak:number;achievements:AchievementView[];rank:RankView;nextRank:RankView | null;focusHistory:FocusRecord[]}){
   const [analyticsView, setAnalyticsView] = useState<'week' | 'month'>('week');
   const [achievementFilter, setAchievementFilter] = useState<'all'|'earned'|'locked'>('all');
   const categories = resolveCategories(data.categories);
@@ -622,6 +658,11 @@ function Insights({data,totalXp,currentLevel,streak,achievements,rank,nextRank}:
         </div><div className="donut-legend donut-legend--detailed">{pieValues.map(p=><div key={p.id}><span className="category-dot" style={{background:categories[p.id].color}}/><div><span>{categories[p.id].label}</span><small>{formatDuration(p.mins)}</small></div><strong>{totalMinutes?Math.round(p.mins/totalMinutes*100):0}%</strong></div>)}</div></div>
       </section>
     </div>
+    <section className="insight-card focus-history-insights">
+      <div className="insight-card-title"><div><span className="eyebrow">FOCUS MODE</span><h3>Plan a rzeczywistość</h3></div><Clock3 size={20}/></div>
+      <div className="focus-history-metrics"><div><small>Łącznie przepracowano</small><strong>{formatFocusClock(focusHistory.reduce((sum,record)=>sum+record.focusSeconds,0))}</strong></div><div><small>Sesje skupienia</small><strong>{focusHistory.length}</strong></div><div><small>Średnia sesja</small><strong>{focusHistory.length ? formatFocusClock(Math.round(focusHistory.reduce((sum,record)=>sum+record.focusSeconds,0)/focusHistory.length)) : '00:00'}</strong></div></div>
+      {focusHistory.length > 0 ? <div className="focus-history-list">{focusHistory.slice(-5).reverse().map(record=><div className="focus-history-row" key={record.id}><div><strong>{record.taskTitle}</strong><small>{new Date(record.finishedAt).toLocaleDateString('pl-PL')} · {record.taskCompleted?'Zadanie ukończone':'Zapisana sesja'}</small></div><div className="focus-history-compare"><span>{formatFocusClock(record.focusSeconds)} / {record.plannedMinutes} min</span><div className="focus-history-track"><span style={{width:`${Math.min(100,record.focusSeconds/(record.plannedMinutes*60)*100)}%`}}/></div></div></div>)}</div> : <p className="focus-history-empty">Uruchom Focus Mode z zadania w kalendarzu, a tutaj zobaczysz przepracowany czas i różnicę względem planu.</p>}
+    </section>
     <section className="insight-card achievements-section">
       <div className="insight-card-title achievements-title"><div><span className="eyebrow">OSIĄGNIĘCIA I ODZNAKI</span><h3>Twoja kolekcja · {earnedAchievements}/{achievements.length}</h3><p>Odkrywaj kolejne progi. Nieodblokowane wyzwania pokazują, ile jeszcze brakuje.</p></div><Award size={20}/></div>
       <div className="achievement-filters" aria-label="Filtr osiągnięć"><button className={achievementFilter==='all'?'active':''} onClick={()=>setAchievementFilter('all')}>Wszystkie ({achievements.length})</button><button className={achievementFilter==='earned'?'active':''} onClick={()=>setAchievementFilter('earned')}>Zdobyte ({earnedAchievements})</button><button className={achievementFilter==='locked'?'active':''} onClick={()=>setAchievementFilter('locked')}>Do zdobycia ({achievements.length-earnedAchievements})</button></div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Plus } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Play, Plus } from 'lucide-react';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { layoutOverlappingEvents } from '../lib/calendarOverlap';
 import { MiniMonthPicker } from './MiniMonthPicker';
@@ -37,6 +37,7 @@ interface CalendarViewProps {
   onChangeMode: (mode: 'day' | 'week') => void;
   onAddAt: (date: string, time: string) => void;
   onOpenBlock: (block: CalendarBlock) => void;
+  onFocusBlock: (block: CalendarBlock) => void;
   onToggleBlock: (block: CalendarBlock) => void;
   onDropBlock: (kind: 'task' | 'routine', id: string, date: string, time: string, sourceDate?: string) => void;
   onResizeBlock: (block: CalendarBlock, duration: number) => void;
@@ -68,7 +69,7 @@ interface MovePreview {
   category: CategoryKey;
 }
 
-export function CalendarView({ referenceDate, onChangeDate, blocks, categories, mode, onChangeMode, onAddAt, onOpenBlock, onToggleBlock, onDropBlock, onResizeBlock, compact = false }: CalendarViewProps) {
+export function CalendarView({ referenceDate, onChangeDate, blocks, categories, mode, onChangeMode, onAddAt, onOpenBlock, onFocusBlock, onToggleBlock, onDropBlock, onResizeBlock, compact = false }: CalendarViewProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ id: string; duration: number } | null>(null);
   const resizeSession = useRef<ResizeSession | null>(null);
@@ -378,10 +379,19 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                         <div className="event-body">
                           <TaskVisual icon={block.icon} image={block.image} category={block.category} categories={categories} className="event-visual" size="small" />
                           <div className="event-text"><strong>{block.title}</strong><small>{block.time} · {displayDuration} min</small></div>
+                          {block.kind === 'task' && <button
+                            type="button"
+                            className="event-focus"
+                            aria-label={`Rozpocznij Focus: ${block.title}`}
+                            title="Rozpocznij Focus Mode"
+                            onPointerDown={e=>e.stopPropagation()}
+                            onClick={e=>{e.stopPropagation();onFocusBlock(block);}}
+                          ><Play size={12} fill="currentColor" /></button>}
                           <button
                             className={`event-check ${block.done ? 'checked' : ''}`}
                             aria-label={block.done ? 'Oznacz jako niewykonane' : 'Oznacz jako wykonane'}
                             title={block.kind === 'routine' ? 'Otwórz kroki rutyny' : 'Zmień status'}
+                            onPointerDown={e => e.stopPropagation()}
                             onClick={e => { e.stopPropagation(); onToggleBlock(block); }}
                           ><Check size={13} strokeWidth={3} /></button>
                         </div>
