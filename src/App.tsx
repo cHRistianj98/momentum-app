@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { CalendarView, type CalendarBlock } from './components/CalendarView';
 import { ResizeConfirmModal } from './components/ResizeConfirmModal';
+import { RoutineMoveConfirmModal } from './components/RoutineMoveConfirmModal';
 import { TaskModal } from './components/TaskModal';
 import { emptyLog, RoutineEditor, routineOccurs, RoutineSession } from './components/RoutineModal';
 import { TaskIcon } from './lib/icons';
@@ -26,9 +27,10 @@ const CATEGORY_KEYS: CategoryKey[] = ['unpaid','potential','income'];
 const LEVEL_XP = 500;
 
 type TaskDialog = { id?: string; date?: string | null; time?: string | null };
-type RoutineDialog = { id: string; date: string };
+type RoutineDialog = { id: string; date: string; occurrenceDate?: string };
 type RoutineEditorDialog = { id?: string };
 type PendingResize = { block: CalendarBlock; nextDuration: number };
+type PendingRoutineMove = { block: CalendarBlock; date: string; time: string };
 
 function H({ children }: { children: React.ReactNode }) { return <span className="heading-spark">{children}</span>; }
 
@@ -87,7 +89,25 @@ function buildAchievements(data: ReturnType<typeof useAppData>[0], totalXp: numb
     ...data.tasks.filter(task => task.done && task.date).map(task => task.date!),
     ...Object.entries(data.routineLogs).filter(([, log]) => log.completed).map(([key]) => key.split(':').slice(1).join(':')),
   ]).size;
-  const incomeMinutes = data.tasks.filter(task => task.done && task.category === 'income').reduce((sum, task) => sum + task.duration, 0);
+  const completedTaskList = data.tasks.filter(task => task.done);
+  const completedRoutineLogs = Object.entries(data.routineLogs).filter(([, log]) => log.completed);
+  const categoryTaskList = (category: CategoryKey) => completedTaskList.filter(task => task.category === category);
+  const incomeMinutes = categoryTaskList('income').reduce((sum, task) => sum + task.duration, 0) + completedRoutineLogs.reduce((sum, [key, log]) => {
+    const routine = data.routines.find(r => key.startsWith(`${r.id}:`));
+    return sum + (routine?.category === 'income' ? (log.durationOverride ?? routine.duration) : 0);
+  }, 0);
+  const potentialMinutes = categoryTaskList('potential').reduce((sum, task) => sum + task.duration, 0) + completedRoutineLogs.reduce((sum, [key, log]) => {
+    const routine = data.routines.find(r => key.startsWith(`${r.id}:`));
+    return sum + (routine?.category === 'potential' ? (log.durationOverride ?? routine.duration) : 0);
+  }, 0);
+  const completedCount = completedTasks + completedRoutineSessions;
+  const morningCount = completedTaskList.filter(task => task.time && Number(task.time.slice(0, 2)) < 9).length;
+  const eveningCount = completedTaskList.filter(task => task.time && Number(task.time.slice(0, 2)) >= 20).length;
+  const incomeCount = categoryTaskList('income').length;
+  const usedCategories = new Set([
+    ...completedTaskList.map(task => task.category),
+    ...completedRoutineLogs.map(([key]) => data.routines.find(r => key.startsWith(`${r.id}:`))?.category).filter((key): key is CategoryKey => !!key),
+  ]).size;
   return [
     { id: 'first-step', title: 'Pierwszy krok', description: 'Ukończ pierwsze zadanie albo rutynę.', reward: '+ motywacja', progress: completedTasks + completedRoutineSessions, target: 1, unlocked: completedTasks + completedRoutineSessions >= 1, icon: Award, accent: '#7f72ff', tint: '#f2efff', art: '/assets/progression/ach-first-step.svg' },
     { id: 'xp-500', title: 'Poziom 2', description: 'Zdobądź 500 XP i wejdź na kolejny poziom.', reward: '+ nowa ranga', progress: totalXp, target: 500, unlocked: totalXp >= 500, icon: Trophy, accent: '#6a5cff', tint: '#f0edff', art: '/assets/progression/ach-xp-500.svg' },
@@ -96,6 +116,27 @@ function buildAchievements(data: ReturnType<typeof useAppData>[0], totalXp: numb
     { id: 'planner-10', title: 'Planista', description: 'Nadaj godzinę przynajmniej 10 zadaniom.', reward: '+ kontrola planu', progress: scheduledTasks, target: 10, unlocked: scheduledTasks >= 10, icon: CalendarDays, accent: '#a564ff', tint: '#f5efff', art: '/assets/progression/ach-planner-10.svg' },
     { id: 'income-120', title: 'Monetyzacja', description: 'Ukończ 120 minut zadań przynoszących przychód.', reward: '+ złota odznaka', progress: incomeMinutes, target: 120, unlocked: incomeMinutes >= 120, icon: Wallet, accent: '#1ca36f', tint: '#eaf8f1', art: '/assets/progression/ach-income-120.svg' },
     { id: 'active-7', title: 'Tydzień progresu', description: 'Bądź aktywny w 7 różnych dniach.', reward: '+ wytrwałość', progress: activeDays, target: 7, unlocked: activeDays >= 7, icon: Star, accent: '#f0a52f', tint: '#fff8e8', art: '/assets/progression/ach-active-7.svg' },
+    { id: 'tasks-5', title: 'Dobry początek', description: 'Ukończ 5 zadań.', reward: 'Małe zwycięstwa', progress: completedTasks, target: 5, unlocked: completedTasks >= 5, icon: CheckCircle2, accent: '#7f72ff', tint: '#f2efff', art: '/assets/progression/ach-tasks-5.svg' },
+    { id: 'tasks-25', title: 'Maszyna do działania', description: 'Ukończ 25 zadań.', reward: 'Systematyczność', progress: completedTasks, target: 25, unlocked: completedTasks >= 25, icon: ShieldCheck, accent: '#5d8ef7', tint: '#edf3ff', art: '/assets/progression/ach-tasks-25.svg' },
+    { id: 'tasks-100', title: 'Setka sukcesów', description: 'Ukończ 100 zadań.', reward: 'Legenda działania', progress: completedTasks, target: 100, unlocked: completedTasks >= 100, icon: Trophy, accent: '#d9a535', tint: '#fff8e5', art: '/assets/progression/ach-tasks-100.svg' },
+    { id: 'xp-2000', title: 'Łowca doświadczenia', description: 'Zdobądź 2 000 XP.', reward: 'Mistrz progresu', progress: totalXp, target: 2000, unlocked: totalXp >= 2000, icon: Zap, accent: '#9d6bfa', tint: '#f5ecff', art: '/assets/progression/ach-xp-2000.svg' },
+    { id: 'xp-5000', title: 'Elita Momentum', description: 'Zdobądź 5 000 XP.', reward: 'Elitarna odznaka', progress: totalXp, target: 5000, unlocked: totalXp >= 5000, icon: Gem, accent: '#f0ad33', tint: '#fff7e8', art: '/assets/progression/ach-xp-5000.svg' },
+    { id: 'routines-1', title: 'Pierwszy rytuał', description: 'Ukończ pierwszą całą rutynę.', reward: 'Moc nawyków', progress: completedRoutineSessions, target: 1, unlocked: completedRoutineSessions >= 1, icon: Sparkles, accent: '#bd76f5', tint: '#f9edff', art: '/assets/progression/ach-routines-1.svg' },
+    { id: 'routines-10', title: 'Żelazny nawyk', description: 'Zakończ 10 rutyn.', reward: 'Dyscyplina', progress: completedRoutineSessions, target: 10, unlocked: completedRoutineSessions >= 10, icon: ShieldCheck, accent: '#45a4c8', tint: '#ebfaff', art: '/assets/progression/ach-routines-10.svg' },
+    { id: 'routines-50', title: 'Mistrz rutyn', description: 'Zakończ 50 rutyn.', reward: 'Wewnętrzna siła', progress: completedRoutineSessions, target: 50, unlocked: completedRoutineSessions >= 50, icon: Crown, accent: '#4bb992', tint: '#eafaf4', art: '/assets/progression/ach-routines-50.svg' },
+    { id: 'streak-7', title: 'Tydzień bez przerwy', description: 'Utrzymaj serię przez 7 kolejnych dni.', reward: 'Płomień', progress: streak, target: 7, unlocked: streak >= 7, icon: Flame, accent: '#ff816d', tint: '#fff1ed', art: '/assets/progression/ach-streak-7.svg' },
+    { id: 'streak-30', title: 'Miesiąc determinacji', description: 'Utrzymaj serię przez 30 kolejnych dni.', reward: 'Nieustępliwość', progress: streak, target: 30, unlocked: streak >= 30, icon: Flame, accent: '#e96987', tint: '#fff0f3', art: '/assets/progression/ach-streak-30.svg' },
+    { id: 'focus-1200', title: '20 godzin skupienia', description: 'Ukończ 20 godzin zaplanowanego działania.', reward: 'Koncentracja', progress: completedMinutes, target: 1200, unlocked: completedMinutes >= 1200, icon: Focus, accent: '#629eeb', tint: '#eef6ff', art: '/assets/progression/ach-focus-1200.svg' },
+    { id: 'focus-6000', title: '100 godzin progresu', description: 'Ukończ 100 godzin działania.', reward: 'Długofalowy progres', progress: completedMinutes, target: 6000, unlocked: completedMinutes >= 6000, icon: Clock3, accent: '#467bd9', tint: '#eef3ff', art: '/assets/progression/ach-focus-6000.svg' },
+    { id: 'planner-50', title: 'Architekt czasu', description: 'Zaplanuj godzinę dla 50 zadań.', reward: 'Świetne planowanie', progress: scheduledTasks, target: 50, unlocked: scheduledTasks >= 50, icon: CalendarDays, accent: '#ae7ff3', tint: '#f6efff', art: '/assets/progression/ach-planner-50.svg' },
+    { id: 'income-1500', title: '25 godzin zarobkowych', description: 'Ukończ 25 godzin działań dających przychód.', reward: 'Rozwój finansowy', progress: incomeMinutes, target: 1500, unlocked: incomeMinutes >= 1500, icon: Wallet, accent: '#1da67c', tint: '#eaf9f3', art: '/assets/progression/ach-income-1500.svg' },
+    { id: 'income-10', title: 'Pracowity tydzień', description: 'Ukończ 10 zadań przynoszących przychód.', reward: 'Zarabianie', progress: incomeCount, target: 10, unlocked: incomeCount >= 10, icon: Wallet, accent: '#46b875', tint: '#ebfaf2', art: '/assets/progression/ach-income-10.svg' },
+    { id: 'potential-300', title: 'Inwestycja w przyszłość', description: 'Poświęć 5 godzin na działania z potencjalnym przychodem.', reward: 'Budowanie przyszłości', progress: potentialMinutes, target: 300, unlocked: potentialMinutes >= 300, icon: Rocket, accent: '#e3a32b', tint: '#fff8e8', art: '/assets/progression/ach-potential-300.svg' },
+    { id: 'active-30', title: '30 dni na mapie', description: 'Zrealizuj coś w 30 różnych dniach.', reward: 'Stały rozwój', progress: activeDays, target: 30, unlocked: activeDays >= 30, icon: Star, accent: '#e7ad4c', tint: '#fff7e9', art: '/assets/progression/ach-active-30.svg' },
+    { id: 'balanced', title: 'Wszechstronny plan', description: 'Ukończ zadania ze wszystkich 3 kategorii finansowych.', reward: 'Równowaga', progress: usedCategories, target: 3, unlocked: usedCategories >= 3, icon: Target, accent: '#8c7be5', tint: '#f1efff', art: '/assets/progression/ach-balanced.svg' },
+    { id: 'morning-5', title: 'Ranny ptaszek', description: 'Ukończ 5 zadań zaplanowanych przed 9:00.', reward: 'Dobry poranek', progress: morningCount, target: 5, unlocked: morningCount >= 5, icon: Sun, accent: '#e7a23d', tint: '#fff5e8', art: '/assets/progression/ach-morning-5.svg' },
+    { id: 'evening-5', title: 'Nocny strateg', description: 'Ukończ 5 zadań zaplanowanych po 20:00.', reward: 'Wieczorny fokus', progress: eveningCount, target: 5, unlocked: eveningCount >= 5, icon: Moon, accent: '#7783c8', tint: '#eef0ff', art: '/assets/progression/ach-evening-5.svg' },
+    { id: 'completions-150', title: 'Nie do zatrzymania', description: 'Ukończ 150 zadań lub wykonań rutyn.', reward: 'Wielkie osiągnięcie', progress: completedCount, target: 150, unlocked: completedCount >= 150, icon: Trophy, accent: '#bb86e7', tint: '#f6efff', art: '/assets/progression/ach-completions-150.svg' },
   ];
 }
 
@@ -109,6 +150,7 @@ function App() {
   const [routineDialog, setRoutineDialog] = useState<RoutineDialog | null>(null);
   const [editorDialog, setEditorDialog] = useState<RoutineEditorDialog | null>(null);
   const [pendingResize, setPendingResize] = useState<PendingResize | null>(null);
+  const [pendingRoutineMove, setPendingRoutineMove] = useState<PendingRoutineMove | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [taskFilter, setTaskFilter] = useState<'all' | 'today' | 'inbox' | 'completed'>('all');
@@ -116,6 +158,12 @@ function App() {
   const [mobileNav, setMobileNav] = useState(false);
   const [achievementQueue, setAchievementQueue] = useState<AchievementView[]>([]);
   const [activeAchievement, setActiveAchievement] = useState<AchievementView | null>(null);
+  const [earnedAchievementIds, setEarnedAchievementIds] = useState<string[]>(() => {
+    try {
+      const parsed: unknown = JSON.parse(window.localStorage.getItem('momentum.earned-achievements') ?? '[]');
+      return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+    } catch { return []; }
+  });
   const searchRef = useRef<HTMLInputElement>(null);
   const today = todayKey();
   useEffect(() => {
@@ -135,10 +183,24 @@ function App() {
     return () => window.removeEventListener('keydown', onShortcut);
   }, [taskDialog, routineDialog, editorDialog, settingsOpen]);
   const todayTasks = data.tasks.filter(t => t.date === today);
-  const dueRoutines = data.routines.filter(r => routineOccurs(r, today));
   const logFor = (id: string, date: string) => data.routineLogs[`${id}:${date}`] ?? emptyLog(`${id}:${date}`);
-  const completedToday = todayTasks.filter(t => t.done).length + dueRoutines.filter(r => logFor(r.id,today).completed).length;
-  const totalToday = todayTasks.length + dueRoutines.length;
+  // Dzisiejsza rutyna może pochodzić z innego dnia, jeśli przesunięto jedno wystąpienie.
+  const todayOccurrences = useMemo(() => {
+    const result: { routine: Routine; occurrenceDate: string }[] = [];
+    for (let offset = -45; offset <= 45; offset++) {
+      const source = shiftDate(today, offset);
+      for (const r of data.routines) {
+        const log = data.routineLogs[`${r.id}:${source}`];
+        if (!routineOccurs(r, source) && !log?.completed && !log?.checkedStepIds?.length) continue;
+        if ((log?.dateOverride ?? source) === today) result.push({ routine: r, occurrenceDate: source });
+      }
+    }
+    return result;
+  }, [data.routines, data.routineLogs, today]);
+  const dueRoutines = todayOccurrences.filter((entry, index) => todayOccurrences.findIndex(e => e.routine.id === entry.routine.id) === index).map(entry => entry.routine);
+  const sourceForToday = (id: string) => todayOccurrences.find(entry => entry.routine.id === id)?.occurrenceDate ?? today;
+  const completedToday = todayTasks.filter(t => t.done).length + todayOccurrences.filter(entry => logFor(entry.routine.id, entry.occurrenceDate).completed).length;
+  const totalToday = todayTasks.length + todayOccurrences.length;
   const completionPct = totalToday ? Math.round(completedToday/totalToday*100) : 0;
   const totalXp = useMemo(() => data.tasks.filter(t => t.done).reduce((s,t) => s+t.xp,0) + Object.entries(data.routineLogs).reduce((s,[key,log]) => {
     if (!log.completed) return s;
@@ -147,8 +209,8 @@ function App() {
   },0),[data]);
   const currentLevel = Math.floor(totalXp / LEVEL_XP) + 1;
   const xpIntoLevel = totalXp % LEVEL_XP;
-  const xpToday = todayTasks.filter(t=>t.done).reduce((s,t)=>s+t.xp,0) + dueRoutines.filter(r=>logFor(r.id,today).completed).reduce((s,r)=>s+r.xp,0);
-  const focusMinutes = todayTasks.filter(t=>t.done && t.time).reduce((s,t)=>s+t.duration,0) + dueRoutines.filter(r=>logFor(r.id,today).completed).reduce((s,r)=>s+(logFor(r.id,today).durationOverride ?? r.duration),0);
+  const xpToday = todayTasks.filter(t=>t.done).reduce((s,t)=>s+t.xp,0) + todayOccurrences.filter(entry => logFor(entry.routine.id, entry.occurrenceDate).completed).reduce((s,entry)=>s+entry.routine.xp,0);
+  const focusMinutes = todayTasks.filter(t=>t.done && t.time).reduce((s,t)=>s+t.duration,0) + todayOccurrences.filter(entry => logFor(entry.routine.id, entry.occurrenceDate).completed).reduce((s,entry)=>s+(logFor(entry.routine.id, entry.occurrenceDate).durationOverride ?? entry.routine.duration),0);
   const daysStreak = useMemo(() => {
     // Serie liczymy z ostatnich dni, w których ukończono choć jedno zadanie lub rutynę.
     const dates = new Set([...data.tasks.filter(t=>t.done && t.date).map(t=>t.date!), ...Object.values(data.routineLogs).filter(l=>l.completed).map(l=>l.id.split(':').slice(1).join(':'))]);
@@ -156,7 +218,20 @@ function App() {
     while (dates.has(cursor) && streak<365) {streak++;cursor=shiftDate(cursor,-1);}
     return streak;
   },[data,today]);
-  const achievements = useMemo(() => buildAchievements(data, totalXp, daysStreak), [data, totalXp, daysStreak]);
+  const computedAchievements = useMemo(() => buildAchievements(data, totalXp, daysStreak), [data, totalXp, daysStreak]);
+  const achievements = useMemo(() => computedAchievements.map(achievement => {
+    const preserved = earnedAchievementIds.includes(achievement.id);
+    return {...achievement, unlocked: achievement.unlocked || preserved, progress: preserved ? Math.max(achievement.progress, achievement.target) : achievement.progress};
+  }), [computedAchievements, earnedAchievementIds]);
+  // An earned badge stays earned even if the user later breaks a streak or edits an old task.
+  useEffect(() => {
+    const newlyEarned = computedAchievements.filter(a => a.unlocked && !earnedAchievementIds.includes(a.id)).map(a => a.id);
+    if (newlyEarned.length) setEarnedAchievementIds(current => [...new Set([...current, ...newlyEarned])]);
+  }, [computedAchievements, earnedAchievementIds]);
+  useEffect(() => {
+    try { window.localStorage.setItem('momentum.earned-achievements', JSON.stringify(earnedAchievementIds)); }
+    catch { /* localStorage unavailable or full: keep achievements in memory */ }
+  }, [earnedAchievementIds]);
   const currentRank = useMemo(() => resolveRank(totalXp), [totalXp]);
   const nextRank = useMemo(() => resolveNextRank(totalXp), [totalXp]);
 
@@ -169,7 +244,20 @@ function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const storageKey = 'momentum.seen-achievements';
-    const seen = new Set<string>(JSON.parse(window.localStorage.getItem(storageKey) ?? '[]'));
+    const migrationKey = 'momentum.achievements.catalog.v042';
+    let seenIds: string[] = [];
+    try {
+      const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey) ?? '[]');
+      seenIds = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+    } catch { /* corrupted notification history, not application data */ }
+    const seen = new Set<string>(seenIds);
+    if (window.localStorage.getItem(migrationKey) !== '1') {
+      // Existing achievements are shown as earned but do not flood the screen on upgrade.
+      achievements.filter(a => a.unlocked).forEach(a => seen.add(a.id));
+      window.localStorage.setItem(storageKey, JSON.stringify([...seen]));
+      window.localStorage.setItem(migrationKey, '1');
+      return;
+    }
     const fresh = achievements.filter(achievement => achievement.unlocked && !seen.has(achievement.id));
     if (!fresh.length) return;
     fresh.forEach(achievement => seen.add(achievement.id));
@@ -242,6 +330,7 @@ function App() {
     const log=logFor(id,date);
     if (log.completed || routine.steps.some(s=>!log.checkedStepIds.includes(s.id))) return;
     updateRoutineLog(id,date,l=>({...l,completed:true,completedAt:new Date().toISOString()}));
+    setRoutineDialog(null);
     setToast(`Rutyna zakończona! +${routine.xp} XP`);
   }
   function resizeBlock(block: CalendarBlock, nextDuration: number) {
@@ -258,7 +347,7 @@ function App() {
     if (!pendingResize) return;
     const { block, nextDuration } = pendingResize;
     if (scope === 'single') {
-      const key = `${block.sourceId}:${block.date}`;
+      const key = `${block.sourceId}:${block.occurrenceDate ?? block.date}`;
       setData(prev => {
         const template = prev.routines.find(r => r.id === block.sourceId);
         if (!template) return prev;
@@ -286,21 +375,72 @@ function App() {
     setPendingResize(null);
   }
 
+  function moveRoutine(kind: 'task' | 'routine', id: string, date: string, time: string, occurrenceDate?: string) {
+    if (kind === 'task') { updateTaskSchedule(id, date, time); return; }
+    const block = calendarBlocks.find(b => b.kind === 'routine' && b.sourceId === id &&
+      (b.occurrenceDate ?? b.date) === occurrenceDate);
+    if (!block) return;
+    if (block.date === date && block.time === time) return;
+    setPendingRoutineMove({ block, date, time });
+  }
+  function confirmRoutineMove(scope: 'single' | 'all') {
+    if (!pendingRoutineMove) return;
+    const { block, date, time } = pendingRoutineMove;
+    const sourceDate = block.occurrenceDate ?? block.date;
+    if (scope === 'single') {
+      const key = `${block.sourceId}:${sourceDate}`;
+      setData(prev => {
+        const template = prev.routines.find(r => r.id === block.sourceId);
+        if (!template) return prev;
+        const updated = { ...(prev.routineLogs[key] ?? emptyLog(key)) };
+        delete updated.dateOverride;
+        delete updated.timeOverride;
+        if (date !== sourceDate) updated.dateOverride = date;
+        if (time !== template.time) updated.timeOverride = time;
+        return { ...prev, routineLogs: { ...prev.routineLogs, [key]: updated } };
+      });
+      setToast(`Przeniesiono tylko wystąpienie „${block.title}”`);
+    } else {
+      const fromWeekday = new Date(`${sourceDate}T12:00:00`).getDay();
+      const toWeekday = new Date(`${date}T12:00:00`).getDay();
+      const delta = (toWeekday - fromWeekday + 7) % 7;
+      setData(prev => ({
+        ...prev,
+        routines: prev.routines.map(r => r.id === block.sourceId ? {
+          ...r, time, weekdays: r.weekdays.map(day => (day + delta) % 7).sort((a,b) => a-b),
+        } : r),
+        routineLogs: Object.fromEntries(Object.entries(prev.routineLogs).map(([key, log]) => {
+          if (!key.startsWith(`${block.sourceId}:`)) return [key, log];
+          const updated = { ...log };
+          delete updated.dateOverride;
+          delete updated.timeOverride;
+          return [key, updated];
+        })),
+      }));
+      setToast(`Zaktualizowano harmonogram całej rutyny „${block.title}”`);
+    }
+    setPendingRoutineMove(null);
+  }
+
   function openBlock(block: CalendarBlock) {
     if (block.kind==='task')setTaskDialog({id:block.sourceId});
-    else setRoutineDialog({id:block.sourceId,date:block.date});
+    else setRoutineDialog({id:block.sourceId,date:block.date,occurrenceDate:block.occurrenceDate ?? block.date});
   }
   function toggleBlock(block:CalendarBlock) {
     if(block.kind==='task')toggleTask(block.sourceId);
-    else setRoutineDialog({id:block.sourceId,date:block.date});
+    else setRoutineDialog({id:block.sourceId,date:block.date,occurrenceDate:block.occurrenceDate ?? block.date});
   }
   const calendarBlocks: CalendarBlock[] = useMemo(() => {
     const blocks: CalendarBlock[] = data.tasks.filter(t=>t.date && t.time).map(t=>({id:t.id,kind:'task',sourceId:t.id,title:t.title,icon:t.icon,image:t.image,category:t.category,date:t.date!,time:t.time!,duration:t.duration,done:t.done}));
     // Wirtualne wystąpienia rutyn: jeden szablon, osobny log każdego dnia.
     for (let offset=-45;offset<=45;offset++) {
       const d=shiftDate(referenceDate,offset);
-      for(const r of data.routines)if(routineOccurs(r,d)) {
-        blocks.push({id:`routine:${r.id}:${d}`,kind:'routine',sourceId:r.id,title:r.title,icon:r.icon,image:r.image,category:r.category,date:d,time:r.time,duration:data.routineLogs[`${r.id}:${d}`]?.durationOverride ?? r.duration,done:!!data.routineLogs[`${r.id}:${d}`]?.completed});
+      for(const r of data.routines) {
+        const log = data.routineLogs[`${r.id}:${d}`];
+        if (!routineOccurs(r,d) && !log?.completed && !log?.checkedStepIds?.length) continue;
+        blocks.push({id:`routine:${r.id}:${d}`,kind:'routine',sourceId:r.id,title:r.title,icon:r.icon,image:r.image,category:r.category,
+          occurrenceDate:d, date:log?.dateOverride ?? d, time:log?.timeOverride ?? r.time,
+          duration:log?.durationOverride ?? r.duration,done:!!log?.completed});
       }
     }
     return blocks;
@@ -330,7 +470,7 @@ function App() {
       <div className="sidebar-spacer"/>
       <div className="sidebar-level-card"><div className="level-card-top"><div className="level-orb"><Trophy size={20}/></div><div><span>TWÓJ POZIOM</span><strong>Level {currentLevel}</strong></div><Sparkles size={17} className="level-twinkle"/></div><div className="level-progress"><div style={{width:`${xpIntoLevel/LEVEL_XP*100}%`}} /></div><div className="level-card-sub"><span>{xpIntoLevel} / {LEVEL_XP} XP</span><span>Do awansu <ArrowUpRight size={13}/></span></div></div>
       <button className="sidebar-settings" onClick={()=>setSettingsOpen(true)}><Settings2 size={18}/> Ustawienia <ChevronRight size={15}/></button>
-      <div className="sidebar-foot">Momentum v0.4.1 <span>✦</span> Made for progress</div>
+      <div className="sidebar-foot">Momentum v0.4.3 <span>✦</span> Made for progress</div>
     </aside>
     {mobileNav && <button className="sidebar-scrim" aria-label="Zamknij menu" onClick={()=>setMobileNav(false)}/>}
     <div className="app-workspace">
@@ -340,20 +480,26 @@ function App() {
           <div className="welcome-heading"><div><div className="eyebrow eyebrow--indigo">TWOJA PRZESTRZEŃ DO DZIAŁANIA <Sparkles size={13}/></div><h1>Twój dzień. <H>Twój progres.</H></h1><p>Każdy mały krok przybliża Cię do większego celu. Działaj po swojemu.</p></div><button className="btn btn--primary add-top" onClick={()=>setTaskDialog({date:today})}><Plus size={18}/> Nowe zadanie</button></div>
           <section className="welcome-banner"><div className="welcome-banner-content"><div className="banner-tag"><span/> TWOJA PODRÓŻ TRWA</div><h2>Masz dziś wszystko,<br/>żeby zrobić coś wielkiego<span>.</span></h2><p>Skup się na tym, co ma znaczenie. Resztą zajmie się Momentum.</p><button onClick={()=>{goPage('calendar');setCalendarMode('day');setReferenceDate(today);}}>Zaplanuj swój dzień <ArrowRight size={16}/></button></div><div className="hero-illustration" aria-hidden="true"><div className="hero-orbit hero-orbit--1"/><div className="hero-orbit hero-orbit--2"/><div className="hero-main-orb"><Zap size={76} strokeWidth={1.3} fill="currentColor"/></div><div className="hero-star star-a">✦</div><div className="hero-star star-b">✧</div><div className="hero-mini-card"><span>✦</span> +{xpToday} XP today <ArrowUpRight size={15}/></div><div className="hero-chip">LEVEL {currentLevel}</div></div></section>
           <div className="stats-grid"><StatCard label="Ukończone dzisiaj" main={`${completedToday} / ${totalToday}`} detail={`${completionPct}% dzisiejszego planu`} icon={CheckCircle2} iconClass="mint" progress={completionPct}/><StatCard label="Czas w skupieniu" main={formatDuration(focusMinutes)} detail="Ukończone bloki czasowe" icon={Focus} iconClass="purple"/><StatCard label="Zdobyte doświadczenie" main={`+${xpToday} XP`} detail={`Poziom ${currentLevel} · ${LEVEL_XP-xpIntoLevel} XP do awansu`} icon={Zap} iconClass="amber"/></div>
-          <div className="content-split"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode="day" onChangeMode={m=>{if(m==='week')goPage('calendar');setCalendarMode(m);}} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onToggleBlock={toggleBlock} onDropBlock={(kind,id,date,time)=>{if(kind==='task')updateTaskSchedule(id,date,time);}} onResizeBlock={resizeBlock} compact/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,today)} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today})} onPreset={addPreset}/></div>
+          <div className="content-split"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode="day" onChangeMode={m=>{if(m==='week')goPage('calendar');setCalendarMode(m);}} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock} compact/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div>
         </>}
-        {page==='calendar'&&<><PageHeading kicker="TWÓJ CZAS MA ZNACZENIE" title="Kalendarz" accent=" & timeblocking" description="Zaplanuj dzień, przeciągaj zadania między godzinami i obserwuj swój progres. Kliknij puste miejsce, aby dodać blok."/><div className="calendar-page-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode={calendarMode} onChangeMode={setCalendarMode} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onToggleBlock={toggleBlock} onDropBlock={(kind,id,date,time,sourceDate)=>{if(kind==='task')updateTaskSchedule(id,date,time);else if(sourceDate!==date)setToast('Przesuwanie całych rutyn między dniami będzie dostępne w kolejnej wersji');}} onResizeBlock={resizeBlock}/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,today)} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today})} onPreset={addPreset}/></div></>}
+        {page==='calendar'&&<><PageHeading kicker="TWÓJ CZAS MA ZNACZENIE" title="Kalendarz" accent=" & timeblocking" description="Zaplanuj dzień, przeciągaj zadania między godzinami i obserwuj swój progres. Kliknij puste miejsce, aby dodać blok."/><div className="calendar-page-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode={calendarMode} onChangeMode={setCalendarMode} onAddAt={(date,time)=>setTaskDialog({date,time})} onOpenBlock={openBlock} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock}/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div></>}
         {page==='tasks'&&<><PageHeading kicker="MAŁE KROKI, WIELKIE EFEKTY" title="Moje" accent=" zadania" description="Wszystkie Twoje zadania w jednym miejscu. Zaplanuj je lub zrealizuj od razu." action={<button className="btn btn--primary" onClick={()=>setTaskDialog({})}><Plus size={18}/> Dodaj zadanie</button>}/><div className="tasks-page"><div className="task-filters">{([{id:'all',label:'Wszystkie'},{id:'today',label:'Na dzisiaj'},{id:'inbox',label:'Inbox'},{id:'completed',label:'Ukończone'}] as const).map(f=><button key={f.id} className={taskFilter===f.id?'active':''} onClick={()=>setTaskFilter(f.id)}>{f.label}{f.id==='inbox'&&<span>{data.tasks.filter(t=>!t.date&&!t.done).length}</span>}</button>)}</div><TaskGroups tasks={data.tasks.filter(t=>(!search||t.title.toLocaleLowerCase('pl-PL').includes(search.toLocaleLowerCase('pl-PL')))&&(taskFilter==='all'||(taskFilter==='today'&&t.date===today)||(taskFilter==='inbox'&&!t.date&&!t.done)||(taskFilter==='completed'&&t.done)))} categories={categories} onEdit={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({})}/></div></>}
-        {page==='routines'&&<><PageHeading kicker="KONSEKWENCJA TWORZY NAWYKI" title="Twoje" accent=" rutyny" description="Jeden prosty rytuał, wiele małych zwycięstw. Kończ wszystkie kroki jednym kliknięciem." action={<button className="btn btn--primary" onClick={()=>setEditorDialog({})}><Plus size={18}/> Nowa rutyna</button>}/><div className="routines-intro"><div><span>✦ CODZIENNY RYTM</span><h3>Nie musisz robić wszystkiego naraz.</h3><p>Zaznacz kolejne kroki, a po zakończeniu rutyny zaktualizujemy kalendarz i XP automatycznie.</p></div><div className="routine-intro-ornament">☼</div></div><div className="routine-cards">{data.routines.map(r=>{const occurs=routineOccurs(r,today),log=logFor(r.id,today),style=(categories[r.category] ?? categories.unpaid);return <button key={r.id} className="routine-card" onClick={()=>setRoutineDialog({id:r.id,date:today})}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="large" className="routine-icon-large"/><div className="routine-card-top"><span className="routine-card-frequency">{r.weekdays.length===7?'Codziennie':`${r.weekdays.length} dni w tygodniu`}</span><CategoryBadge category={r.category} categories={categories} compact/></div><h3>{r.title}</h3><p>{r.description}</p><div className="routine-mini-stats"><span><Clock3 size={15}/> {r.time} · {r.duration} min</span><span><Zap size={14}/> +{r.xp} XP</span></div><div className="routine-card-progress"><div><span style={{width:`${log.checkedStepIds.length/Math.max(r.steps.length,1)*100}%`,background:style.color}}/></div><small>{log.completed?'Zakończona ✓':!occurs?'Poza planem na dziś':`${log.checkedStepIds.length}/${r.steps.length} kroków`}</small></div><div className="routine-card-cta">{log.completed?'Zobacz ukończoną': 'Otwórz rutynę'} <ArrowRight size={15}/></div></button>;})}<button className="routine-card routine-card--add" onClick={()=>setEditorDialog({})}><span><Plus size={27}/></span><strong>Stwórz własną rutynę</strong><p>Dodaj kroki, harmonogram i nagrodę XP.</p></button></div></>}
+        {page==='routines'&&<><PageHeading kicker="KONSEKWENCJA TWORZY NAWYKI" title="Twoje" accent=" rutyny" description="Jeden prosty rytuał, wiele małych zwycięstw. Kończ wszystkie kroki jednym kliknięciem." action={<button className="btn btn--primary" onClick={()=>setEditorDialog({})}><Plus size={18}/> Nowa rutyna</button>}/><div className="routines-intro"><div><span>✦ CODZIENNY RYTM</span><h3>Nie musisz robić wszystkiego naraz.</h3><p>Zaznacz kolejne kroki, a po zakończeniu rutyny zaktualizujemy kalendarz i XP automatycznie.</p></div><div className="routine-intro-ornament">☼</div></div><div className="routine-cards">{data.routines.map(r=>{const occurs=dueRoutines.some(item=>item.id===r.id),log=logFor(r.id,sourceForToday(r.id)),style=(categories[r.category] ?? categories.unpaid);return <button key={r.id} className="routine-card" onClick={()=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="large" className="routine-icon-large"/><div className="routine-card-top"><span className="routine-card-frequency">{r.weekdays.length===7?'Codziennie':`${r.weekdays.length} dni w tygodniu`}</span><CategoryBadge category={r.category} categories={categories} compact/></div><h3>{r.title}</h3><p>{r.description}</p><div className="routine-mini-stats"><span><Clock3 size={15}/> {r.time} · {r.duration} min</span><span><Zap size={14}/> +{r.xp} XP</span></div><div className="routine-card-progress"><div><span style={{width:`${log.checkedStepIds.length/Math.max(r.steps.length,1)*100}%`,background:style.color}}/></div><small>{log.completed?'Zakończona ✓':!occurs?'Poza planem na dziś':`${log.checkedStepIds.length}/${r.steps.length} kroków`}</small></div><div className="routine-card-cta">{log.completed?'Zobacz ukończoną': 'Otwórz rutynę'} <ArrowRight size={15}/></div></button>;})}<button className="routine-card routine-card--add" onClick={()=>setEditorDialog({})}><span><Plus size={27}/></span><strong>Stwórz własną rutynę</strong><p>Dodaj kroki, harmonogram i nagrodę XP.</p></button></div></>}
         {page==='insights'&&<><PageHeading kicker="POSTĘP TO SUMA MAŁYCH KROKÓW" title="Twoje" accent=" statystyki" description="Zobacz, gdzie inwestujesz swój czas i jak rośnie Twoja regularność."/><Insights data={data} totalXp={totalXp} currentLevel={currentLevel} streak={daysStreak} achievements={achievements} rank={currentRank} nextRank={nextRank}/></>}
         <footer className="main-footer"><span>✦ Momentum — małe kroki, wielki progres.</span><span>Wersja demonstracyjna · dane lokalne</span></footer>
       </main>
     </div>
+    {pendingRoutineMove&&<RoutineMoveConfirmModal title={pendingRoutineMove.block.title}
+      previousDate={pendingRoutineMove.block.date} previousTime={pendingRoutineMove.block.time}
+      targetDate={pendingRoutineMove.date} targetTime={pendingRoutineMove.time}
+      shiftsWeekdays={new Date(`${pendingRoutineMove.block.occurrenceDate ?? pendingRoutineMove.block.date}T12:00:00`).getDay() !== new Date(`${pendingRoutineMove.date}T12:00:00`).getDay()}
+      onOnlyThis={()=>confirmRoutineMove('single')} onAll={()=>confirmRoutineMove('all')} onCancel={()=>setPendingRoutineMove(null)}/>}
     {pendingResize&&<ResizeConfirmModal title={pendingResize.block.title} date={pendingResize.block.date} time={pendingResize.block.time} previousDuration={pendingResize.block.duration} nextDuration={pendingResize.nextDuration} onOnlyThis={()=>confirmResize('single')} onAll={()=>confirmResize('all')} onCancel={()=>setPendingResize(null)}/>}
     {taskDialog&&<TaskModal task={taskDialog.id?data.tasks.find(t=>t.id===taskDialog.id):undefined} initialDate={taskDialog.date} initialTime={taskDialog.time} categories={categories} onSave={saveTask} onDelete={deleteTask} onClose={()=>setTaskDialog(null)}/>}
-    {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,routineDialog.date)} duration={logFor(r.id,routineDialog.date).durationOverride ?? r.duration} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,routineDialog.date,step)} onComplete={()=>completeRoutine(r.id,routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,routineDialog.date,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onClose={()=>setRoutineDialog(null)}/>:null;})()}
+    {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} duration={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).durationOverride ?? r.duration} displayTime={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,routineDialog.occurrenceDate ?? routineDialog.date,step)} onComplete={()=>completeRoutine(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,routineDialog.occurrenceDate ?? routineDialog.date,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onClose={()=>setRoutineDialog(null)}/>:null;})()}
     {editorDialog&&<RoutineEditor routine={editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined} categories={categories} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}/>}
     {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Twoje kolory i styl</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){eraseStoredData();window.location.reload();}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>Dane zapisują się tylko w pamięci tej przeglądarki (localStorage).</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
+    {activeAchievement&&<AchievementPopup achievement={activeAchievement} onClose={()=>setActiveAchievement(null)}/>}
     {toast&&<div className="toast" role="status"><span><Sparkles size={17}/></span>{toast}<button onClick={()=>setToast('')} aria-label="Zamknij"><X size={15}/></button></div>}
     <nav className="mobile-bottom-nav">{NAV.slice(0,4).map(n=><button key={n.id} className={page===n.id?'active':''} onClick={()=>goPage(n.id)}><n.icon size={20}/><span>{n.label.split(' ')[0]}</span></button>)}</nav>
   </div>;
@@ -372,7 +518,7 @@ function RightPanel({upcoming,routines,logFor,categories,onTask,onToggle,onAdd,o
 function TaskGroups({tasks,categories,onEdit,onToggle,onAdd}:{tasks:Task[];categories:ReturnType<typeof useAppData>[0]['categories'];onEdit:(t:Task)=>void;onToggle:(id:string)=>void;onAdd:()=>void}){
   const today=todayKey();
   const groups=[{title:'Dzisiaj',items:tasks.filter(t=>t.date===today)},{title:'Inbox · do zaplanowania',items:tasks.filter(t=>!t.date)},{title:'Zaplanowane na inne dni',items:tasks.filter(t=>t.date&&t.date!==today)}];
-  return <div className="task-groups">{groups.filter(g=>g.items.length>0).map(group=><section className="task-group" key={group.title}><div className="task-group-heading"><h3>{group.title}<span>{group.items.length}</span></h3></div><div className="task-rows">{group.items.sort((a,b)=>(a.date??'').localeCompare(b.date??'')||(a.time??'z').localeCompare(b.time??'z')).map(t=>{return <div className={`task-row ${t.done?'task-row--done':''}`} key={t.id}><button className={`task-checkbox ${t.done?'checked':''}`} aria-label="Zmień status" onClick={()=>onToggle(t.id)}><Check size={16}/></button><button className="task-row-icon" onClick={()=>onEdit(t)}><TaskVisual icon={t.icon} image={t.image} category={t.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={()=>onEdit(t)}><strong>{t.title}</strong><span className="task-row-sub"><CategoryBadge category={t.category} categories={categories} compact/>{t.date?` ${t.date===today?'Dzisiaj':t.date}`:''} {t.time?` · ${t.time}`:''}</span></button><div className="task-row-xp"><Zap size={14}/> {t.xp} XP</div><button className="task-row-edit" onClick={()=>onEdit(t)} title="Edytuj"><MoreHorizontal size={20}/></button></div>})}</div></section>)}{tasks.length===0&&<div className="empty-list"><Target size={38}/><h3>Tu jest miejsce na nowe pomysły.</h3><p>Dodaj zadanie, zaplanuj termin i ruszaj po swoje.</p><button className="btn btn--primary" onClick={onAdd}><Plus size={17}/> Dodaj pierwsze zadanie</button></div>}</div>;
+  return <div className="task-groups">{groups.filter(g=>g.items.length>0).map(group=><section className="task-group" key={group.title}><div className="task-group-heading"><h3>{group.title}<span>{group.items.length}</span></h3></div><div className="task-rows">{group.items.sort((a,b)=>(a.date??'').localeCompare(b.date??'')||(a.time??'z').localeCompare(b.time??'z')).map(t=>{return <div className={`task-row ${t.done?'task-row--done':''}`} key={t.id}><button className={`task-checkbox ${t.done?'checked':''}`} aria-label="Zmień status" onClick={()=>onToggle(t.id)}><Check size={16}/></button><button className="task-row-icon" onClick={()=>onEdit(t)}><TaskVisual icon={t.icon} image={t.image} category={t.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={()=>onEdit(t)}><strong>{t.title}</strong><span className="task-row-sub"><CategoryBadge category={t.category} categories={categories} compact/>{t.date&&<span className="task-row-meta">{t.date===today?'Dzisiaj':t.date}</span>}{t.time&&<span className="task-row-meta task-row-time">{t.time}</span>}</span></button><div className="task-row-xp"><Zap size={14}/> {t.xp} XP</div><button className="task-row-edit" onClick={()=>onEdit(t)} title="Edytuj"><MoreHorizontal size={20}/></button></div>})}</div></section>)}{tasks.length===0&&<div className="empty-list"><Target size={38}/><h3>Tu jest miejsce na nowe pomysły.</h3><p>Dodaj zadanie, zaplanuj termin i ruszaj po swoje.</p><button className="btn btn--primary" onClick={onAdd}><Plus size={17}/> Dodaj pierwsze zadanie</button></div>}</div>;
 }
 function AchievementPopup({ achievement, onClose }: { achievement: AchievementView; onClose: () => void }) {
   const Icon = achievement.icon;
@@ -396,6 +542,7 @@ function AchievementPopup({ achievement, onClose }: { achievement: AchievementVi
 
 function Insights({data,totalXp,currentLevel,streak,achievements,rank,nextRank}:{data:ReturnType<typeof useAppData>[0];totalXp:number;currentLevel:number;streak:number;achievements:AchievementView[];rank:RankView;nextRank:RankView | null}){
   const [analyticsView, setAnalyticsView] = useState<'week' | 'month'>('week');
+  const [achievementFilter, setAchievementFilter] = useState<'all'|'earned'|'locked'>('all');
   const categories = resolveCategories(data.categories);
   const today=todayKey();
   const weekActivity=Array.from({length:7},(_,i)=>{
@@ -432,6 +579,8 @@ function Insights({data,totalXp,currentLevel,streak,achievements,rank,nextRank}:
   const RankIcon = rank.icon;
   const periodCount = activity.reduce((sum,item)=>sum+item.count,0);
   const periodMinutes = activity.reduce((sum,item)=>sum+item.minutes,0);
+  const earnedAchievements = achievements.filter(a => a.unlocked).length;
+  const visibleAchievements = achievementFilter === 'all' ? achievements : achievements.filter(a => achievementFilter === 'earned' ? a.unlocked : !a.unlocked);
   return <div className="insights-page">
     <div className="insight-metrics">
       <div className="insight-metric"><span className="insight-icon insight-icon--violet"><Trophy size={21}/></span><small>Wszystkie punkty</small><strong>{totalXp.toLocaleString('pl-PL')} XP</strong><span>Poziom {currentLevel}</span></div>
@@ -474,8 +623,9 @@ function Insights({data,totalXp,currentLevel,streak,achievements,rank,nextRank}:
       </section>
     </div>
     <section className="insight-card achievements-section">
-      <div className="insight-card-title"><div><span className="eyebrow">OSIĄGNIĘCIA I ODZNAKI</span><h3>Odblokowane kamienie milowe</h3></div><Award size={20}/></div>
-      <div className="achievement-grid">{achievements.map(achievement => { const Icon = achievement.icon; const progress = Math.min(100, achievement.progress / achievement.target * 100); return <article key={achievement.id} className={`achievement-card ${achievement.unlocked ? 'is-unlocked' : 'is-locked'}`} style={{ '--achievement-accent': achievement.accent, '--achievement-tint': achievement.tint } as React.CSSProperties}>
+      <div className="insight-card-title achievements-title"><div><span className="eyebrow">OSIĄGNIĘCIA I ODZNAKI</span><h3>Twoja kolekcja · {earnedAchievements}/{achievements.length}</h3><p>Odkrywaj kolejne progi. Nieodblokowane wyzwania pokazują, ile jeszcze brakuje.</p></div><Award size={20}/></div>
+      <div className="achievement-filters" aria-label="Filtr osiągnięć"><button className={achievementFilter==='all'?'active':''} onClick={()=>setAchievementFilter('all')}>Wszystkie ({achievements.length})</button><button className={achievementFilter==='earned'?'active':''} onClick={()=>setAchievementFilter('earned')}>Zdobyte ({earnedAchievements})</button><button className={achievementFilter==='locked'?'active':''} onClick={()=>setAchievementFilter('locked')}>Do zdobycia ({achievements.length-earnedAchievements})</button></div>
+      <div className="achievement-grid">{visibleAchievements.map(achievement => { const Icon = achievement.icon; const progress = Math.min(100, achievement.progress / achievement.target * 100); return <article key={achievement.id} className={`achievement-card ${achievement.unlocked ? 'is-unlocked' : 'is-locked'}`} style={{ '--achievement-accent': achievement.accent, '--achievement-tint': achievement.tint } as React.CSSProperties}>
         <div className="achievement-card-art-wrap"><img src={achievement.art} alt={achievement.title} className="achievement-card-illustration" />{!achievement.unlocked && <div className="achievement-card-lock"><ShieldCheck size={16} /></div>}</div>
         <div className="achievement-card-body"><div className="achievement-card-head"><div><h4>{achievement.title}</h4><p>{achievement.description}</p></div><span>{achievement.unlocked ? 'Odblokowane' : `${Math.min(achievement.progress, achievement.target)} / ${achievement.target}`}</span></div><div className="achievement-card-meta"><span className="achievement-icon-pill"><Icon size={13} /> {achievement.reward}</span><span className="achievement-progress-copy">{Math.round(progress)}%</span></div><div className="achievement-progress"><span style={{ width: `${progress}%` }} /></div></div>
       </article>;})}</div>

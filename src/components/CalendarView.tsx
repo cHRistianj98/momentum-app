@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Plus } from 'lucide-react';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
+import { layoutOverlappingEvents } from '../lib/calendarOverlap';
 import { MiniMonthPicker } from './MiniMonthPicker';
 import { fullDate, minuteOfDay, mondayOf, monthTitle, parseDate, shiftDate, shortWeekday, timeFromMinutes, todayKey } from '../lib/date';
 import type { CategoryConfig, CategoryKey, IconKey } from '../types';
@@ -14,6 +15,8 @@ export interface CalendarBlock {
   image?: string;
   category: CategoryKey;
   date: string;
+  /** Oryginalny dzień cyklicznego wystąpienia, niezależny od ręcznego przesunięcia. */
+  occurrenceDate?: string;
   time: string;
   duration: number;
   done: boolean;
@@ -21,7 +24,7 @@ export interface CalendarBlock {
 
 const START = 0;
 const END = 24 * 60;
-const HOUR_HEIGHT = 68;
+const HOUR_HEIGHT = 74;
 const GRID_HEIGHT = (END - START) / 60 * HOUR_HEIGHT;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -45,79 +48,154 @@ interface ResizeSession {
   pointerId: number;
   startY: number;
 }
-
-interface PositionedBlock {
+interface MoveSession {
+  pointerId: number;
   block: CalendarBlock;
-  column: number;
-  columns: number;
+  startX: number;
+  startY: number;
+  lastX: number;
+  lastY: number;
+  grabOffsetY: number;
+  dragging: boolean;
 }
-
-function layoutOverlappingBlocks(input: CalendarBlock[]): PositionedBlock[] {
-  const blocks = [...input].sort((a, b) => minuteOfDay(a.time) - minuteOfDay(b.time) || (minuteOfDay(b.time) + b.duration) - (minuteOfDay(a.time) + a.duration));
-  const positioned: PositionedBlock[] = [];
-  let group: CalendarBlock[] = [];
-  let groupEnd = -1;
-
-  const flushGroup = () => {
-    if (!group.length) return;
-    const columnEnds: number[] = [];
-    const temp: { block: CalendarBlock; column: number }[] = [];
-    for (const block of group) {
-      const start = minuteOfDay(block.time);
-      const end = start + block.duration;
-      let column = columnEnds.findIndex(value => value <= start);
-      if (column === -1) {
-        column = columnEnds.length;
-        columnEnds.push(end);
-      } else {
-        columnEnds[column] = end;
-      }
-      temp.push({ block, column });
-    }
-    const columns = Math.max(1, columnEnds.length);
-    temp.forEach(item => positioned.push({ ...item, columns }));
-    group = [];
-    groupEnd = -1;
-  };
-
-  for (const block of blocks) {
-    const start = minuteOfDay(block.time);
-    const end = start + block.duration;
-    if (!group.length) {
-      group = [block];
-      groupEnd = end;
-      continue;
-    }
-    if (start < groupEnd) {
-      group.push(block);
-      groupEnd = Math.max(groupEnd, end);
-    } else {
-      flushGroup();
-      group = [block];
-      groupEnd = end;
-    }
-  }
-  flushGroup();
-  return positioned;
+interface MovePreview {
+  id: string;
+  sourceId: string;
+  date: string;
+  time: string;
+  duration: number;
+  title: string;
+  category: CategoryKey;
 }
 
 export function CalendarView({ referenceDate, onChangeDate, blocks, categories, mode, onChangeMode, onAddAt, onOpenBlock, onToggleBlock, onDropBlock, onResizeBlock, compact = false }: CalendarViewProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ id: string; duration: number } | null>(null);
   const resizeSession = useRef<ResizeSession | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const moveSession = useRef<MoveSession | null>(null);
+  const calendarScrollRef = useRef<HTMLDivElement>(null);
+  const animationFrame = useRef<number | null>(null);
+  const suppressClick = useRef(false);
+  const [movePreview, setMovePreview] = useState<MovePreview | null>(null);
+  const [externalPreview, setExternalPreview] = useState<{date: string; time: string} | null>(null);
+  const [emptyHover, setEmptyHover] = useState<{date: string; time: string} | null>(null);
+
+  // Pełna doba pozostaje dostępna przez przewijanie, a początkowy widok zaczyna się rano.
+  useEffect(() => {
+    const scroller = calendarScrollRef.current;
+    if (!scroller) return;
+    scroller.scrollTop = 7 * HOUR_HEIGHT - 120;
+  }, [mode, compact]);
+
+
+  // Pointer-based movement is independent of the browser's native HTML5 drag ghost.
+  // Preserve the exact point at which the user grabbed the block, then snap its start to 15 min.
+  const previewAt = (session: MoveSession, clientX: number, clientY: number): MovePreview | null => {
+    const scroll = calendarScrollRef.current;
+    if (!scroll) return null;
+    const area = scroll.getBoundingClientRect();
+    if (clientX < area.left || clientX > area.right || clientY < area.top || clientY > area.bottom) return null;
+    const node = document.elementFromPoint(clientX, clientY);
+    let lane = node?.closest<HTMLElement>('.day-lane[data-calendar-date]') ?? null;
+    // The sticky weekday header can cover the lane at the top of the scroll area.
+    // Resolve the day by its column, so dragging up to 07:00 still works.
+    if (!lane || !scroll.contains(lane)) {
+      lane = Array.from(scroll.querySelectorAll<HTMLElement>('.day-lane[data-calendar-date]')).find(day => {
+        const bounds = day.getBoundingClientRect();
+        return clientX >= bounds.left && clientX <= bounds.right;
+      }) ?? null;
+    }
+    if (!lane) return null;
+    const date = lane.dataset.calendarDate;
+    if (!date) return null;
+    const rect = lane.getBoundingClientRect();
+    const start = START + Math.round(((clientY - rect.top - session.grabOffsetY) / HOUR_HEIGHT * 60) / 15) * 15;
+    const latest = Math.max(START, END - Math.max(15, session.block.duration));
+    return {
+      id: session.block.id, sourceId: session.block.sourceId, date, time: timeFromMinutes(Math.max(START, Math.min(latest, start))),
+      duration: session.block.duration, title: session.block.title, category: session.block.category,
+    };
+  };
+
+  const updatePreview = (session: MoveSession, x: number, y: number) => {
+    session.lastX = x;
+    session.lastY = y;
+    const next = previewAt(session, x, y);
+    setMovePreview(previous => previous?.date === next?.date && previous?.time === next?.time && previous?.id === next?.id ? previous : next);
+  };
+
+  const stopAutoScroll = () => {
+    if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+    animationFrame.current = null;
+  };
+  const autoScroll = () => {
+    const session = moveSession.current;
+    const scroller = calendarScrollRef.current;
+    if (!session?.dragging || !scroller) { animationFrame.current = null; return; }
+    const rect = scroller.getBoundingClientRect();
+    const { lastX, lastY } = session;
+    let velocity = 0;
+    if (lastX >= rect.left && lastX <= rect.right && lastY >= rect.top - 18 && lastY <= rect.bottom + 18) {
+      if (lastY < rect.top + 52) velocity = -Math.min(17, Math.max(4, (rect.top + 52 - lastY) / 3));
+      else if (lastY > rect.bottom - 52) velocity = Math.min(17, Math.max(4, (lastY - (rect.bottom - 52)) / 3));
+    }
+    if (velocity) {
+      const previousScroll = scroller.scrollTop;
+      scroller.scrollTop += velocity;
+      if (scroller.scrollTop !== previousScroll) updatePreview(session, lastX, lastY);
+    }
+    animationFrame.current = requestAnimationFrame(autoScroll);
+  };
+
+  const startMove = (event: React.PointerEvent<HTMLDivElement>, block: CalendarBlock) => {
+    if (event.button !== 0 || resizeSession.current) return;
+    if ((event.target as HTMLElement).closest('button, .event-resize-handle')) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    moveSession.current = {
+      pointerId: event.pointerId, block, startX: event.clientX, startY: event.clientY,
+      lastX: event.clientX, lastY: event.clientY,
+      grabOffsetY: Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
+      dragging: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveBlock = (event: React.PointerEvent<HTMLDivElement>) => {
+    const session = moveSession.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    if (!session.dragging && Math.hypot(event.clientX - session.startX, event.clientY - session.startY) < 6) return;
+    if (!session.dragging) {
+      session.dragging = true;
+      suppressClick.current = true;
+      animationFrame.current = requestAnimationFrame(autoScroll);
+    }
+    event.preventDefault();
+    updatePreview(session, event.clientX, event.clientY);
+  };
+  const finishMove = (event: React.PointerEvent<HTMLDivElement>, cancel = false) => {
+    const session = moveSession.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    event.stopPropagation();
+    // Releasing outside the calendar cancels the move rather than using a stale preview.
+    const drop = session.dragging ? previewAt(session, event.clientX, event.clientY) : null;
+    moveSession.current = null;
+    stopAutoScroll();
+    setMovePreview(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!cancel && session.dragging && drop && (drop.date !== session.block.date || drop.time !== session.block.time)) {
+      onDropBlock(session.block.kind, session.block.sourceId, drop.date, drop.time, session.block.occurrenceDate ?? session.block.date);
+    }
+    // Pointer-generated click follows pointerup; suppress only that click, not subsequent clicks.
+    if (session.dragging) setTimeout(() => { suppressClick.current = false; }, 0);
+  };
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const morningTop = (7 * HOUR_HEIGHT) - (compact ? 84 : 140);
-    if (!el.dataset.positioned || referenceDate === todayKey()) {
-      el.scrollTop = Math.max(0, morningTop);
-      el.dataset.positioned = '1';
-    }
-  }, [referenceDate, compact, mode]);
+    const clearExternal = () => { setExternalPreview(null); setHovered(null); };
+    window.addEventListener('dragend', clearExternal);
+    window.addEventListener('drop', clearExternal);
+    return () => { window.removeEventListener('dragend', clearExternal); window.removeEventListener('drop', clearExternal); stopAutoScroll(); };
+  }, []);
 
-  // Zmiana wielkości odbywa się co 15 minut, zawsze w granicach siatki (pełna doba).
+  // Zmiana wielkości odbywa się co 15 minut, zawsze w granicach siatki (do 23:00).
   const proposedDuration = (session: ResizeSession, clientY: number): number => {
     const deltaSteps = Math.round((clientY - session.startY) / HOUR_HEIGHT * 4);
     const maxDuration = END - minuteOfDay(session.block.time);
@@ -191,7 +269,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           </div>
         </div>
       </div>
-      <div className="calendar-scroll" ref={scrollRef}>
+      <div className="calendar-scroll" ref={calendarScrollRef}>
         <div className={`calendar-body ${mode === 'day' ? 'calendar-body--day' : ''}`} style={{ minWidth: mode === 'week' ? 980 : 520 }}>
           <div className="calendar-head" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
             <div className="timezone">LOKALNIE</div>
@@ -206,52 +284,94 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
               {HOURS.map((h, i) => <span className="time-label" style={{ top: i * HOUR_HEIGHT }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
             </div>
             {dates.map(d => {
-              const todaysBlocks = layoutOverlappingBlocks(blocks.filter(b => b.date === d && minuteOfDay(b.time) >= START && minuteOfDay(b.time) < END));
+              const todaysBlocks = blocks.filter(b => b.date === d && minuteOfDay(b.time) >= START && minuteOfDay(b.time) < END);
+              const eventPositions = layoutOverlappingEvents(todaysBlocks.map(block => ({
+                id: block.id,
+                start: minuteOfDay(block.time),
+                end: Math.min(END, minuteOfDay(block.time) + (resizePreview?.id === block.id ? resizePreview.duration : block.duration)),
+              })));
               const now = new Date();
               const nowMinutes = now.getHours() * 60 + now.getMinutes();
               return (
                 <div
-                  className={`day-lane ${d === today ? 'day-lane--today' : ''} ${hovered === d ? 'day-lane--hover' : ''}`}
+                  className={`day-lane ${d === today ? 'day-lane--today' : ''} ${hovered === d || movePreview?.date === d ? 'day-lane--hover' : ''}`}
+                  data-calendar-date={d}
                   style={{ height: GRID_HEIGHT, backgroundSize: `100% ${HOUR_HEIGHT}px` }} key={d}
-                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setHovered(d); }}
-                  onDragLeave={() => setHovered(null)}
+                  onDragOver={e => {
+                    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+                    setEmptyHover(null);
+                    const time = getTimeFromPosition(e, e.currentTarget);
+                    setHovered(d);
+                    setExternalPreview(previous => previous?.date === d && previous.time === time ? previous : { date: d, time });
+                  }}
+                  onDragLeave={e => {
+                    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
+                    setHovered(null); setExternalPreview(null);
+                  }}
                   onDrop={e => {
-                    e.preventDefault(); setHovered(null);
+                    e.preventDefault(); setHovered(null); setExternalPreview(null);
                     const raw = e.dataTransfer.getData('application/momentum') || e.dataTransfer.getData('text/plain');
                     try {
                       const item = JSON.parse(raw) as { kind: 'task' | 'routine'; id: string; sourceDate?: string };
                       if (item.kind === 'task' || item.kind === 'routine') onDropBlock(item.kind, item.id, d, getTimeFromPosition(e, e.currentTarget), item.sourceDate);
                     } catch { /* ignore drops coming from other apps */ }
                   }}
-                  onClick={e => {
-                    if (e.target === e.currentTarget) onAddAt(d, getTimeFromPosition(e, e.currentTarget));
+                  onMouseMove={e => {
+                    if (e.target !== e.currentTarget || moveSession.current?.dragging || resizeSession.current) {
+                      setEmptyHover(current => current?.date === d ? null : current);
+                      return;
+                    }
+                    const time = getTimeFromPosition(e, e.currentTarget);
+                    setEmptyHover(current => current?.date === d && current.time === time ? current : { date: d, time });
                   }}
-                  title="Kliknij, aby zaplanować zadanie • Przeciągnij zadanie, aby zmienić termin"
+                  onMouseLeave={() => setEmptyHover(current => current?.date === d ? null : current)}
+                  onClick={e => {
+                    if (e.target !== e.currentTarget || suppressClick.current) return;
+                    setEmptyHover(null);
+                    onAddAt(d, getTimeFromPosition(e, e.currentTarget));
+                  }}
+                  title="Kliknij puste miejsce, aby dodać zadanie na wybraną godzinę"
                 >
                   {d === today && nowMinutes >= START && nowMinutes < END && (
                     <div className="now-line" style={{ top: ((nowMinutes - START) / 60) * HOUR_HEIGHT }}><span /></div>
                   )}
-                  {todaysBlocks.map(({ block, column, columns }) => {
+                  {todaysBlocks.map(block => {
                     const style = categories[block.category] ?? categories.unpaid;
                     const displayDuration = resizePreview?.id === block.id ? resizePreview.duration : block.duration;
                     const top = ((minuteOfDay(block.time) - START) / 60) * HOUR_HEIGHT;
                     const height = Math.max(32, Math.min(displayDuration, END - minuteOfDay(block.time)) / 60 * HOUR_HEIGHT - 3);
-                    const laneGap = 8;
-                    const eventWidth = `calc(${100 / columns}% - ${laneGap}px)`;
-                    const eventLeft = `calc(${(100 / columns) * column}% + ${laneGap / 2}px)`;
+                    const placement = eventPositions.get(block.id);
+                    const crowded = (placement?.columns ?? 1) > 1;
                     return (
                       <div
-                        className={`calendar-event ${block.done ? 'calendar-event--done' : ''} ${height < 62 ? 'calendar-event--small' : ''} ${resizePreview?.id === block.id ? 'calendar-event--resizing' : ''}`}
-                        draggable={block.kind === 'task' && resizePreview?.id !== block.id}
-                        onDragStart={e => {
-                          if (resizeSession.current) { e.preventDefault(); return; }
-                          e.stopPropagation();
-                          e.dataTransfer.effectAllowed = 'move';
-                          e.dataTransfer.setData('application/momentum', JSON.stringify({ kind: block.kind, id: block.sourceId, sourceDate: block.date }));
-                          e.dataTransfer.setData('text/plain', JSON.stringify({ kind: block.kind, id: block.sourceId, sourceDate: block.date }));
+                        className={`calendar-event ${block.done ? 'calendar-event--done' : ''} ${height < 62 ? 'calendar-event--small' : ''} ${resizePreview?.id === block.id ? 'calendar-event--resizing' : ''} ${movePreview?.id === block.id ? 'calendar-event--moving' : ''} ${crowded ? 'calendar-event--overlap' : ''}`}
+                        draggable={false}
+                        onDragStart={e => e.preventDefault()}
+                        onPointerDown={e => startMove(e, block)}
+                        onPointerMove={moveBlock}
+                        onPointerUp={e => finishMove(e)}
+                        onPointerCancel={e => finishMove(e, true)}
+                        onLostPointerCapture={e => {
+                          const session = moveSession.current;
+                          if (session?.pointerId === e.pointerId) {
+                            moveSession.current = null;
+                            stopAutoScroll();
+                            setMovePreview(null);
+                          }
                         }}
-                        onClick={e => { e.stopPropagation(); onOpenBlock(block); }}
-                        style={{ top, height, left: eventLeft, width: eventWidth, zIndex: 2 + column, '--event-color': style.color, '--event-tint': style.tint } as React.CSSProperties}
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (suppressClick.current) { suppressClick.current = false; return; }
+                          onOpenBlock(block);
+                        }}
+                        style={{
+                          top, height,
+                          left: `calc(${placement?.leftPercent ?? 0}% + 4px)`,
+                          width: `calc(${placement?.widthPercent ?? 100}% - 7px)`,
+                          right: 'auto',
+                          zIndex: 2 + (placement?.column ?? 0),
+                          '--event-color': style.color, '--event-tint': style.tint,
+                        } as React.CSSProperties}
                         title={`${block.title} • ${block.time} • ${block.duration} min`}
                         key={block.id}
                       >
@@ -266,7 +386,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                           ><Check size={13} strokeWidth={3} /></button>
                         </div>
                         {height > 105 && <CategoryBadge category={block.category} categories={categories} compact className="event-footer-badge" />}
-                        {height > 65 && block.kind === 'task' && <GripVertical className="event-grip" size={12} />}
+                        {height > 65 && <GripVertical className="event-grip" size={12} />}
                         <div
                           className="event-resize-handle"
                           role="slider"
@@ -294,14 +414,33 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                       </div>
                     );
                   })}
-                  {hovered === d && <div className="drop-cue"><Plus size={15} /> Upuść, aby zaplanować</div>}
+                  {emptyHover?.date === d && !movePreview && !externalPreview && (
+                    <div className="calendar-empty-hint" style={{ top: ((minuteOfDay(emptyHover.time) - START) / 60) * HOUR_HEIGHT }}>
+                      <Plus size={13} /> {emptyHover.time} · Dodaj zadanie
+                    </div>
+                  )}
+                  {movePreview?.date === d && (
+                    <div className="calendar-move-preview" style={{
+                      top: ((minuteOfDay(movePreview.time) - START) / 60) * HOUR_HEIGHT,
+                      height: Math.max(32, movePreview.duration / 60 * HOUR_HEIGHT - 3),
+                      '--event-color': categories[movePreview.category]?.color ?? '#7061ee',
+                    } as React.CSSProperties}>
+                      <strong>{movePreview.title}</strong>
+                      <span>{movePreview.time} – {timeFromMinutes(minuteOfDay(movePreview.time) + movePreview.duration)}</span>
+                    </div>
+                  )}
+                  {externalPreview?.date === d && !movePreview && (
+                    <div className="calendar-drop-time" style={{ top: ((minuteOfDay(externalPreview.time) - START) / 60) * HOUR_HEIGHT }}>
+                      <span>{externalPreview.time}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
       </div>
-      <div className="calendar-footer"><span className="legend-dot" /> Kliknij puste miejsce, aby dodać zadanie. Przeciągnij blok, aby go przenieść, albo złap dolną krawędź, by zmienić jego długość. <span className="footnote">Widok 24h · czas lokalny</span></div>
+      <div className="calendar-footer"><span className="legend-dot" /> Kliknij puste miejsce, aby dodać zadanie. Przeciągnij blok, aby zmienić termin. <span className="footnote">Widok 24 h · czas lokalny</span></div>
     </section>
   );
 }

@@ -1036,3 +1036,244 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
   .achievement-card { flex-direction: column; align-items: stretch; }
   .achievement-card-art-wrap { width: 100%; max-width: 220px; }
 }
+
+/* Momentum v0.4.2 — naprawa badge w listach, oddech i filtrowanie osiągnięć */
+.task-row-body { min-width: 0; overflow: visible; }
+.task-row-body > span.task-row-sub {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 7px;
+  line-height: 1.4;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
+}
+.task-row-sub > .financial-badge,
+.task-row-sub > .financial-badge.financial-badge--compact {
+  display: inline-flex !important;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  position: relative;
+  vertical-align: middle;
+}
+.task-row-sub > .task-row-meta {
+  display: inline-flex !important;
+  width: auto;
+  flex: 0 0 auto;
+  align-items: center;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.task-row-sub > .task-row-time::before {
+  content: '·';
+  display: inline-block;
+  margin-right: 9px;
+  color: var(--muted);
+  opacity: .85;
+}
+/* Kalendarz — etykieta na dole, nigdy na nagłówku krótkich bloków */
+.calendar-event .event-footer-badge { max-width: calc(100% - 14px); overflow: hidden; text-overflow: ellipsis; }
+.calendar-event--small .event-footer-badge { display: none; }
+
+.achievements-title { align-items: flex-start; gap: 12px; }
+.achievements-title p { color: var(--subtext); font-size: 11px; line-height: 1.5; margin: 7px 0 0; }
+.achievement-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 20px 0 0; }
+.achievement-filters button { border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--subtext); padding: 9px 13px; font-size: 11px; font-weight: 750; cursor: pointer; transition: background .16s, border-color .16s, color .16s; }
+.achievement-filters button:hover { color: var(--primary); border-color: color-mix(in srgb,var(--primary) 35%,var(--line)); }
+.achievement-filters button.active { background: var(--primary-pale); border-color: color-mix(in srgb,var(--primary) 36%,var(--line)); color: var(--primary); }
+.achievement-card-body { justify-content: center; }
+.achievement-card.is-locked .achievement-card-art-wrap { filter: saturate(.5); }
+@media (max-width: 600px) {
+  .task-row { gap: 9px; padding: 10px; }
+  .task-row-body > span.task-row-sub { gap: 6px; }
+  .task-row-sub > .task-row-meta { white-space: normal; }
+  .achievement-filters button { font-size: 10px; padding: 8px 10px; }
+}
+
+
+/* v0.4.3 — przywrócenie natywnych komponentów UI Momentum, pointer DnD i kolizji z v0.3.8 */
+/* Momentum v0.3.7 — consistent date picking inside all task dialogs */
+.momentum-date-trigger {
+  width: 100%; min-height: 43px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--line-strong); border-radius: 11px;
+  background: var(--surface-2); color: var(--text); text-align: left;
+  font-size: 12px; font-weight: 750;
+  transition: border-color .16s, box-shadow .16s, background .16s;
+}
+.momentum-date-trigger > svg:first-child { flex-shrink: 0; color: var(--primary); }
+.momentum-date-trigger > span { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.momentum-date-trigger > svg:last-child { color: var(--muted); flex-shrink: 0; }
+.momentum-date-trigger.is-empty > span { color: var(--muted); }
+.momentum-date-trigger:hover, .momentum-date-trigger.is-open { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb,var(--primary) 9%,transparent); }
+.momentum-date-popover {
+  position: fixed; z-index: 400; width: min(318px, calc(100vw - 24px)); max-height: min(465px,calc(100vh - 20px));
+  overflow-y: auto; padding: 17px; border: 1px solid var(--line-strong); border-radius: 18px;
+  color: var(--text); background: var(--surface);
+  box-shadow: 0 24px 65px rgba(34,29,74,.19), 0 4px 12px rgba(34,29,74,.055);
+  animation: momentum-date-enter .13s ease both;
+}
+.momentum-date-popover.is-above { transform: translateY(-100%); transform-origin: bottom; animation: none; }
+@keyframes momentum-date-enter { from {opacity: 0; translate: 0 -4px;} to {opacity: 1; translate: 0 0;} }
+.momentum-date-header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom: 13px; }
+.momentum-date-header > div:first-child { display:flex; flex-direction:column; gap:6px; }
+.momentum-date-kicker { font-size:9px; font-weight:850; letter-spacing:1.2px; color:var(--muted); }
+.momentum-date-header strong { font-size:15px; letter-spacing:-.3px; text-transform: capitalize; font-weight:850; }
+.momentum-date-nav { display:flex; gap:4px; }
+.momentum-date-nav button { width:30px; height:30px; display:grid;place-items:center; border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--subtext); }
+.momentum-date-nav button:hover { border-color:var(--primary);color:var(--primary);background:var(--primary-pale); }
+.momentum-date-weekdays,.momentum-date-grid { display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px; }
+.momentum-date-weekdays { margin-bottom:5px; }
+.momentum-date-weekdays > span { color:var(--muted);font-size:10px;font-weight:800;text-align:center;padding:7px 0; }
+.momentum-date-day { position:relative;aspect-ratio:1;min-width:0;border:0;border-radius:10px;background:transparent;color:var(--text);font-size:11px;font-weight:750;display:grid;place-items:center; }
+.momentum-date-day.outside { color:var(--muted);opacity:.45; }
+.momentum-date-day:hover,.momentum-date-day:focus-visible { background:var(--primary-pale);color:var(--primary); }
+.momentum-date-day.today:not(.selected) { outline:1.5px solid var(--primary);outline-offset:-2px;color:var(--primary); }
+.momentum-date-day.selected { background:var(--primary);color:#fff;box-shadow:0 5px 12px color-mix(in srgb,var(--primary) 29%,transparent); }
+.momentum-date-day.selected:hover { background:var(--primary-dark);color:#fff; }
+.momentum-date-day.selected svg { position:absolute;bottom:1px;right:1px; }
+.momentum-date-footer { display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:13px;margin-top:12px;border-top:1px solid var(--line); }
+.momentum-date-footer button {display:inline-flex;align-items:center;gap:6px;padding:9px 11px;background:transparent;border:0;border-radius:9px;color:var(--subtext);font-size:11px;font-weight:750;}
+.momentum-date-footer button:hover {background:var(--surface-3);}
+.momentum-date-footer .momentum-date-today {background:var(--primary-pale);color:var(--primary);}
+
+/* Pixel-precise, 15-minute drag preview (pointer-based for calendar events) */
+.calendar-event { touch-action: pan-x; }
+.calendar-event[style] { user-select: none; }
+.calendar-event--moving { opacity: .3; filter: grayscale(.2); }
+.calendar-move-preview {
+  position:absolute; left:4px; right:3px; z-index:9; pointer-events:none; overflow:hidden;
+  display:flex;flex-direction:column;gap:5px;padding:9px 7px;
+  border-radius:9px;border:1.5px dashed var(--event-color);
+  border-left:3px solid var(--event-color);
+  color:var(--text);background:color-mix(in srgb,var(--event-color) 15%,var(--surface));
+  box-shadow:0 8px 22px rgba(25,24,65,.12);
+}
+.calendar-move-preview strong { font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.calendar-move-preview span {font-size:9px;font-weight:800;color:var(--event-color);white-space:nowrap;}
+.calendar-drop-time {position:absolute;left:0;right:0;z-index:10;pointer-events:none;border-top:2px solid var(--primary);}
+.calendar-drop-time > span {position:absolute;top:-10px;left:3px;background:var(--primary);color:#fff;border-radius:5px;padding:3px 5px;font-size:9px;font-weight:900;}
+.event-resize-handle { touch-action:none; }
+@media (prefers-reduced-motion: reduce) { .momentum-date-popover { animation:none; } }
+
+/* Momentum v0.3.8 — natywne dropdowny zastąpione kontrolkami w stylu aplikacji */
+.momentum-control-trigger {
+  width: 100%; min-height: 43px; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--surface-2); color: var(--text);
+  text-align: left; border: 1px solid var(--line-strong); border-radius: 11px;
+  font-size: 12px; font-weight: 750; transition: border-color .16s, background .16s, box-shadow .16s;
+}
+.momentum-control-trigger > svg:first-child { color: var(--primary); flex-shrink: 0; }
+.momentum-control-trigger > svg:last-child { color: var(--muted); flex-shrink: 0; }
+.momentum-control-trigger > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.momentum-control-trigger.is-empty > span { color: var(--muted); }
+.momentum-control-trigger:hover:not(:disabled), .momentum-control-trigger.is-open { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb,var(--primary) 9%,transparent); }
+.momentum-control-popover {
+  position: fixed; z-index: 401; overflow-y: auto; padding: 14px;
+  border: 1px solid var(--line-strong); border-radius: 17px; background: var(--surface);
+  color: var(--text); box-shadow: 0 24px 65px rgba(34,29,74,.19), 0 4px 12px rgba(34,29,74,.055);
+  animation: momentum-date-enter .13s ease both;
+}
+.momentum-control-popover.is-above { transform: translateY(-100%); transform-origin: bottom; animation: none; }
+.momentum-control-heading { display: flex; flex-direction: column; gap: 5px; padding: 3px 5px 12px; border-bottom: 1px solid var(--line); }
+.momentum-control-heading > span { color: var(--muted); letter-spacing: 1.2px; font-size: 9px; font-weight: 850; }
+.momentum-control-heading > strong { color: var(--text); font-weight: 850; font-size: 15px; letter-spacing: -.3px; }
+.momentum-duration-list { display: grid; gap: 3px; padding: 9px 0; }
+.momentum-duration-list button { min-height: 36px; padding: 8px 11px; border: 1px solid transparent; border-radius: 9px; display: flex; align-items: center; justify-content: space-between; color: var(--subtext); background: transparent; font-weight: 700; font-size: 11.5px; text-align: left; }
+.momentum-duration-list button:hover { background: var(--surface-3); color: var(--text); }
+.momentum-duration-list button.selected { color: var(--primary); background: var(--primary-pale); border-color: color-mix(in srgb,var(--primary) 17%,var(--line)); }
+.momentum-duration-custom { border-top: 1px solid var(--line); padding: 12px 3px 2px; display: flex; flex-direction: column; gap: 11px; }
+.momentum-duration-custom > span { font-size: 10px; color: var(--muted); font-weight: 750; }
+.momentum-duration-custom > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.momentum-duration-custom button, .momentum-xp-stepper > button { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--primary); border-radius: 10px; }
+.momentum-duration-custom button:hover, .momentum-xp-stepper > button:hover:not(:disabled) { background: var(--primary-pale); border-color: var(--primary); }
+.momentum-duration-custom strong { font-size: 13px; color: var(--text); }
+.momentum-time-columns { display: grid; grid-template-columns: 1fr 18px 1fr; gap: 10px; padding: 12px 7px 6px; }
+.momentum-time-column { display: flex; flex-direction: column; min-width: 0; }
+.momentum-time-column > small { display: block; font-size: 9px; font-weight: 850; letter-spacing: 1px; color: var(--muted); text-align: center; margin-bottom: 8px; }
+.momentum-time-colon { align-self: center; color: var(--primary); font-size: 23px; font-weight: 850; }
+.momentum-time-scroll { max-height: 170px; overflow-y: auto; display: grid; gap: 4px; padding-right: 3px; scrollbar-width: thin; }
+.momentum-time-scroll button { height: 31px; border-radius: 8px; border: 1px solid transparent; color: var(--subtext); background: var(--surface-2); font-size: 12px; font-weight: 800; }
+.momentum-time-scroll button:hover { color: var(--primary); background: var(--primary-pale); }
+.momentum-time-scroll button.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+.momentum-time-presets { display: flex; gap: 5px; flex-wrap: wrap; padding: 11px 2px 3px; border-top: 1px solid var(--line); }
+.momentum-time-presets button { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--subtext); font-size: 10px; font-weight: 800; }
+.momentum-time-presets button:hover { background: var(--primary-pale); color: var(--primary); border-color: var(--primary); }
+.momentum-control-clear { margin-top: 8px; background: transparent; color: var(--muted); border: 0; padding: 8px; font-size: 10px; }
+.momentum-control-clear:hover { color: #ed5e67; }
+.momentum-xp-stepper { min-height: 43px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line-strong); background: var(--surface-2); border-radius: 11px; padding: 4px; }
+.momentum-xp-stepper > button { border-radius: 8px; width: 34px; height: 34px; background: var(--surface); }
+.momentum-xp-input { display: flex; align-items: center; justify-content: center; gap: 5px; flex: 1; min-width: 0; color: var(--primary); }
+.momentum-xp-input input { all: unset; box-sizing: border-box; display: block; min-height: 30px; width: 54px; max-width: 60%; padding: 0; font-size: 13px; font-weight: 850; text-align: center; color: var(--text); background: transparent; }
+.momentum-xp-input input:focus { outline: 0; }
+.momentum-xp-stepper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb,var(--primary) 9%,transparent); }
+.routine-move-summary { display: grid; grid-template-columns: 1fr 22px 1fr; align-items: center; gap: 9px; margin: 16px 0 20px; padding: 15px; border-radius: 13px; background: var(--surface-2); border: 1px solid var(--line); }
+.routine-move-summary > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.routine-move-summary > svg { color: var(--primary); }
+.routine-move-summary small { color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .6px; }
+.routine-move-summary strong { font-size: 11px; color: var(--text); }
+.routine-move-summary span { font-size: 13px; color: var(--primary); font-weight: 850; }
+@media(max-width:650px) {
+  .momentum-control-popover { padding: 11px; }
+  .momentum-xp-input { gap: 2px; }
+  .momentum-xp-input input { width: 34px; font-size: 12px; }
+  .routine-move-summary { gap: 6px; padding: 10px; }
+  .routine-move-summary strong { font-size: 10px; }
+}
+@media(prefers-reduced-motion:reduce) { .momentum-control-popover { animation: none; } }
+.momentum-time-actions { display: flex; justify-content: flex-end; align-items: center; gap: 7px; margin-top: 10px; }
+.momentum-time-actions .momentum-control-clear { margin: 0 auto 0 0; }
+.momentum-time-apply { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--primary); color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 850; }
+.momentum-time-apply:hover { background: var(--primary-dark); }
+
+/* Momentum v0.3.9 — simultaneous events: Google Calendar-style staggered columns */
+.calendar-event--overlap {
+  min-width: 0;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(25, 24, 44, .08);
+}
+.calendar-event--overlap:hover,
+.calendar-event--overlap:focus-within { z-index: 25 !important; box-shadow: 0 8px 22px rgba(25,24,44,.19); }
+.calendar-event--overlap .event-body { gap: 3px; padding: 5px 3px 11px; }
+.calendar-event--overlap .event-visual { width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0; }
+.calendar-event--overlap .event-visual svg { width: 14px; height: 14px; }
+.calendar-event--overlap .event-text strong { font-size: 9px; overflow-wrap: anywhere; }
+.calendar-event--overlap .event-text small { display: none; }
+.calendar-event--overlap .event-check {
+  position: absolute; top: 3px; right: 3px; z-index: 2;
+  width: 14px; height: 14px;
+  opacity: .66;
+}
+.calendar-event--overlap .event-text { padding-right: 2px; }
+.calendar-event--overlap .event-footer-badge { display: none; }
+.calendar-event--overlap:hover .event-check,
+.calendar-event--overlap:focus-within .event-check { opacity: 1; }
+.calendar-event--overlap.calendar-event--resizing { z-index: 30 !important; }
+.calendar-empty-hint {
+  position: absolute; left: 4px; right: 4px; z-index: 1; pointer-events: none;
+  display: flex; align-items: center; gap: 5px; width: max-content; max-width: calc(100% - 8px);
+  border: 1px dashed color-mix(in srgb, var(--primary) 60%, transparent);
+  color: var(--primary); background: var(--primary-pale);
+  border-radius: 7px; padding: 6px 7px; font-size: 9px; font-weight: 800;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--primary) 9%, transparent);
+}
+.calendar-empty-hint svg { flex-shrink: 0; }
+:root[data-theme='dark'] .calendar-event--overlap { box-shadow: 0 3px 10px rgba(0, 0, 0, .2); }
+
+/* v0.4.3 — spójna wysokość kontrolek, bez standardowych dropdownów systemowych */
+.momentum-control-trigger { width: 100%; min-height: 45px; }
+.momentum-xp-stepper { display: flex; align-items: center; gap: 0; width: 100%; min-height: 45px; }
+.momentum-xp-input { flex: 1; min-width: 0; }
+.momentum-xp-input input { min-width: 0; width: 100%; }
+.calendar-event--overlap .event-footer-badge { display: none; }
+.calendar-scroll { max-height: min(78vh, 900px); }
+.calendar-panel--compact .calendar-scroll { max-height: 560px; }
