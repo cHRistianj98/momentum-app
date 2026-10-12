@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180" role="img" aria-label="Odznaka focus-6000">
+ <defs>
+ <linearGradient id="g" x1="11" y1="17" x2="212" y2="176" gradientUnits="userSpaceOnUse"><stop stop-color="#8dafff"/><stop offset=".55" stop-color="#577fda"/><stop offset="1" stop-color="#495bc8"/></linearGradient>
+ <radialGradient id="light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(45 26) rotate(45) scale(183)"><stop stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+ <filter id="shade" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+ </defs>
+ <rect x="9" y="9" width="222" height="162" rx="35" fill="url(#g)"/>
+ <rect x="9" y="9" width="222" height="162" rx="35" fill="url(#light)"/>
+ <ellipse cx="113" cy="122" rx="78" ry="43" fill="#fff" opacity=".14" filter="url(#shade)"/>
+ <circle cx="120" cy="106" r="63" fill="#fff" opacity=".085"/>
+ <path d="M20 149c42-35 79-6 122-24s64-27 81-53" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".13"/>
+ <g><circle cx="120" cy="104" r="46" stroke="#fff" stroke-width="10" fill="none"/><path d="M120 72v32l22 15" stroke="#fff" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/></g>
+ <g fill="#fff" opacity=".74"><circle cx="52" cy="37" r="3.2"/><circle cx="196" cy="42" r="3.6"/><circle cx="205" cy="116" r="2.8"/></g>
+ <path d="M23 75l6-9 6 9-6 9zM204 146l5-7 5 7-5 7z" fill="#fff" opacity=".44"/>
+ </svg>

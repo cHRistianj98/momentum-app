@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Plus } from 'lucide-react';
-import { TaskIcon } from '../lib/icons';
+import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { MiniMonthPicker } from './MiniMonthPicker';
 import { fullDate, minuteOfDay, mondayOf, monthTitle, parseDate, shiftDate, shortWeekday, timeFromMinutes, todayKey } from '../lib/date';
 import type { CategoryConfig, CategoryKey, IconKey } from '../types';
@@ -19,11 +19,11 @@ export interface CalendarBlock {
   done: boolean;
 }
 
-const START = 7 * 60;
-const END = 23 * 60;
-const HOUR_HEIGHT = 74;
+const START = 0;
+const END = 24 * 60;
+const HOUR_HEIGHT = 68;
 const GRID_HEIGHT = (END - START) / 60 * HOUR_HEIGHT;
-const HOURS = Array.from({ length: 16 }, (_, i) => i + 7);
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 interface CalendarViewProps {
   referenceDate: string;
@@ -46,12 +46,78 @@ interface ResizeSession {
   startY: number;
 }
 
+interface PositionedBlock {
+  block: CalendarBlock;
+  column: number;
+  columns: number;
+}
+
+function layoutOverlappingBlocks(input: CalendarBlock[]): PositionedBlock[] {
+  const blocks = [...input].sort((a, b) => minuteOfDay(a.time) - minuteOfDay(b.time) || (minuteOfDay(b.time) + b.duration) - (minuteOfDay(a.time) + a.duration));
+  const positioned: PositionedBlock[] = [];
+  let group: CalendarBlock[] = [];
+  let groupEnd = -1;
+
+  const flushGroup = () => {
+    if (!group.length) return;
+    const columnEnds: number[] = [];
+    const temp: { block: CalendarBlock; column: number }[] = [];
+    for (const block of group) {
+      const start = minuteOfDay(block.time);
+      const end = start + block.duration;
+      let column = columnEnds.findIndex(value => value <= start);
+      if (column === -1) {
+        column = columnEnds.length;
+        columnEnds.push(end);
+      } else {
+        columnEnds[column] = end;
+      }
+      temp.push({ block, column });
+    }
+    const columns = Math.max(1, columnEnds.length);
+    temp.forEach(item => positioned.push({ ...item, columns }));
+    group = [];
+    groupEnd = -1;
+  };
+
+  for (const block of blocks) {
+    const start = minuteOfDay(block.time);
+    const end = start + block.duration;
+    if (!group.length) {
+      group = [block];
+      groupEnd = end;
+      continue;
+    }
+    if (start < groupEnd) {
+      group.push(block);
+      groupEnd = Math.max(groupEnd, end);
+    } else {
+      flushGroup();
+      group = [block];
+      groupEnd = end;
+    }
+  }
+  flushGroup();
+  return positioned;
+}
+
 export function CalendarView({ referenceDate, onChangeDate, blocks, categories, mode, onChangeMode, onAddAt, onOpenBlock, onToggleBlock, onDropBlock, onResizeBlock, compact = false }: CalendarViewProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ id: string; duration: number } | null>(null);
   const resizeSession = useRef<ResizeSession | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Zmiana wielkości odbywa się co 15 minut, zawsze w granicach siatki (do 23:00).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const morningTop = (7 * HOUR_HEIGHT) - (compact ? 84 : 140);
+    if (!el.dataset.positioned || referenceDate === todayKey()) {
+      el.scrollTop = Math.max(0, morningTop);
+      el.dataset.positioned = '1';
+    }
+  }, [referenceDate, compact, mode]);
+
+  // Zmiana wielkości odbywa się co 15 minut, zawsze w granicach siatki (pełna doba).
   const proposedDuration = (session: ResizeSession, clientY: number): number => {
     const deltaSteps = Math.round((clientY - session.startY) / HOUR_HEIGHT * 4);
     const maxDuration = END - minuteOfDay(session.block.time);
@@ -125,8 +191,8 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           </div>
         </div>
       </div>
-      <div className="calendar-scroll">
-        <div className={`calendar-body ${mode === 'day' ? 'calendar-body--day' : ''}`} style={{ minWidth: mode === 'week' ? 860 : 400 }}>
+      <div className="calendar-scroll" ref={scrollRef}>
+        <div className={`calendar-body ${mode === 'day' ? 'calendar-body--day' : ''}`} style={{ minWidth: mode === 'week' ? 980 : 520 }}>
           <div className="calendar-head" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
             <div className="timezone">LOKALNIE</div>
             {dates.map(d => (
@@ -140,7 +206,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
               {HOURS.map((h, i) => <span className="time-label" style={{ top: i * HOUR_HEIGHT }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
             </div>
             {dates.map(d => {
-              const todaysBlocks = blocks.filter(b => b.date === d && minuteOfDay(b.time) >= START && minuteOfDay(b.time) < END);
+              const todaysBlocks = layoutOverlappingBlocks(blocks.filter(b => b.date === d && minuteOfDay(b.time) >= START && minuteOfDay(b.time) < END));
               const now = new Date();
               const nowMinutes = now.getHours() * 60 + now.getMinutes();
               return (
@@ -165,11 +231,14 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                   {d === today && nowMinutes >= START && nowMinutes < END && (
                     <div className="now-line" style={{ top: ((nowMinutes - START) / 60) * HOUR_HEIGHT }}><span /></div>
                   )}
-                  {todaysBlocks.map(block => {
+                  {todaysBlocks.map(({ block, column, columns }) => {
                     const style = categories[block.category] ?? categories.unpaid;
                     const displayDuration = resizePreview?.id === block.id ? resizePreview.duration : block.duration;
                     const top = ((minuteOfDay(block.time) - START) / 60) * HOUR_HEIGHT;
                     const height = Math.max(32, Math.min(displayDuration, END - minuteOfDay(block.time)) / 60 * HOUR_HEIGHT - 3);
+                    const laneGap = 8;
+                    const eventWidth = `calc(${100 / columns}% - ${laneGap}px)`;
+                    const eventLeft = `calc(${(100 / columns) * column}% + ${laneGap / 2}px)`;
                     return (
                       <div
                         className={`calendar-event ${block.done ? 'calendar-event--done' : ''} ${height < 62 ? 'calendar-event--small' : ''} ${resizePreview?.id === block.id ? 'calendar-event--resizing' : ''}`}
@@ -182,15 +251,12 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                           e.dataTransfer.setData('text/plain', JSON.stringify({ kind: block.kind, id: block.sourceId, sourceDate: block.date }));
                         }}
                         onClick={e => { e.stopPropagation(); onOpenBlock(block); }}
-                        style={{ top, height, '--event-color': style.color, '--event-tint': style.tint } as React.CSSProperties}
+                        style={{ top, height, left: eventLeft, width: eventWidth, zIndex: 2 + column, '--event-color': style.color, '--event-tint': style.tint } as React.CSSProperties}
                         title={`${block.title} • ${block.time} • ${block.duration} min`}
                         key={block.id}
                       >
                         <div className="event-body">
-                          <span className={`event-visual ${block.image ? 'has-image' : ''}`}>
-                            {block.image ? <span className="event-thumb-wrap"><img className="event-thumb" src={block.image} alt=""/></span> : null}
-                            <span className="event-icon event-icon--badge"><TaskIcon name={block.icon} size={14}/></span>
-                          </span>
+                          <TaskVisual icon={block.icon} image={block.image} category={block.category} categories={categories} className="event-visual" size="small" />
                           <div className="event-text"><strong>{block.title}</strong><small>{block.time} · {displayDuration} min</small></div>
                           <button
                             className={`event-check ${block.done ? 'checked' : ''}`}
@@ -199,6 +265,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                             onClick={e => { e.stopPropagation(); onToggleBlock(block); }}
                           ><Check size={13} strokeWidth={3} /></button>
                         </div>
+                        {height > 105 && <CategoryBadge category={block.category} categories={categories} compact className="event-footer-badge" />}
                         {height > 65 && block.kind === 'task' && <GripVertical className="event-grip" size={12} />}
                         <div
                           className="event-resize-handle"
@@ -234,7 +301,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           </div>
         </div>
       </div>
-      <div className="calendar-footer"><span className="legend-dot" /> Przeciągnij blok, aby go przenieść, albo złap dolną krawędź, by zmienić jego długość. <span className="footnote">Czas lokalny</span></div>
+      <div className="calendar-footer"><span className="legend-dot" /> Kliknij puste miejsce, aby dodać zadanie. Przeciągnij blok, aby go przenieść, albo złap dolną krawędź, by zmienić jego długość. <span className="footnote">Widok 24h · czas lokalny</span></div>
     </section>
   );
 }

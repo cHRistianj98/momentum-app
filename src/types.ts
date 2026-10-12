@@ -53,6 +53,10 @@ export interface RoutineLog {
   completedAt?: string;
   /** Wyjątek długości tylko dla danego dnia; szablon rutyny pozostaje bez zmian. */
   durationOverride?: number;
+  /** Nadpisanie godziny tylko dla tego wystąpienia rutyny. */
+  timeOverride?: string;
+  /** Nadpisanie dnia: wpis logu zostaje pod pierwotną datą, wraz z krokami i XP. */
+  dateOverride?: string;
 }
 
 export interface AppData {

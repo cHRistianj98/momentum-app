@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="Momentum">
+  <defs>
+    <linearGradient id="momentum" x1="4" y1="5" x2="59" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a18aff"/><stop offset=".5" stop-color="#6d5df3"/><stop offset="1" stop-color="#4336b5"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="19" y1="12" x2="46" y2="53" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/><stop offset="1" stop-color="#e6e2ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#momentum)"/>
+  <path d="M11 40c6 10 20 15 33 6 8-5 13-13 11-23" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="4" stroke-linecap="round"/>
+  <path d="M33 10 16 34h13l-3 20 23-31H35l5-13z" fill="url(#bolt)"/>
+  <circle cx="49" cy="14" r="4" fill="#fff" opacity=".98"/>
+</svg>

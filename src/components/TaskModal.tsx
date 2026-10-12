@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Check, Clock3, ImagePlus, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
+import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
+import { DatePicker } from './DatePicker';
+import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { PhotoPicker } from './PhotoPicker';
 import { CategoryChoices } from './CategoryChoices';
 import { TASK_PRESETS } from '../lib/seed';
-import type { CategoryConfig, CategoryKey, Task } from '../types';
+import type { CategoryConfig, Task } from '../types';
 
 interface Props {
   task?: Task;
@@ -47,14 +50,14 @@ export function TaskModal({ task, initialDate, initialTime, categories, onSave, 
   return (
     <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal task-modal" role="dialog" aria-modal="true" aria-label={task ? 'Edytuj zadanie' : 'Nowe zadanie'}>
-        <div className="modal-heading"><div><span className="eyebrow">TWOJE ZADANIA</span><h2>{task ? 'Edytuj zadanie' : 'Nowe zadanie'} <span className="heading-spark">✦</span></h2></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
+        <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={form.icon} image={form.image} category={form.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJE ZADANIA</span><h2>{task ? 'Edytuj zadanie' : 'Nowe zadanie'}</h2><CategoryBadge category={form.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
         {!task && <div className="presets"><span>Dodaj szybko:</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration, xp: p.xp }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
         <div className="modal-fields">
           <label className="field"><span>Nazwa zadania <i>*</i></span><input ref={titleRef} placeholder="Np. 45 minut pracy nad aplikacją" value={form.title} onChange={e => change('title', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} maxLength={90}/></label>
           <label className="field"><span>Opis / notatka</span><textarea placeholder="O czym warto pamiętać?" rows={2} value={form.description} onChange={e => change('description', e.target.value)} /></label>
           <div className="field"><span>Kategoria finansowa</span><CategoryChoices categories={categories} value={form.category} onChange={v=>change('category',v)}/></div>
-          <div className="two-fields"><label className="field"><span>Data</span><input type="date" value={form.date ?? ''} onChange={e => { change('date', e.target.value || null); if (!e.target.value) change('time', null); }}/></label><label className="field"><span>Godzina</span><input type="time" disabled={!form.date} value={form.time ?? ''} onChange={e => change('time', e.target.value || null)}/></label></div>
-          <div className="two-fields"><label className="field"><span>Czas trwania <Clock3 size={13} /></span><select value={form.duration} onChange={e => change('duration', Number(e.target.value))}>{[15, 30, 45, 60, 75, 90, 120, 150, 180, 240].map(v => <option key={v} value={v}>{v} min</option>)}</select></label><label className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><input min={0} max={500} type="number" value={form.xp} onChange={e => change('xp', Number(e.target.value))} /></label></div>
+          <div className="two-fields"><div className="field"><span>Data</span><DatePicker value={form.date} onChange={date => setForm(current => ({ ...current, date, time: date ? current.time : null }))}/></div><div className="field"><span>Godzina</span><TimePicker disabled={!form.date} allowClear value={form.time} onChange={time => change('time', time)}/></div></div>
+          <div className="two-fields"><div className="field"><span>Czas trwania <Clock3 size={13} /></span><DurationPicker value={form.duration} onChange={duration => change('duration',duration)}/></div><div className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><XpStepper value={form.xp} onChange={xp => change('xp',xp)}/></div></div>
           <div className="field">
             <span>Ikona i zdjęcie</span>
             <div className="image-icon-row">
