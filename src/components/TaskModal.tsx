@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Clock3, ImagePlus, Play, Timer, Trash2, X } from 'lucide-react';
+import { Camera, Check, Clock3, FolderKanban, ImagePlus, Link2, Plus, Play, Timer, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -8,12 +8,16 @@ import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { PhotoPicker } from './PhotoPicker';
 import { CategoryChoices } from './CategoryChoices';
 import { TASK_PRESETS } from '../lib/seed';
-import type { CategoryConfig, Task } from '../types';
+import type { CategoryConfig, Project, Task } from '../types';
+import { newSubtask } from '../lib/projects';
 
 interface Props {
   task?: Task;
   initialDate?: string | null;
   initialTime?: string | null;
+  initialProjectId?: string;
+  initialMilestoneId?: string;
+  projects: Project[];
   categories: CategoryConfig;
   focusSeconds: number;
   onFocus: (id: string) => void;
@@ -27,8 +31,10 @@ const EMPTY: Omit<Task, 'id' | 'createdAt'> = {
   image: undefined, date: null, time: null, duration: 45, done: false, xp: 40,
 };
 
-export function TaskModal({ task, initialDate, initialTime, categories, focusSeconds, onFocus, onSave, onDelete, onClose }: Props) {
-  const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null });
+export function TaskModal({ task, initialDate, initialTime, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, onFocus, onSave, onDelete, onClose }: Props) {
+  const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null, projectId: initialProjectId ?? null, milestoneId: initialMilestoneId ?? null, subtasks: [] });
+  const [subtaskText, setSubtaskText] = useState('');
+  const selectedProject = projects.find(project => project.id === form.projectId);
   const [imageError, setImageError] = useState('');
   const [picker, setPicker] = useState<'icons' | 'photos' | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -58,6 +64,17 @@ export function TaskModal({ task, initialDate, initialTime, categories, focusSec
           <label className="field"><span>Nazwa zadania <i>*</i></span><input ref={titleRef} placeholder="Np. 45 minut pracy nad aplikacją" value={form.title} onChange={e => change('title', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} maxLength={90}/></label>
           <label className="field"><span>Opis / notatka</span><textarea placeholder="O czym warto pamiętać?" rows={2} value={form.description} onChange={e => change('description', e.target.value)} /></label>
           <div className="field"><span>Kategoria finansowa</span><CategoryChoices categories={categories} value={form.category} onChange={v=>change('category',v)}/></div>
+          <div className="field"><span><FolderKanban size={14}/> Projekt i kamień milowy</span>
+            <div className="two-fields project-task-links">
+              <label className="project-select-field"><span>Projekt</span><select value={form.projectId ?? ''} onChange={e=>setForm(current=>({...current,projectId:e.target.value||null,milestoneId:null}))}><option value="">Bez projektu</option>{projects.filter(project=>!project.archived||project.id===form.projectId).map(project=><option key={project.id} value={project.id}>{project.title}</option>)}</select></label>
+              <label className="project-select-field"><span>Etap</span><select disabled={!selectedProject} value={form.milestoneId ?? ''} onChange={e=>change('milestoneId',e.target.value||null)}><option value="">Bez kamienia milowego</option>{selectedProject?.milestones.map(milestone=><option value={milestone.id} key={milestone.id}>{milestone.title}</option>)}</select></label>
+            </div>
+            {selectedProject&&<small className="project-form-hint"><Link2 size={12}/> Ukończenie zadania automatycznie zwiększy postęp projektu.</small>}
+          </div>
+          <div className="field"><span><Check size={14}/> Podzadania / checklista</span>
+            <div className="project-task-subtasks">{(form.subtasks??[]).map(item=><div key={item.id} className="project-task-subtask"><label><input type="checkbox" checked={item.done} onChange={e=>change('subtasks',(form.subtasks??[]).map(value=>value.id===item.id?{...value,done:e.target.checked}:value))}/><span className={item.done?'project-done-text':''}>{item.title}</span></label><button type="button" title="Usuń podzadanie" onClick={()=>change('subtasks',(form.subtasks??[]).filter(value=>value.id!==item.id))}><X size={14}/></button></div>)}</div>
+            <form className="project-task-add-subtask" onSubmit={e=>{e.preventDefault();if(!subtaskText.trim())return;change('subtasks',[...(form.subtasks??[]),newSubtask(subtaskText)]);setSubtaskText('');}}><input value={subtaskText} onChange={e=>setSubtaskText(e.target.value)} maxLength={110} placeholder="Np. Napisać testy..."/><button type="submit" disabled={!subtaskText.trim()}><Plus size={15}/> Dodaj</button></form>
+          </div>
           <div className="two-fields"><div className="field"><span>Data</span><DatePicker value={form.date} onChange={date => setForm(current => ({ ...current, date, time: date ? current.time : null }))}/></div><div className="field"><span>Godzina</span><TimePicker disabled={!form.date} allowClear value={form.time} onChange={time => change('time', time)}/></div></div>
           <div className="two-fields"><div className="field"><span>Czas trwania <Clock3 size={13} /></span><DurationPicker value={form.duration} onChange={duration => change('duration',duration)}/></div><div className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><XpStepper value={form.xp} onChange={xp => change('xp',xp)}/></div></div>
           <div className="field">

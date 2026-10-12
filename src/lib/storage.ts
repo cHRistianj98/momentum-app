@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createSeed } from './seed';
-import type { AppData, CategoryConfig, CategoryKey, Routine, Task } from '../types';
+import type { AppData, CategoryConfig, CategoryKey, Routine, Task, Project } from '../types';
 
 const STORAGE_KEY = 'momentum.v1';
 
@@ -69,6 +69,8 @@ export function migrateStoredData(value: unknown): AppData | null {
     tasks: data.tasks
       .filter((task): task is Task => Boolean(task && typeof task === 'object'))
       .map(task => ({ ...task, category: normalizeCategory(task.category) })),
+    projects: Array.isArray(data.projects) ? data.projects.filter((project): project is Project => Boolean(project && typeof project === 'object' && typeof project.id === 'string'))
+      .map(project => ({...project, milestones: Array.isArray(project.milestones) ? project.milestones.map(milestone => ({...milestone, subtasks: Array.isArray(milestone.subtasks) ? milestone.subtasks : []})) : []})) : [],
     routines: data.routines
       .filter((routine): routine is Routine => Boolean(routine && typeof routine === 'object'))
       .map(routine => ({ ...routine, category: normalizeCategory(routine.category) })),
@@ -103,4 +105,9 @@ export function useAppData() {
   return [data, setData] as const;
 }
 
-export function eraseStoredData() { localStorage.removeItem(STORAGE_KEY); }
+export function eraseStoredData() {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem('momentum.earned-achievements');
+  localStorage.removeItem('momentum.seen-achievements');
+  localStorage.removeItem('momentum.achievements.catalog.v042');
+}

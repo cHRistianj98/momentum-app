@@ -1,5 +1,5 @@
 export type CategoryKey = 'unpaid' | 'potential' | 'income';
-export type Page = 'overview' | 'calendar' | 'tasks' | 'routines' | 'insights';
+export type Page = 'overview' | 'calendar' | 'tasks' | 'routines' | 'insights' | 'review' | 'projects';
 export type IconKey = string; // Nazwa ikony Lucide, wybierana z katalogu ponad 1000 ikon.
 
 export interface CategoryStyle {
@@ -24,6 +24,9 @@ export interface Task {
   done: boolean;
   xp: number;
   createdAt: string;
+  projectId?: string | null;
+  milestoneId?: string | null;
+  subtasks?: ProjectSubtask[];
 }
 
 export interface RoutineStep {
@@ -59,8 +62,36 @@ export interface RoutineLog {
   dateOverride?: string;
 }
 
+export interface ProjectSubtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  title: string;
+  description: string;
+  targetDate: string | null;
+  done: boolean;
+  subtasks: ProjectSubtask[];
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  icon: IconKey;
+  category: CategoryKey;
+  targetDate: string | null;
+  createdAt: string;
+  milestones: ProjectMilestone[];
+  archived?: boolean;
+}
+
 export interface AppData {
   tasks: Task[];
+  projects: Project[];
   routines: Routine[];
   routineLogs: Record<string, RoutineLog>;
   categories: CategoryConfig;
