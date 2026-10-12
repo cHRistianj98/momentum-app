@@ -9,6 +9,7 @@ import { ResizeConfirmModal } from './components/ResizeConfirmModal';
 import { RoutineMoveConfirmModal } from './components/RoutineMoveConfirmModal';
 import { TaskModal } from './components/TaskModal';
 import { FocusMode, FocusDock } from './components/FocusMode';
+import { PlanReality } from './components/PlanReality';
 import { useFocusTimer } from './lib/useFocusTimer';
 import { formatFocusClock, type FocusRecord } from './lib/focus';
 import { emptyLog, RoutineEditor, routineOccurs, RoutineSession } from './components/RoutineModal';
@@ -658,8 +659,9 @@ function Insights({data,totalXp,currentLevel,streak,achievements,rank,nextRank,f
         </div><div className="donut-legend donut-legend--detailed">{pieValues.map(p=><div key={p.id}><span className="category-dot" style={{background:categories[p.id].color}}/><div><span>{categories[p.id].label}</span><small>{formatDuration(p.mins)}</small></div><strong>{totalMinutes?Math.round(p.mins/totalMinutes*100):0}%</strong></div>)}</div></div>
       </section>
     </div>
+    <PlanReality data={data} focusHistory={focusHistory} />
     <section className="insight-card focus-history-insights">
-      <div className="insight-card-title"><div><span className="eyebrow">FOCUS MODE</span><h3>Plan a rzeczywistość</h3></div><Clock3 size={20}/></div>
+      <div className="insight-card-title"><div><span className="eyebrow">FOCUS MODE</span><h3>Historia sesji Focus</h3></div><Clock3 size={20}/></div>
       <div className="focus-history-metrics"><div><small>Łącznie przepracowano</small><strong>{formatFocusClock(focusHistory.reduce((sum,record)=>sum+record.focusSeconds,0))}</strong></div><div><small>Sesje skupienia</small><strong>{focusHistory.length}</strong></div><div><small>Średnia sesja</small><strong>{focusHistory.length ? formatFocusClock(Math.round(focusHistory.reduce((sum,record)=>sum+record.focusSeconds,0)/focusHistory.length)) : '00:00'}</strong></div></div>
       {focusHistory.length > 0 ? <div className="focus-history-list">{focusHistory.slice(-5).reverse().map(record=><div className="focus-history-row" key={record.id}><div><strong>{record.taskTitle}</strong><small>{new Date(record.finishedAt).toLocaleDateString('pl-PL')} · {record.taskCompleted?'Zadanie ukończone':'Zapisana sesja'}</small></div><div className="focus-history-compare"><span>{formatFocusClock(record.focusSeconds)} / {record.plannedMinutes} min</span><div className="focus-history-track"><span style={{width:`${Math.min(100,record.focusSeconds/(record.plannedMinutes*60)*100)}%`}}/></div></div></div>)}</div> : <p className="focus-history-empty">Uruchom Focus Mode z zadania w kalendarzu, a tutaj zobaczysz przepracowany czas i różnicę względem planu.</p>}
     </section>
