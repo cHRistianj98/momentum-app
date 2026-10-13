@@ -1604,3 +1604,38 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 @media(max-width:1200px){.project-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:780px){.project-grid{grid-template-columns:1fr;}.project-detail-hero{flex-wrap:wrap;padding:19px;}.project-detail-ring{margin-left:auto;}.project-detail-metrics{grid-template-columns:1fr;}.project-intro{padding:24px;}.project-intro-ornament{display:none;}.project-search{margin-left:0;}.project-toolbar{align-items:stretch;}.project-milestone-heading{flex-wrap:wrap;}.project-add-milestone{flex-wrap:wrap;}}
 .task-row-project{display:inline-flex;align-items:center;gap:4px;color:var(--primary);border-radius:7px;background:var(--primary-pale);padding:3px 6px;font-size:10px;font-weight:700;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* v0.4.8 — kopie danych i bezpieczny import */
+.backup-settings { display: grid; gap: 14px; min-width: 0; }
+.backup-settings-heading { display: flex; gap: 12px; align-items: flex-start; }
+.backup-settings-symbol { color: var(--primary); background: var(--primary-pale); padding: 10px; display: grid; place-items: center; border-radius: 13px; flex-shrink: 0; }
+.backup-settings-heading h3 { font-size: 13px; color: var(--text); margin: 1px 0 5px; }
+.backup-settings-heading p { color: var(--subtext); line-height: 1.6; font-size: 11px; margin: 0; }
+.backup-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.backup-actions .btn { min-height: 39px; font-size: 11px; }
+.backup-file-input { display: none; }
+.backup-settings-hint { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 10px; color: var(--muted); line-height: 1.5; }
+.backup-settings-hint svg { flex-shrink: 0; }
+.backup-message { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border-radius: 12px; font-size: 11px; line-height: 1.5; }
+.backup-message svg { flex-shrink: 0; }
+.backup-message--success { color: #198965; background: #e5f8ef; }
+.backup-message--error { color: #be404a; background: #fff0f1; }
+.backup-import-preview { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.backup-import-title { display: flex; gap: 11px; align-items: center; min-width: 0; color: var(--primary); }
+.backup-import-title>div { flex: 1; min-width: 0; }
+.backup-import-title strong { color: var(--text); font-size: 11px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.backup-import-title small { color: var(--muted); font-size: 10px; display: block; margin-top: 3px; }
+.backup-dismiss { border: 0; color: var(--subtext); background: transparent; cursor: pointer; padding: 5px; }
+.backup-counts { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+.backup-counts>span { display: grid; justify-items: center; gap: 2px; border-radius: 11px; background: var(--primary-pale); padding: 10px 5px; color: var(--subtext); font-size: 9px; text-align: center; }
+.backup-counts strong { color: var(--text); font-size: 17px; }
+.backup-import-warning { margin: 0; display: flex; gap: 9px; align-items: flex-start; color: #b47729; background: #fff6e6; padding: 11px; border-radius: 10px; font-size: 10px; line-height: 1.65; }
+.backup-import-warning svg { flex-shrink: 0; }
+.backup-confirm-label { display: flex; align-items: flex-start; gap: 9px; font-size: 10px; color: var(--text); line-height: 1.55; cursor: pointer; }
+.backup-confirm-label input { margin-top: 2px; accent-color: var(--primary); }
+.backup-confirm-button { justify-self: start; min-height: 37px; }
+.backup-confirm-button:disabled { cursor: not-allowed; opacity: .45; }
+@media(max-width: 620px) { .backup-counts { grid-template-columns: repeat(2,minmax(0,1fr)); } .backup-actions .btn { flex: 1; } }
+:root[data-theme='dark'] .backup-message--success { color: #89e9c4; background: #213d36; }
+:root[data-theme='dark'] .backup-message--error { color: #ffafba; background: #482d39; }
+:root[data-theme='dark'] .backup-import-warning { color: #ffd497; background: #4c392a; }
