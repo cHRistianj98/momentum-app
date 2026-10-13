@@ -24,8 +24,6 @@ export interface CalendarBlock {
 
 const START = 0;
 const END = 24 * 60;
-const HOUR_HEIGHT = 74;
-const GRID_HEIGHT = (END - START) / 60 * HOUR_HEIGHT;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 interface CalendarViewProps {
@@ -57,6 +55,7 @@ interface MoveSession {
   lastX: number;
   lastY: number;
   grabOffsetY: number;
+  fromHandle: boolean;
   dragging: boolean;
 }
 interface MovePreview {
@@ -70,6 +69,9 @@ interface MovePreview {
 }
 
 export function CalendarView({ referenceDate, onChangeDate, blocks, categories, mode, onChangeMode, onAddAt, onOpenBlock, onFocusBlock, onToggleBlock, onDropBlock, onResizeBlock, compact = false }: CalendarViewProps) {
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 620;
+  const hourHeight = isMobileViewport ? 60 : 74;
+  const gridHeight = (END - START) / 60 * hourHeight;
   const [hovered, setHovered] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ id: string; duration: number } | null>(null);
   const resizeSession = useRef<ResizeSession | null>(null);
@@ -80,12 +82,13 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   const [movePreview, setMovePreview] = useState<MovePreview | null>(null);
   const [externalPreview, setExternalPreview] = useState<{date: string; time: string} | null>(null);
   const [emptyHover, setEmptyHover] = useState<{date: string; time: string} | null>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   // Pełna doba pozostaje dostępna przez przewijanie, a początkowy widok zaczyna się rano.
   useEffect(() => {
     const scroller = calendarScrollRef.current;
     if (!scroller) return;
-    scroller.scrollTop = 7 * HOUR_HEIGHT - 120;
+    scroller.scrollTop = 7 * hourHeight - 120;
   }, [mode, compact]);
 
 
@@ -110,7 +113,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
     const date = lane.dataset.calendarDate;
     if (!date) return null;
     const rect = lane.getBoundingClientRect();
-    const start = START + Math.round(((clientY - rect.top - session.grabOffsetY) / HOUR_HEIGHT * 60) / 15) * 15;
+    const start = START + Math.round(((clientY - rect.top - session.grabOffsetY) / hourHeight * 60) / 15) * 15;
     const latest = Math.max(START, END - Math.max(15, session.block.duration));
     return {
       id: session.block.id, sourceId: session.block.sourceId, date, time: timeFromMinutes(Math.max(START, Math.min(latest, start))),
@@ -150,12 +153,17 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
 
   const startMove = (event: React.PointerEvent<HTMLDivElement>, block: CalendarBlock) => {
     if (event.button !== 0 || resizeSession.current) return;
-    if ((event.target as HTMLElement).closest('button, .event-resize-handle')) return;
+    const target = event.target as HTMLElement;
+    // Na iOS palec na treści wydarzenia przewija pionowo kalendarz.
+    // Przenoszenie dotykiem uruchamiamy wyłącznie z dedykowanego uchwytu.
+    if (event.pointerType === 'touch' && !target.closest('.event-move-handle')) return;
+    if (target.closest('button:not(.event-move-handle), .event-resize-handle')) return;
     const rect = event.currentTarget.getBoundingClientRect();
     moveSession.current = {
       pointerId: event.pointerId, block, startX: event.clientX, startY: event.clientY,
       lastX: event.clientX, lastY: event.clientY,
       grabOffsetY: Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
+      fromHandle: Boolean(target.closest('.event-move-handle')),
       dragging: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -186,7 +194,10 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
       onDropBlock(session.block.kind, session.block.sourceId, drop.date, drop.time, session.block.occurrenceDate ?? session.block.date);
     }
     // Pointer-generated click follows pointerup; suppress only that click, not subsequent clicks.
-    if (session.dragging) setTimeout(() => { suppressClick.current = false; }, 0);
+    if (session.dragging || session.fromHandle) {
+      suppressClick.current = true;
+      setTimeout(() => { suppressClick.current = false; }, 0);
+    }
   };
 
   useEffect(() => {
@@ -198,7 +209,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
 
   // Zmiana wielkości odbywa się co 15 minut, zawsze w granicach siatki (do 23:00).
   const proposedDuration = (session: ResizeSession, clientY: number): number => {
-    const deltaSteps = Math.round((clientY - session.startY) / HOUR_HEIGHT * 4);
+    const deltaSteps = Math.round((clientY - session.startY) / hourHeight * 4);
     const maxDuration = END - minuteOfDay(session.block.time);
     return Math.max(15, Math.min(maxDuration, session.block.duration + deltaSteps * 15));
   };
@@ -246,16 +257,25 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   const getTimeFromPosition = (event: React.DragEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>, element: HTMLDivElement): string => {
     const rect = element.getBoundingClientRect();
     const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
-    const min = Math.min(END - 15, START + Math.round((y / HOUR_HEIGHT * 60) / 15) * 15);
+    const min = Math.min(END - 15, START + Math.round((y / hourHeight * 60) / 15) * 15);
     return timeFromMinutes(min);
   };
 
   return (
     <section className={`calendar-panel ${compact ? 'calendar-panel--compact' : ''}`}>
       <div className="calendar-toolbar">
-        <div className="calendar-heading">
+        <div className="calendar-heading" onTouchStart={e=>{
+            if (e.touches.length===1) swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};
+          }} onTouchEnd={e=>{
+            const start=swipeStart.current;
+            swipeStart.current=null;
+            if(!start || !e.changedTouches.length) return;
+            const dx=e.changedTouches[0].clientX-start.x;
+            const dy=e.changedTouches[0].clientY-start.y;
+            if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.6) change(dx<0?1:-1);
+          }}>
           <div className="eyebrow"><CalendarDays size={14} /> TWÓJ HARMONOGRAM</div>
-          <h2>{header}</h2>
+          <h2>{header}</h2><span className="calendar-mobile-swipe-hint">Przesuń nagłówek, aby zmienić {mode==='day'?'dzień':'tydzień'} <ChevronRight size={12}/></span>
         </div>
         <div className="calendar-actions">
           <MiniMonthPicker selectedDate={referenceDate} scheduledDates={scheduledDates} onSelectWeek={date => { onChangeDate(date); onChangeMode('week'); }} />
@@ -270,8 +290,36 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           </div>
         </div>
       </div>
+      {mode === 'week' && <div className="mobile-week-agenda" aria-label="Tygodniowy przegląd aktywności">
+        <div className="mobile-week-hint">Dotknij daty, aby otworzyć harmonogram dnia</div>
+        <div className="mobile-week-grid">
+          {dates.map(date => {
+            const dayBlocks = blocks.filter(block => block.date === date)
+              .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
+            const visible = dayBlocks.slice(0, 7);
+            const remaining = dayBlocks.length - visible.length;
+            return <div className={`mobile-week-day ${date === today ? 'mobile-week-day--today' : ''}`} key={date}>
+              <button type="button" className="mobile-week-date" onClick={() => { onChangeDate(date); onChangeMode('day'); }} aria-label={`Otwórz dzień ${fullDate(date)}`}>
+                <span>{shortWeekday(date)}</span><strong>{parseDate(date).getDate()}</strong>
+              </button>
+              <div className="mobile-week-day-events">
+                {visible.map(block => <button type="button" key={block.id}
+                  className={`mobile-week-item ${block.done ? 'mobile-week-item--done' : ''}`}
+                  style={{'--week-color': (categories[block.category] ?? categories.unpaid).color} as React.CSSProperties}
+                  onClick={() => { onChangeDate(date); onChangeMode('day'); }}
+                  title={`${block.title} • ${block.time} — otwórz plan dnia`}>
+                  <span className="mobile-week-item-title">{block.done ? '✓ ' : ''}{block.title}</span>
+                </button>)}
+                {remaining > 0 && <button className="mobile-week-more" type="button" onClick={() => { onChangeDate(date); onChangeMode('day'); }}>+{remaining}</button>}
+                {!dayBlocks.length && <span className="mobile-week-empty">—</span>}
+              </div>
+              <button className="mobile-week-open" type="button" aria-label={`Zobacz szczegóły ${fullDate(date)}`} onClick={() => { onChangeDate(date); onChangeMode('day'); }}>•••</button>
+            </div>;
+          })}
+        </div>
+      </div>}
       <div className="calendar-scroll" ref={calendarScrollRef}>
-        <div className={`calendar-body ${mode === 'day' ? 'calendar-body--day' : ''}`} style={{ minWidth: mode === 'week' ? 980 : 520 }}>
+        <div className={`calendar-body ${mode === 'day' ? 'calendar-body--day' : 'calendar-body--week'}`} style={{ minWidth: mode === 'week' ? 980 : 520 }}>
           <div className="calendar-head" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
             <div className="timezone">LOKALNIE</div>
             {dates.map(d => (
@@ -281,8 +329,8 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
             ))}
           </div>
           <div className="calendar-grid" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
-            <div className="time-gutter" style={{ height: GRID_HEIGHT }}>
-              {HOURS.map((h, i) => <span className="time-label" style={{ top: i * HOUR_HEIGHT }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
+            <div className="time-gutter" style={{ height: gridHeight }}>
+              {HOURS.map((h, i) => <span className="time-label" style={{ top: i * hourHeight }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
             </div>
             {dates.map(d => {
               const todaysBlocks = blocks.filter(b => b.date === d && minuteOfDay(b.time) >= START && minuteOfDay(b.time) < END);
@@ -297,7 +345,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                 <div
                   className={`day-lane ${d === today ? 'day-lane--today' : ''} ${hovered === d || movePreview?.date === d ? 'day-lane--hover' : ''}`}
                   data-calendar-date={d}
-                  style={{ height: GRID_HEIGHT, backgroundSize: `100% ${HOUR_HEIGHT}px` }} key={d}
+                  style={{ height: gridHeight, backgroundSize: `100% ${hourHeight}px` }} key={d}
                   onDragOver={e => {
                     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
                     setEmptyHover(null);
@@ -334,13 +382,13 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                   title="Kliknij puste miejsce, aby dodać zadanie na wybraną godzinę"
                 >
                   {d === today && nowMinutes >= START && nowMinutes < END && (
-                    <div className="now-line" style={{ top: ((nowMinutes - START) / 60) * HOUR_HEIGHT }}><span /></div>
+                    <div className="now-line" style={{ top: ((nowMinutes - START) / 60) * hourHeight }}><span /></div>
                   )}
                   {todaysBlocks.map(block => {
                     const style = categories[block.category] ?? categories.unpaid;
                     const displayDuration = resizePreview?.id === block.id ? resizePreview.duration : block.duration;
-                    const top = ((minuteOfDay(block.time) - START) / 60) * HOUR_HEIGHT;
-                    const height = Math.max(32, Math.min(displayDuration, END - minuteOfDay(block.time)) / 60 * HOUR_HEIGHT - 3);
+                    const top = ((minuteOfDay(block.time) - START) / 60) * hourHeight;
+                    const height = Math.max(32, Math.min(displayDuration, END - minuteOfDay(block.time)) / 60 * hourHeight - 3);
                     const placement = eventPositions.get(block.id);
                     const crowded = (placement?.columns ?? 1) > 1;
                     return (
@@ -367,11 +415,13 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                         }}
                         style={{
                           top, height,
-                          left: `calc(${placement?.leftPercent ?? 0}% + 4px)`,
-                          width: `calc(${placement?.widthPercent ?? 100}% - 7px)`,
+                          left: `calc(${placement?.leftPercent ?? 0}% + var(--lane-event-inset, 4px))`,
+                          width: `calc(${placement?.widthPercent ?? 100}% - var(--lane-event-width-offset, 7px))`,
                           right: 'auto',
                           zIndex: 2 + (placement?.column ?? 0),
-                          '--event-color': style.color, '--event-tint': style.tint,
+                          '--event-color': style.color,
+                          '--event-tint': style.tint,
+                          '--event-columns': placement?.columns ?? 1,
                         } as React.CSSProperties}
                         title={`${block.title} • ${block.time} • ${block.duration} min`}
                         key={block.id}
@@ -396,6 +446,11 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                           ><Check size={13} strokeWidth={3} /></button>
                         </div>
                         {height > 105 && <CategoryBadge category={block.category} categories={categories} compact className="event-footer-badge" />}
+                        {height >= 72 && height <= 105 && <CategoryBadge category={block.category} categories={categories} compact className="event-footer-badge event-footer-badge--mobile" />}
+                        <button type="button" className="event-move-handle" aria-label={`Przesuń ${block.title} na inną godzinę lub dzień`}
+                          title="Przytrzymaj i przeciągnij" onClick={e=>e.stopPropagation()}>
+                          <GripVertical size={15}/>
+                        </button>
                         {height > 65 && <GripVertical className="event-grip" size={12} />}
                         <div
                           className="event-resize-handle"
@@ -425,14 +480,14 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                     );
                   })}
                   {emptyHover?.date === d && !movePreview && !externalPreview && (
-                    <div className="calendar-empty-hint" style={{ top: ((minuteOfDay(emptyHover.time) - START) / 60) * HOUR_HEIGHT }}>
+                    <div className="calendar-empty-hint" style={{ top: ((minuteOfDay(emptyHover.time) - START) / 60) * hourHeight }}>
                       <Plus size={13} /> {emptyHover.time} · Dodaj zadanie
                     </div>
                   )}
                   {movePreview?.date === d && (
                     <div className="calendar-move-preview" style={{
-                      top: ((minuteOfDay(movePreview.time) - START) / 60) * HOUR_HEIGHT,
-                      height: Math.max(32, movePreview.duration / 60 * HOUR_HEIGHT - 3),
+                      top: ((minuteOfDay(movePreview.time) - START) / 60) * hourHeight,
+                      height: Math.max(32, movePreview.duration / 60 * hourHeight - 3),
                       '--event-color': categories[movePreview.category]?.color ?? '#7061ee',
                     } as React.CSSProperties}>
                       <strong>{movePreview.title}</strong>
@@ -440,7 +495,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                     </div>
                   )}
                   {externalPreview?.date === d && !movePreview && (
-                    <div className="calendar-drop-time" style={{ top: ((minuteOfDay(externalPreview.time) - START) / 60) * HOUR_HEIGHT }}>
+                    <div className="calendar-drop-time" style={{ top: ((minuteOfDay(externalPreview.time) - START) / 60) * hourHeight }}>
                       <span>{externalPreview.time}</span>
                     </div>
                   )}

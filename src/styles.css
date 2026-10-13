@@ -1639,3 +1639,858 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 :root[data-theme='dark'] .backup-message--success { color: #89e9c4; background: #213d36; }
 :root[data-theme='dark'] .backup-message--error { color: #ffafba; background: #482d39; }
 :root[data-theme='dark'] .backup-import-warning { color: #ffd497; background: #4c392a; }
+
+/* Momentum v0.4.9 — iPhone / touch UX (bez zmiany desktopowego drag & drop) */
+.event-move-handle { display: none; }
+.calendar-mobile-swipe-hint { display: none; }
+:root { -webkit-text-size-adjust: 100%; }
+button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+
+@media (hover: none) and (pointer: coarse) {
+  /* Tap on the card opens details; only its grip starts a touch move. */
+  .calendar-event { touch-action: pan-y; }
+  .calendar-event--moving { touch-action: none; }
+  .event-move-handle {
+    display: grid; place-items: center;
+    position: absolute; z-index: 6;
+    right: 21px; top: 3px;
+    width: 24px; height: 25px;
+    border: 1px solid color-mix(in srgb, var(--event-color) 28%, var(--line));
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--event-color) 10%, var(--surface));
+    color: var(--event-color);
+    touch-action: none;
+    cursor: grab;
+  }
+  .event-move-handle:active { cursor: grabbing; }
+  .calendar-event .event-grip { display: none; }
+  .event-resize-handle { touch-action: none; min-height: 14px; }
+  .calendar-event .event-body { padding-right: 47px; }
+  .calendar-event--overlap .event-body { padding-right: 27px; }
+  .calendar-event--overlap .event-move-handle { right: 4px; top: 22px; width: 22px; height: 22px; }
+  .calendar-event--overlap .event-check { top: 2px; right: 4px; }
+  .calendar-event--overlap .event-focus { display: none; }
+}
+
+@media (max-width: 850px) {
+  body { overflow-x: hidden; }
+  .app-workspace, .main-content, .app-shell { min-width: 0; }
+  .mobile-bottom-nav {
+    z-index: 75;
+    height: calc(66px + env(safe-area-inset-bottom, 0px));
+    padding: 7px 5px calc(7px + env(safe-area-inset-bottom, 0px));
+    align-items: flex-start;
+    justify-content: space-around;
+    gap: 1px;
+    background: color-mix(in srgb, var(--surface) 96%, white);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .mobile-bottom-nav button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 50px;
+    padding: 5px 3px;
+    border-radius: 12px;
+    white-space: nowrap;
+    font-size: 10px;
+    gap: 5px;
+    touch-action: manipulation;
+  }
+  .mobile-bottom-nav button.active { background: var(--primary-pale); }
+  .mobile-more-scrim { position: fixed; inset: 0; z-index: 72; border: 0; background: rgba(21, 14, 50, .48); }
+  .mobile-more-sheet {
+    position: fixed; z-index: 73; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); left: 9px; right: 9px;
+    max-height: min(65dvh, 460px); overflow-y: auto;
+    padding: 12px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 23px 23px 10px 10px;
+    box-shadow: 0 -16px 50px rgba(36, 25, 78, .22);
+    animation: mobile-more-show .18s ease-out;
+  }
+  .mobile-more-heading { padding: 8px 6px 15px; display: flex; align-items: center; justify-content: space-between; }
+  .mobile-more-heading strong { color: var(--text); font-size: 16px; }
+  .mobile-more-heading button { width: 38px; height: 38px; border: 0; border-radius: 12px; background: var(--surface-2); color: var(--text); display: grid; place-items: center; }
+  .mobile-more-sheet > button { display: flex; width: 100%; align-items: center; gap: 13px; min-height: 53px; border: 0; border-radius: 13px; padding: 12px; text-align: left; color: var(--text); background: transparent; font-size: 13px; font-weight: 750; }
+  .mobile-more-sheet > button.active { background: var(--primary-pale); color: var(--primary); }
+  .mobile-more-sheet > button > span { flex: 1; }
+  .mobile-more-sheet > button:active { background: var(--primary-pale); }
+  .main-content { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .main-footer { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .toast, .wr-notice, .achievement-popup { bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
+  .focus-dock { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .calendar-panel { min-width: 0; }
+  .calendar-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .calendar-panel--compact .calendar-scroll { max-height: min(58dvh, 560px); }
+  .calendar-page-layout .calendar-scroll { max-height: 72dvh; }
+  .calendar-head { position: sticky; top: 0; }
+  .modal { max-height: calc(100dvh - 18px - env(safe-area-inset-bottom, 0px)); }
+  .modal-backdrop { overscroll-behavior: contain; }
+  .focus-panel { max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  .focus-overlay { padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+  .focus-clock-ring { width: min(275px, 72vw, 39dvh); }
+  .focus-main { padding-top: 17px; }
+  .focus-controls { gap: 9px; }
+  .focus-control { min-height: 48px; }
+  .focus-finish-area { width: 100%; }
+  .focus-complete { min-height: 48px; max-width: 100%; text-align: center; }
+  .focus-save { min-height: 43px; }
+  .focus-clock-time { font-size: clamp(34px, 9vw, 52px); letter-spacing: -1.5px; }
+}
+
+@media (max-width: 620px) {
+  .calendar-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  .calendar-heading { min-width: 0; }
+  .calendar-heading h2 { font-size: clamp(15px, 4vw, 20px); line-height: 1.4; }
+  .calendar-mobile-swipe-hint { display: flex; align-items: center; gap: 2px; margin-top: 7px; color: var(--muted); font-size: 10px; }
+  .calendar-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; width: 100%; }
+  .calendar-actions button { touch-action: manipulation; }
+  .calendar-actions .view-switch button { min-height: 42px; min-width: 51px; }
+  .calendar-actions .calendar-arrows button { min-height: 42px; min-width: 42px; }
+  .calendar-actions .btn--today { min-height: 42px; }
+  .calendar-body--day { min-width: 0 !important; width: 100%; }
+  .calendar-body--day .calendar-head,
+  .calendar-body--day .calendar-grid { grid-template-columns: 49px minmax(0,1fr) !important; }
+  .calendar-body--week { min-width: 850px !important; }
+  .calendar-body--week .calendar-head,
+  .calendar-body--week .calendar-grid { grid-template-columns: 49px repeat(7,minmax(0,1fr)) !important; }
+  .calendar-panel--compact .calendar-body--day { min-width: 0 !important; }
+  .calendar-event:not(.calendar-event--overlap) .event-body { padding-right: 50px; }
+  .calendar-event--overlap .event-visual { display: none; }
+  .calendar-event--overlap .event-text strong { font-size: 9px; }
+  .calendar-event--overlap .event-move-handle { top: 19px; }
+  .main-content { padding: 16px 12px 0; }
+  .topbar { padding-top: env(safe-area-inset-top, 0px); height: calc(64px + env(safe-area-inset-top, 0px)); }
+  .topbar-left, .breadcrumbs { min-width: 0; }
+  .breadcrumbs strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 155px; }
+  .modal-backdrop { padding: 0; align-items: flex-end; }
+  .modal { border-radius: 23px 23px 0 0; padding-bottom: calc(16px + env(safe-area-inset-bottom,0px)); }
+  .modal-bottom { position: sticky; bottom: 0; z-index: 2; background: var(--surface); padding-bottom: 8px; }
+  .field input:not([type='color']), .field textarea, .field select, .name-icon-row input,
+  .momentum-xp-input input, .project-search input { font-size: 16px !important; }
+  .two-fields { grid-template-columns: 1fr; }
+  .modal-bottom-right .btn { min-height: 45px; }
+  .momentum-control-popover, .momentum-date-popover { max-width: calc(100vw - 18px); }
+  .momentum-time-scroll { -webkit-overflow-scrolling: touch; }
+  .wr-notice { width: calc(100vw - 24px); left: 12px; right: 12px; }
+  .focus-header { padding: 12px 15px; }
+  .focus-main { padding: 16px 12px; }
+  .focus-task-header { margin: 11px 0 15px; }
+  .focus-clock-ring { width: min(260px, 69vw, 38dvh); }
+  .focus-stat-grid { margin-top: 15px; }
+  .focus-stat { padding: 9px 5px; }
+  .focus-finish-area { margin-top: 18px; }
+}
+
+@keyframes mobile-more-show { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .mobile-more-sheet { animation: none; } }
+
+/* Momentum v0.5.0 — mobile-first refinement for dashboard, calendar and projects */
+.overview-page { display: flex; flex-direction: column; gap: 20px; }
+.overview-block { min-width: 0; }
+.overview-schedule-layout { align-items: start; }
+
+@media (max-width: 850px) {
+  .overview-page { gap: 16px; }
+  .overview-block--schedule .content-split { grid-template-columns: minmax(0,1fr); gap: 14px; }
+  .overview-schedule-layout .calendar-panel { order: 1; }
+  .overview-schedule-layout .right-panel { order: 2; }
+  .overview-block--hero .welcome-banner { min-height: auto; padding: 24px 22px; }
+  .overview-block--hero .hero-illustration { display: none; }
+
+  .project-intro { min-height: auto; padding: 24px 22px; border-radius: 24px; }
+  .project-toolbar { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: stretch; }
+  .project-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 6px;
+    gap: 6px;
+    border-radius: 18px;
+    scrollbar-width: none;
+  }
+  .project-tabs::-webkit-scrollbar { display: none; }
+  .project-tabs button { flex: 0 0 auto; min-height: 42px; }
+  .project-search { width: 100%; margin-left: 0; }
+  .project-toolbar-create { display: none; }
+  .project-grid { gap: 14px; }
+}
+
+@media (max-width: 620px) {
+  .overview-page { gap: 14px; }
+  .overview-block--heading .welcome-heading { margin-bottom: 0; }
+  .overview-block--hero .welcome-banner { padding: 20px 18px; }
+  .overview-block--hero .welcome-banner-content { max-width: none; }
+  .overview-block--stats .stats-grid { gap: 10px; }
+  .overview-block--review .wr-dashboard-link { margin: 0; }
+
+  .overview-block--schedule .calendar-panel,
+  .overview-block--schedule .right-panel,
+  .calendar-page-layout .calendar-panel,
+  .calendar-page-layout .right-panel,
+  .project-intro,
+  .project-overview-card,
+  .project-create-card,
+  .project-detail-hero,
+  .project-milestone,
+  .project-direct-task-list {
+    border-radius: 22px;
+  }
+
+  .calendar-panel {
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(31, 23, 67, .1);
+  }
+  .calendar-toolbar {
+    padding: 18px 16px 14px;
+    gap: 12px;
+  }
+  .calendar-heading .eyebrow { font-size: 10px; letter-spacing: .18em; }
+  .calendar-heading h2 { font-size: 19px; line-height: 1.32; }
+  .calendar-mobile-swipe-hint { margin-top: 6px; }
+  .calendar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: stretch;
+    width: 100%;
+  }
+  .calendar-actions > * { min-width: 0; width: 100%; }
+  .mini-month-trigger,
+  .calendar-actions .btn--today,
+  .calendar-actions .view-switch,
+  .calendar-actions .calendar-arrows { width: 100%; }
+  .mini-month-trigger,
+  .calendar-actions .btn--today,
+  .calendar-actions .view-switch button,
+  .calendar-actions .calendar-arrows button {
+    min-height: 44px;
+  }
+  .calendar-actions .calendar-arrows {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .calendar-head {
+    height: 56px;
+    background: color-mix(in srgb, var(--surface) 94%, white);
+  }
+  .calendar-head-day strong {
+    min-width: 29px;
+    height: 29px;
+    border-radius: 11px;
+  }
+  .calendar-body--day .calendar-head,
+  .calendar-body--day .calendar-grid {
+    grid-template-columns: 52px minmax(0, 1fr) !important;
+  }
+  .time-label { left: 11px; }
+  .calendar-event {
+    border-radius: 16px;
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--event-color) 14%, transparent);
+  }
+  .calendar-page-layout .right-panel,
+  .overview-schedule-layout .right-panel {
+    padding: 17px 15px;
+  }
+  .right-panel-header h3 { font-size: 20px; }
+  .quick-presets { gap: 8px; }
+  .quick-presets button { min-height: 42px; }
+
+  .project-intro { padding: 21px 18px; margin-bottom: 16px; }
+  .project-intro h2 { font-size: 17px; line-height: 1.18; }
+  .project-intro p { font-size: 13px; }
+  .project-toolbar { margin-bottom: 16px; }
+  .project-tabs {
+    width: 100%;
+    border-radius: 18px;
+    padding: 5px;
+  }
+  .project-search {
+    width: 100%;
+    min-height: 48px;
+  }
+  .project-search input {
+    min-height: 48px;
+    width: 100%;
+  }
+  .project-create-card {
+    min-height: 220px;
+    padding: 20px;
+  }
+  .project-overview-card { padding: 18px 16px; }
+  .project-overview-card h3 { font-size: 18px; }
+  .project-overview-card p { font-size: 13px; }
+  .project-detail-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .project-detail-actions > div {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .project-detail-hero {
+    padding: 18px 16px;
+    gap: 14px;
+  }
+  .project-detail-hero h2 {
+    font-size: 24px;
+    line-height: 1.08;
+  }
+  .project-detail-ring {
+    margin-left: 0;
+    width: 92px;
+    height: 92px;
+  }
+  .project-detail-section-title h3 { font-size: 20px; }
+  .project-milestone {
+    padding: 16px 14px;
+  }
+  .project-milestone-heading {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .project-milestone-title small {
+    line-height: 1.45;
+  }
+  .project-add-milestone {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  .project-add-milestone button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Momentum v0.5.1 — mobile calendar polish requested by user */
+@media (max-width: 850px) {
+  .overview-block--schedule .content-split,
+  .overview-block--schedule .overview-schedule-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 18px !important;
+  }
+  .overview-schedule-layout .right-panel {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .page-heading,
+  .welcome-heading {
+    margin-bottom: 24px;
+    gap: 14px;
+  }
+  .page-heading h1,
+  .welcome-heading h1 {
+    color: #f7f4ff;
+    font-size: 32px;
+    line-height: 1.06;
+    letter-spacing: -1.7px;
+    margin: 10px 0 12px;
+  }
+  :root[data-theme='light'] .page-heading h1,
+  :root[data-theme='light'] .welcome-heading h1 {
+    color: #231f44;
+  }
+  .page-heading p,
+  .welcome-heading p {
+    font-size: 13px;
+    line-height: 1.72;
+    max-width: 34ch;
+  }
+
+  .calendar-page-layout,
+  .overview-schedule-layout {
+    gap: 18px;
+  }
+
+  .calendar-panel {
+    --lane-event-inset: 10px;
+    --lane-event-width-offset: 20px;
+    border-radius: 24px;
+    box-shadow: 0 18px 44px rgba(28, 21, 65, .12);
+    overflow: hidden;
+  }
+  .calendar-toolbar {
+    padding: 22px 18px 16px;
+    gap: 14px;
+  }
+  .calendar-heading h2 {
+    font-size: 30px;
+    line-height: 1.12;
+    letter-spacing: -1.3px;
+  }
+  .calendar-mobile-swipe-hint {
+    font-size: 11px;
+    margin-top: 8px;
+  }
+  .calendar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .mini-month-trigger,
+  .calendar-actions .view-switch,
+  .calendar-actions .btn--today,
+  .calendar-actions .calendar-arrows {
+    width: 100%;
+  }
+  .calendar-actions .view-switch {
+    justify-content: stretch;
+    padding: 4px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-2) 76%, transparent);
+  }
+  .calendar-actions .view-switch button {
+    flex: 1;
+    min-height: 46px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .mini-month-trigger,
+  .calendar-actions .btn--today,
+  .calendar-actions .calendar-arrows button {
+    min-height: 46px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .calendar-actions .calendar-arrows {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .calendar-head {
+    height: 68px;
+    background: color-mix(in srgb, var(--surface) 96%, white);
+  }
+  .timezone {
+    font-size: 10px;
+    padding-left: 6px;
+    letter-spacing: .08em;
+  }
+  .calendar-head-day {
+    gap: 8px;
+  }
+  .calendar-head-day span {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .06em;
+  }
+  .calendar-head-day strong {
+    min-width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 800;
+  }
+  .calendar-body--day .calendar-head,
+  .calendar-body--day .calendar-grid {
+    grid-template-columns: 56px minmax(0, 1fr) !important;
+  }
+  .time-label {
+    left: 12px;
+    font-size: 12px;
+  }
+  .day-lane {
+    background-color: color-mix(in srgb, var(--surface) 95%, var(--surface-2));
+  }
+  .calendar-event {
+    border-radius: 20px;
+    box-shadow: 0 14px 30px color-mix(in srgb, var(--event-color) 16%, transparent);
+  }
+  .calendar-event:not(.calendar-event--overlap) .event-body {
+    padding: 14px 58px 12px 12px;
+    gap: 10px;
+  }
+  .calendar-event .event-text strong {
+    font-size: 15px;
+    line-height: 1.18;
+  }
+  .calendar-event .event-text small {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .event-check {
+    width: 22px;
+    height: 22px;
+  }
+  .event-check svg {
+    width: 14px;
+    height: 14px;
+  }
+  .event-move-handle {
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%);
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 12px !important;
+    background: color-mix(in srgb, var(--event-color) 14%, var(--surface)) !important;
+    border: 1px solid color-mix(in srgb, var(--event-color) 30%, var(--line)) !important;
+    box-shadow: 0 8px 18px rgba(24, 20, 52, .12);
+  }
+  .event-move-handle svg {
+    width: 18px;
+    height: 18px;
+  }
+  .event-resize-handle {
+    width: 44px;
+    height: 8px;
+    border-radius: 999px;
+    bottom: 8px;
+    background: color-mix(in srgb, var(--event-color) 28%, white);
+  }
+  .event-grip { display: none !important; }
+
+  .calendar-event--overlap {
+    --lane-event-inset: 6px;
+    --lane-event-width-offset: 10px;
+    min-width: 104px;
+  }
+  .calendar-event--overlap .event-body {
+    padding: 9px 40px 9px 10px;
+    gap: 8px;
+  }
+  .calendar-event--overlap .event-visual { display: grid; width: 24px; height: 24px; }
+  .calendar-event--overlap .event-visual svg { width: 14px; height: 14px; }
+  .calendar-event--overlap .event-text strong {
+    font-size: 12px;
+    line-height: 1.15;
+  }
+  .calendar-event--overlap .event-text small {
+    display: block;
+    font-size: 10px;
+  }
+  .calendar-event--overlap .event-check {
+    top: 8px;
+    right: 10px;
+    width: 18px;
+    height: 18px;
+  }
+  .calendar-event--overlap .event-move-handle {
+    right: 8px !important;
+    top: auto !important;
+    bottom: 8px;
+    transform: none;
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 10px !important;
+  }
+
+  .overview-schedule-layout .right-panel,
+  .calendar-page-layout .right-panel {
+    padding: 18px 16px;
+  }
+  .right-panel-header h3 {
+    font-size: 22px;
+  }
+}
+
+/* Momentum v0.5.2 — one-column mobile calendar and accessible touch controls.
+   Desktop layout and event drag/drop behavior are intentionally unchanged. */
+.event-footer-badge--mobile { display: none; }
+
+@media (max-width: 850px) {
+  /* This must override the later desktop calendar-page-layout declaration.
+     The earlier breakpoint only set a gap, leaving a 255px second column. */
+  .calendar-page-layout,
+  .overview-block--schedule .overview-schedule-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: start;
+    column-gap: 0;
+    row-gap: 20px;
+    width: 100%;
+    min-width: 0;
+  }
+  .calendar-page-layout > .calendar-panel,
+  .calendar-page-layout > .right-panel,
+  .overview-schedule-layout > .calendar-panel,
+  .overview-schedule-layout > .right-panel {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+  .calendar-page-layout > .calendar-panel,
+  .overview-schedule-layout > .calendar-panel { grid-row: 1; }
+  .calendar-page-layout > .right-panel,
+  .overview-schedule-layout > .right-panel { grid-row: 2; }
+}
+
+@media (max-width: 620px) {
+  .calendar-page-layout,
+  .overview-block--schedule .overview-schedule-layout { row-gap: 22px; }
+
+  .calendar-page-layout > .calendar-panel,
+  .overview-schedule-layout > .calendar-panel {
+    --lane-event-inset: 10px;
+    --lane-event-width-offset: 20px;
+    border-radius: 24px;
+    overflow: hidden;
+  }
+
+  /* Enough internal whitespace so events do not touch the hour labels or the edge. */
+  .calendar-event:not(.calendar-event--overlap) .event-body {
+    gap: 9px;
+    padding: 10px 112px 10px 11px;
+  }
+  .calendar-event:not(.calendar-event--overlap) .event-text strong {
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .calendar-event:not(.calendar-event--overlap) .event-text small {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  /* Complete-event buttons: large check at top-right, move grip vertically centred. */
+  .calendar-event:not(.calendar-event--overlap) .event-check {
+    position: absolute;
+    top: 9px;
+    right: 68px;
+    z-index: 7;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--event-color);
+    opacity: 1;
+    background: var(--surface);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--event-color) 12%, transparent);
+  }
+  .calendar-event:not(.calendar-event--overlap) .event-check svg {
+    width: 19px;
+    height: 19px;
+  }
+  .calendar-event:not(.calendar-event--overlap) .event-focus {
+    position: absolute;
+    z-index: 6;
+    right: 67px;
+    bottom: 12px;
+    width: 31px;
+    height: 31px;
+    border-radius: 10px;
+  }
+  .calendar-event .event-move-handle {
+    display: grid !important;
+    place-items: center;
+    position: absolute;
+    z-index: 8;
+    right: 10px !important;
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 15px !important;
+    border: 1px solid color-mix(in srgb, var(--event-color) 30%, var(--line)) !important;
+    background: color-mix(in srgb, var(--event-color) 16%, var(--surface)) !important;
+    color: var(--event-color);
+    touch-action: none;
+    box-shadow: 0 7px 17px color-mix(in srgb, var(--event-color) 16%, transparent);
+  }
+  .calendar-event .event-move-handle svg { width: 23px; height: 23px; }
+  .calendar-event--moving .event-move-handle { box-shadow: 0 0 0 4px color-mix(in srgb, var(--event-color) 20%, transparent); }
+
+  /* Put the duration resize handle under the centre of the event, not at its left edge. */
+  .calendar-event .event-resize-handle,
+  .calendar-event--small .event-resize-handle {
+    left: 50%;
+    right: auto;
+    bottom: 0;
+    top: auto;
+    transform: translateX(-50%);
+    width: 64px;
+    height: 18px;
+    min-height: 18px;
+    border-radius: 999px;
+    background: transparent;
+    opacity: .8;
+  }
+  .calendar-event .event-resize-handle::before {
+    height: 4px;
+    width: 32px;
+    opacity: .76;
+  }
+
+  /* A 75-minute event is roughly 89px tall. Its category must already be visible. */
+  .calendar-event .event-footer-badge--mobile { display: inline-flex; }
+  .calendar-event:not(.calendar-event--overlap) .event-footer-badge {
+    left: 11px;
+    bottom: 10px;
+    z-index: 3;
+    font-size: 10px;
+    padding: 4px 7px;
+    max-width: calc(100% - 126px);
+    white-space: nowrap;
+  }
+  .calendar-event--small .event-footer-badge--mobile { display: none; }
+
+  /* Collision groups remain in columns; their controls shrink without widening cards. */
+  .calendar-event--overlap { min-width: 0; }
+  .calendar-event--overlap .event-body { padding: 8px 33px 14px 7px; }
+  .calendar-event--overlap .event-text strong { font-size: 11px; }
+  .calendar-event--overlap .event-text small { font-size: 9px; }
+  .calendar-event--overlap .event-check {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    z-index: 7;
+    width: 23px;
+    height: 23px;
+    opacity: 1;
+  }
+  .calendar-event--overlap .event-move-handle {
+    top: 63% !important;
+    right: 4px !important;
+    width: 29px !important;
+    height: 31px !important;
+    border-radius: 10px !important;
+  }
+  .calendar-event--overlap .event-move-handle svg { width: 17px; height: 17px; }
+  .calendar-event--overlap .event-footer-badge { display: none; }
+}
+
+@media (max-width: 620px) {
+  /* The month picker is a popover extending beyond the header: don't clip it. */
+  .calendar-page-layout > .calendar-panel,
+  .overview-schedule-layout > .calendar-panel {
+    overflow: visible;
+  }
+  .calendar-page-layout .calendar-scroll,
+  .overview-schedule-layout .calendar-scroll {
+    border-radius: 0 0 24px 24px;
+    overflow: auto;
+  }
+}
+
+/* v0.5.3: mobile week overview. Desktop remains the detailed time-grid. */
+.mobile-week-agenda { display: none; }
+@media (max-width: 850px) {
+  .calendar-panel:has(.mobile-week-agenda) .calendar-scroll,
+  .calendar-panel:has(.mobile-week-agenda) .calendar-footer { display: none; }
+  .mobile-week-agenda { display: block; padding: 0 0 14px; min-width: 0; }
+  .mobile-week-hint { padding: 11px 14px 13px; color: var(--subtext); font-size: 12px; border-bottom: 1px solid var(--line); }
+  .mobile-week-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); width: 100%; min-width: 0; }
+  .mobile-week-day { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); padding-bottom: 7px; }
+  .mobile-week-day:last-child { border-right: 0; }
+  .mobile-week-day--today { background: color-mix(in srgb, var(--primary-pale) 34%, transparent); }
+  .mobile-week-date { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 64px; width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--subtext); padding: 7px 0; cursor: pointer; }
+  .mobile-week-date span { font-size: 11px; font-weight: 750; text-transform: uppercase; }
+  .mobile-week-date strong { display: grid; place-items: center; height: 30px; min-width: 30px; border-radius: 12px; color: var(--text); font-size: 15px; font-weight: 850; }
+  .mobile-week-day--today .mobile-week-date strong { color: #fff; background: var(--primary); }
+  .mobile-week-day-events { display: grid; align-content: start; gap: 4px; padding: 7px 2px 5px; min-height: 214px; }
+  .mobile-week-item { display: block; min-width: 0; height: 27px; border: 0; border-radius: 5px; padding: 3px 2px; color: #fff; background: var(--week-color); text-align: left; cursor: pointer; overflow: hidden; }
+  .mobile-week-item--done { opacity: .72; }
+  .mobile-week-item-title { display: block; white-space: nowrap; overflow: hidden; text-overflow: clip; font-size: 10px; line-height: 20px; font-weight: 700; }
+  .mobile-week-more, .mobile-week-open { border: 0; background: none; color: var(--subtext); font-size: 12px; font-weight: 850; cursor: pointer; }
+  .mobile-week-open { margin-top: auto; min-height: 30px; }
+  .mobile-week-empty { text-align: center; color: var(--muted); opacity: .6; }
+}
+@media (max-width: 410px) {
+  .mobile-week-hint { font-size: 11px; }
+  .mobile-week-item { height: 25px; }
+  .mobile-week-item-title { font-size: 9px; }
+  .mobile-week-date strong { min-width: 27px; height: 27px; }
+}
+
+/* v0.5.4 — readable short calendar items and discoverable routine deletion */
+.routine-session-manage { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.routine-session-delete { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+@media (max-width: 620px) {
+  .routine-session-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .routine-session-manage { width: 100%; justify-content: space-between; }
+  .routine-session-manage .btn { min-height: 42px; font-size: 12px; }
+  .routine-session-actions .modal-bottom-right { width: 100%; }
+  .routine-session-actions .modal-bottom-right .btn { width: 100%; justify-content: center; }
+  .calendar-event--small .event-body { min-width: 0; gap: 6px; padding: 5px 78px 12px 7px !important; }
+  .calendar-event--small .event-visual { width: 23px; height: 23px; flex-shrink: 0; }
+  .calendar-event--small .event-text { min-width: 0; flex: 1 1 0; overflow: hidden; }
+  .calendar-event--small .event-text strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(10px, 2.7vw, 12px); line-height: 1.3; }
+  .calendar-event--small .event-text small { display: none; }
+  .calendar-event--small .event-check { width: 28px; height: 28px; right: 53px; top: 6px; }
+  .calendar-event--small .event-move-handle { width: 36px !important; height: 36px !important; right: 8px !important; }
+  .calendar-event--small .event-footer-badge--mobile { display: none; }
+}
+
+/* v0.5.5 — mobile calendar controls sizing and visibility */
+.event-check.checked {
+  background: #2eb872;
+  border-color: #2eb872;
+  color: #fff;
+}
+.event-check.checked svg { opacity: 1; }
+
+@media (max-width: 620px) {
+  .calendar-panel .time-gutter,
+  .calendar-panel .day-lane {
+    min-height: 0;
+  }
+
+  .calendar-event:not(.calendar-event--overlap) .event-check {
+    right: 66px;
+  }
+
+  .calendar-event--small .event-body {
+    padding: 5px 76px 10px 7px !important;
+    align-items: center;
+  }
+  .calendar-event--small .event-text strong {
+    font-size: clamp(10px, 2.5vw, 11px);
+  }
+  .calendar-event--small .event-check {
+    width: 22px;
+    height: 22px;
+    right: 49px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-width: 1.75px;
+  }
+  .calendar-event--small .event-check svg {
+    width: 13px;
+    height: 13px;
+  }
+  .calendar-event--small .event-move-handle {
+    width: 30px !important;
+    height: 30px !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    border-radius: 11px !important;
+  }
+  .calendar-event--small .event-move-handle svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+/* v0.5.6 — completion state stays visible regardless of financial category */
+.calendar-event .event-check.checked,
+.calendar-event--small .event-check.checked,
+.calendar-event--overlap .event-check.checked {
+  background: #20ad75 !important;
+  border-color: #20ad75 !important;
+  color: #fff !important;
+  opacity: 1 !important;
+  box-shadow: 0 2px 8px rgba(25, 149, 98, .24);
+}
+.calendar-event .event-check.checked svg {
+  display: block;
+  opacity: 1 !important;
+  visibility: visible;
+  color: white;
+  stroke: currentColor;
+}
+@media (max-width: 620px) {
+  .calendar-event:not(.calendar-event--overlap) .event-check {
+    z-index: 11;
+  }
+  .calendar-event--small .event-check.checked svg { width: 15px; height: 15px; }
+  .calendar-event--overlap .event-check.checked svg { width: 13px; height: 13px; }
+}

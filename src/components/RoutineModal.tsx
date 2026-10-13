@@ -21,10 +21,11 @@ interface SessionProps {
   onComplete: () => void;
   onUndo: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   onClose: () => void;
 }
 
-export function RoutineSession({ routine, date, log, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onClose }: SessionProps) {
+export function RoutineSession({ routine, date, log, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose }: SessionProps) {
   const completed = log.checkedStepIds.length;
   const count = routine.steps.length;
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-modal" role="dialog" aria-modal="true" aria-label="Rutyna">
@@ -33,7 +34,7 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
     <div className="routine-progress-heading"><strong>Twoje kroki</strong><span>{completed}/{count} wykonane</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
     <div className="routine-checklist">{routine.steps.map((step,i) => <button key={step.id} className={`routine-step ${log.checkedStepIds.includes(step.id) ? 'checked' : ''}`} disabled={log.completed} onClick={() => onToggleStep(step.id)}><span className="step-counter">{log.checkedStepIds.includes(step.id) ? <Check size={17} strokeWidth={3} /> : String(i + 1).padStart(2, '0')}</span><span>{step.title}</span><CheckCircle2 className="step-right" size={18}/></button>)}</div>
     {log.completed && <div className="completion-message"><span>✦</span><div><strong>Rutyna ukończona!</strong><small>Świetna robota. +{routine.xp} XP zostało uwzględnione w Twoim progresie.</small></div></div>}
-    <div className="modal-bottom"><button className="btn btn--ghost" onClick={onEdit}>Edytuj szablon</button><div className="modal-bottom-right">{log.completed ? <button className="btn btn--secondary" onClick={onUndo}><RotateCcw size={15}/> Cofnij</button> : <button disabled={count === 0 || completed !== count} className="btn btn--primary" onClick={onComplete}><Check size={16}/> Zakończ rutynę · +{routine.xp} XP</button>}</div></div>
+    <div className="modal-bottom routine-session-actions"><div className="routine-session-manage"><button className="btn btn--ghost" onClick={onEdit}>Edytuj szablon</button><button type="button" className="btn btn--danger routine-session-delete" onClick={()=>{if(window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`))onDelete();}}><Trash2 size={15}/> Usuń rutynę</button></div><div className="modal-bottom-right">{log.completed ? <button className="btn btn--secondary" onClick={onUndo}><RotateCcw size={15}/> Cofnij</button> : <button disabled={count === 0 || completed !== count} className="btn btn--primary" onClick={onComplete}><Check size={16}/> Zakończ rutynę · +{routine.xp} XP</button>}</div></div>
   </div></div>;
 }
 
