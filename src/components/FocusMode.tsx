@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import { ArrowUpRight, Check, Clock3, Coffee, Flame, Minimize2, Pause, Play, Square, X, Zap } from 'lucide-react';
-import { formatFocusClock, type FocusRecord, type FocusSession, type FocusPhase } from '../lib/focus';
+import { ArrowUpRight, Check, Clock3, Coffee, Flame, Minimize2, Pause, Play, Square, Zap } from 'lucide-react';import { formatFocusClock, type FocusRecord, type FocusSession, type FocusPhase } from '../lib/focus';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import type { CategoryConfig, Task } from '../types';
 

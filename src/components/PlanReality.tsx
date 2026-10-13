@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, CalendarDays, CheckCircle2, Clock3, Info, PencilLine, RotateCcw, Target, TrendingUp } from 'lucide-react';
-import { dateKey, formatDuration, fullDate, parseDate, shiftDate, todayKey } from '../lib/date';
+import { fullDate, parseDate, shiftDate, todayKey } from '../lib/date';
 import { buildDailyReality, parseActualOverrides, REALITY_STORAGE_KEY, summarizeReality, type ActualOverrides, type RealityItem } from '../lib/planReality';
 import type { FocusRecord } from '../lib/focus';
 import type { AppData } from '../types';
