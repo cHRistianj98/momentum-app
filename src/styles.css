@@ -2494,3 +2494,70 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .calendar-event--small .event-check.checked svg { width: 15px; height: 15px; }
   .calendar-event--overlap .event-check.checked svg { width: 13px; height: 13px; }
 }
+
+/* v0.5.7 — center focus trigger and smaller 15-minute checkbox */
+@media (max-width: 620px) {
+  .calendar-event .event-body {
+    position: relative;
+  }
+
+  .calendar-event:not(.calendar-event--overlap) .event-text {
+    max-width: calc(100% - 108px);
+  }
+
+  .calendar-event .event-focus {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    z-index: 8;
+    box-shadow: 0 4px 12px rgba(25, 22, 54, 0.08);
+  }
+  .calendar-event .event-focus svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .calendar-event--small .event-body {
+    padding-right: 70px !important;
+  }
+  .calendar-event--small .event-text {
+    max-width: calc(100% - 88px);
+  }
+  .calendar-event--small .event-focus {
+    width: 20px;
+    height: 20px;
+    border-radius: 7px;
+  }
+  .calendar-event--small .event-focus svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .calendar-event--small .event-check {
+    width: 18px !important;
+    height: 18px !important;
+    right: 44px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+  }
+  .calendar-event--small .event-check svg,
+  .calendar-event--small .event-check.checked svg {
+    width: 10px !important;
+    height: 10px !important;
+  }
+
+  .calendar-event--overlap .event-check {
+    width: 17px;
+    height: 17px;
+  }
+  .calendar-event--overlap .event-check.checked svg {
+    width: 11px !important;
+    height: 11px !important;
+  }
+}
