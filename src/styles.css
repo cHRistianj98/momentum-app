@@ -2561,3 +2561,144 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
     height: 11px !important;
   }
 }
+
+/* v0.5.8 — minimal mobile calendar/dashboard, inspired by Google Calendar's layout */
+.overview-todo-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:0 0 12px; }
+.overview-todo-heading h2 { font-size:17px; letter-spacing:-.4px; }
+.overview-todo-heading button { display:flex; align-items:center; gap:5px; border:0; color:var(--primary); background:transparent; font-weight:700; cursor:pointer; }
+.momentum-mobile-fab { display:none; }
+@media (max-width:620px) {
+  .topbar { height:calc(54px + env(safe-area-inset-top, 0px)); padding:env(safe-area-inset-top, 0px) 14px 0; border-bottom:1px solid var(--line); background:var(--surface); }
+  .topbar .breadcrumbs { font-size:14px; }
+  .topbar .breadcrumbs > span, .topbar .breadcrumbs > svg { display:none; }
+  .topbar .breadcrumbs strong { max-width:110px; font-size:15px; }
+  .topbar .global-search { width:34px; min-width:34px; border:0; background:transparent; padding:0; }
+  .topbar .global-search input, .topbar .global-search > span { display:none; }
+  .topbar .theme-btn { display:none; }
+  .topbar-right { gap:9px; }
+  .topbar-avatar { border-radius:50%; }
+
+  .main-content { padding:0 0 calc(100px + env(safe-area-inset-bottom,0px)); }
+  .overview-page { gap:0; }
+  .overview-block--heading, .overview-block--hero { display:none; }
+  .overview-block--schedule { padding:0; }
+  .overview-block--schedule .overview-schedule-layout { display:block !important; }
+  .overview-block--schedule .calendar-panel,
+  .calendar-page-layout .calendar-panel { border:0; box-shadow:none; border-radius:0; }
+  .overview-block--schedule .calendar-panel { overflow:visible; }
+  .calendar-panel .calendar-toolbar { padding:10px 13px 9px; gap:8px; background:var(--surface); border-bottom:1px solid var(--line); }
+  .calendar-panel .calendar-heading { display:none; }
+  .calendar-panel .calendar-actions { flex-wrap:nowrap; gap:7px; justify-content:space-between; }
+  .calendar-panel .calendar-actions > * { flex-shrink:0; }
+  .calendar-panel .calendar-actions .view-switch { padding:2px; }
+  .calendar-panel .calendar-actions .view-switch button { min-height:34px; min-width:42px; padding:7px 9px; font-size:11px; }
+  .calendar-panel .calendar-actions .btn--today { min-height:35px; padding:0 11px; }
+  .calendar-panel .calendar-actions .calendar-arrows button { min-height:35px; min-width:31px; width:31px; border-radius:10px; }
+  .overview-block--schedule .calendar-scroll,
+  .overview-block--schedule .calendar-panel--compact .calendar-scroll,
+  .calendar-page-layout .calendar-scroll { max-height:calc(100dvh - 202px) !important; min-height:400px; border-top:0; border-radius:0; }
+  .calendar-body--day .calendar-head { height:52px; }
+  .calendar-head-day strong { font-size:18px; }
+  .calendar-head-day span { font-size:11px; }
+  .overview-block--todo { padding:18px 14px 22px; margin-top:12px; background:var(--page-bg,var(--background)); }
+  .overview-block--todo > .right-panel { border-radius:18px; box-shadow:none; }
+  .overview-block--review, .overview-block--stats { padding:12px 14px; }
+  .momentum-mobile-fab { display:grid; place-items:center; position:fixed; right:20px; bottom:calc(82px + env(safe-area-inset-bottom,0px)); width:55px; height:55px; border:1px solid color-mix(in srgb,var(--primary) 75%,#fff); border-radius:17px; color:#fff; background:var(--primary); box-shadow:0 9px 25px rgba(69,54,176,.29); z-index:35; cursor:pointer; }
+  .momentum-mobile-fab:active { transform:scale(.96); }
+  .calendar-page-layout { display:block !important; margin-top:0; }
+  .calendar-page-layout > .right-panel { margin:12px 14px; }
+  .main-content:has(.calendar-page-layout) > .page-heading { display:none; }
+}
+
+/* v0.5.9 — iOS calendar: sticky controls, midnight, clean completion, long-press move */
+@media (max-width:620px) {
+  .topbar { position:sticky !important; top:0; z-index:110 !important; }
+  .calendar-panel .calendar-toolbar {
+    position:sticky !important;
+    top:calc(54px + env(safe-area-inset-top, 0px));
+    z-index:95 !important;
+    background:var(--surface);
+  }
+  .overview-block--schedule .calendar-panel,
+  .calendar-page-layout .calendar-panel { overflow:visible !important; }
+  .calendar-panel .calendar-scroll { scroll-padding-top:0; }
+  .calendar-event .event-check,
+  .calendar-event .event-move-handle { display:none !important; }
+  .calendar-event .event-body { padding-right:12px !important; }
+  .calendar-event--small .event-body { padding-right:12px !important; }
+  .calendar-event:not(.calendar-event--overlap) .event-text,
+  .calendar-event--small .event-text { max-width:calc(100% - 40px); }
+  .calendar-event--done { filter:saturate(.65); opacity:.82; }
+  .calendar-event--done .event-text strong { text-decoration:line-through; text-decoration-thickness:1.5px; text-decoration-color:currentColor; }
+  .calendar-event--done .event-body { background:color-mix(in srgb, var(--event-tint) 68%, var(--surface)); }
+  .calendar-event { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .calendar-event--moving { box-shadow:0 6px 22px rgba(75,63,143,.18) !important; outline:2px solid var(--primary); }
+  .calendar-event .event-focus { left:calc(50% + 8px) !important; }
+}
+
+/* v0.5.10 — gestures on iPhone: no normal scroll while selecting/moving;
+   scroll only at the upper/lower edge via CalendarView.autoScroll. */
+@media (max-width:620px) {
+  .calendar-scroll--gesture { overscroll-behavior:contain; touch-action:none !important; }
+  .calendar-range-preview {
+    position:absolute;left:var(--lane-event-inset, 10px);right:10px;
+    pointer-events:none;z-index:32;
+    border:2px solid var(--primary);border-radius:7px;
+    background:color-mix(in srgb, var(--primary) 14%, transparent);
+    min-height:17px;box-sizing:border-box;
+    box-shadow:0 2px 10px rgba(105,91,220,.1);
+  }
+  .calendar-range-preview span {
+    position:absolute;left:7px;top:3px;white-space:nowrap;
+    font-size:11px;font-weight:800;color:var(--primary);
+    background:var(--surface);padding:2px 5px;border-radius:5px;
+  }
+  .focus-dock-stop {
+    position:fixed;bottom:calc(143px + env(safe-area-inset-bottom,0px));
+    right:24px;z-index:145;border-radius:12px;
+    background:var(--surface);border:1px solid var(--line);
+    color:var(--text);padding:6px 10px;font-size:11px;font-weight:700;
+    box-shadow:0 3px 8px rgba(0,0,0,.12);
+  }
+}
+@media (min-width:621px) { .focus-dock-stop {position:fixed;z-index:145;right:25px;bottom:95px;padding:8px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--text);cursor:pointer;} }
+
+/* v0.5.11 — compact Google Calendar-like month grid; desktop unchanged. */
+.momentum-month { display:none; }
+@media (max-width: 850px) {
+  .momentum-month { display:block; min-width:0; width:100%; background:var(--surface); padding:0 0 16px; }
+  .momentum-month-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 15px; border-bottom:1px solid var(--line); }
+  .momentum-month-title { border:0; padding:6px 0; background:none; font-weight:800; font-size:18px; text-transform:capitalize; color:var(--text); cursor:pointer; }
+  .momentum-month-arrows { display:flex; gap:8px; }
+  .momentum-month-arrows button { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--line); background:var(--surface); border-radius:11px; color:var(--text); cursor:pointer; }
+  .momentum-month-weekdays,.momentum-month-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+  .momentum-month-weekdays { position:sticky; top:var(--mobile-topbar-height,48px); z-index:12; background:var(--surface); border-bottom:1px solid var(--line); }
+  .momentum-month-weekdays span { text-align:center; font-size:10px; padding:9px 0; color:var(--subtext); font-weight:700; }
+  .momentum-month-grid { border-left:1px solid var(--line); align-items:stretch; }
+  .momentum-month-cell { min-width:0; min-height:110px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:3px 2px 5px; overflow:hidden; }
+  .momentum-month-cell.is-outside { opacity:.45; background:var(--surface-2); }
+  .momentum-month-date { display:flex; align-items:center; justify-content:center; width:23px; height:23px; padding:0; margin:0 auto 3px; background:none; border:0; color:var(--text); font-size:12px; font-weight:700; border-radius:50%; cursor:pointer; }
+  .momentum-month-cell.is-today .momentum-month-date { background:var(--primary); color:white; }
+  .momentum-month-events { display:grid; gap:2px; min-width:0; }
+  .momentum-month-event { min-width:0; height:17px; display:flex; align-items:center; gap:2px; text-align:left; border:0; padding:1px 2px; border-radius:3px; background:var(--mini-tint); color:var(--text); cursor:pointer; }
+  .momentum-month-event span:last-child { display:block; min-width:0; flex:1; overflow:hidden; text-overflow:clip; white-space:nowrap; font-size:8px; line-height:13px; font-weight:700; }
+  .momentum-month-event.is-done { opacity:.65; }
+  .momentum-month-event.is-done span:last-child { text-decoration:line-through; }
+  .momentum-month-icon { width:12px !important; height:12px !important; min-width:12px !important; max-width:12px !important; flex:0 0 12px; overflow:hidden; border-radius:3px; padding:0 !important; }
+  .momentum-month-icon img,.momentum-month-icon svg { width:10px !important; height:10px !important; object-fit:cover; }
+  .momentum-month-more { border:0; background:transparent; text-align:left; color:var(--subtext); font-size:9px; padding:1px 2px; cursor:pointer; }
+  .momentum-month-help { text-align:center; color:var(--subtext); font-size:11px; padding:12px 10px 0; margin:0; }
+  .main-content:has(.momentum-month) .calendar-page-layout,
+  .main-content:has(.momentum-month) > .page-heading { display:none !important; }
+}
+@media (max-width: 620px) {
+  /* Daily date arrows on the overview stay together rather than drifting apart. */
+  .overview-schedule-layout .calendar-actions .calendar-arrows { width:auto !important; display:inline-flex !important; justify-content:flex-start !important; gap:6px !important; flex:0 0 auto; }
+  .overview-schedule-layout .calendar-actions .calendar-arrows button { width:37px !important; min-width:37px !important; height:37px !important; min-height:37px !important; }
+  .overview-schedule-layout .calendar-actions { justify-content:flex-start; }
+  .main-content:has(.tasks-page) > .page-heading,
+  .main-content:has(.tasks-page) > .main-footer { display:none !important; }
+  .main-content:has(.tasks-page) { padding-bottom:95px; }
+  .tasks-page { margin-top:8px; }
+  .momentum-month-cell { min-height:105px; }
+}

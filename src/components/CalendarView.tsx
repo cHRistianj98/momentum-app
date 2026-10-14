@@ -24,6 +24,8 @@ export interface CalendarBlock {
 
 const START = 0;
 const END = 24 * 60;
+const HOUR_HEIGHT = 74;
+const GRID_HEIGHT = (END - START) / 60 * HOUR_HEIGHT;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 interface CalendarViewProps {
@@ -33,7 +35,7 @@ interface CalendarViewProps {
   categories: CategoryConfig;
   mode: 'day' | 'week';
   onChangeMode: (mode: 'day' | 'week') => void;
-  onAddAt: (date: string, time: string) => void;
+  onAddAt: (date: string, time: string, duration?: number) => void;
   onOpenBlock: (block: CalendarBlock) => void;
   onFocusBlock: (block: CalendarBlock) => void;
   onToggleBlock: (block: CalendarBlock) => void;
@@ -69,9 +71,6 @@ interface MovePreview {
 }
 
 export function CalendarView({ referenceDate, onChangeDate, blocks, categories, mode, onChangeMode, onAddAt, onOpenBlock, onFocusBlock, onToggleBlock, onDropBlock, onResizeBlock, compact = false }: CalendarViewProps) {
-  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 620;
-  const hourHeight = isMobileViewport ? 60 : 74;
-  const gridHeight = (END - START) / 60 * hourHeight;
   const [hovered, setHovered] = useState<string | null>(null);
   const [resizePreview, setResizePreview] = useState<{ id: string; duration: number } | null>(null);
   const resizeSession = useRef<ResizeSession | null>(null);
@@ -83,14 +82,124 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   const [externalPreview, setExternalPreview] = useState<{date: string; time: string} | null>(null);
   const [emptyHover, setEmptyHover] = useState<{date: string; time: string} | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const [rangePreview, setRangePreview] = useState<{date:string;start:number;end:number}|null>(null);
+  const rangeRef = useRef<{timer:ReturnType<typeof setTimeout>|null; date:string; lane:HTMLDivElement; y:number; x:number; startY:number; active:boolean; anchor:number}|null>(null);
+  const stopTouchScroll = useRef<(event:TouchEvent)=>void>((event)=>{ if(touchMoveRef.current?.active || rangeRef.current?.active) event.preventDefault(); });
+  useEffect(()=>{const block=stopTouchScroll.current;document.addEventListener('touchmove',block,{passive:false,capture:true});return()=>document.removeEventListener('touchmove',block,true)},[]);
+  const touchMoveRef = useRef<{timer: ReturnType<typeof setTimeout> | null; block: CalendarBlock; element: HTMLDivElement; startX:number; startY:number; x:number; y:number; active:boolean; offsetY:number} | null>(null);
 
   // Pełna doba pozostaje dostępna przez przewijanie, a początkowy widok zaczyna się rano.
   useEffect(() => {
     const scroller = calendarScrollRef.current;
     if (!scroller) return;
-    scroller.scrollTop = 7 * hourHeight - 120;
+    scroller.scrollTop = 0;
   }, [mode, compact]);
 
+
+  // iOS: short tap opens details; a normal swipe scrolls; long press enters drag mode.
+  const touchStartEvent = (event: React.TouchEvent<HTMLDivElement>, block: CalendarBlock) => {
+    if (event.touches.length !== 1 || (event.target as HTMLElement).closest('button, .event-resize-handle')) return;
+    const finger = event.touches[0];
+    const element = event.currentTarget;
+    const rect = element.getBoundingClientRect();
+    const session = { timer: null as ReturnType<typeof setTimeout> | null, block, element, startX:finger.clientX, startY:finger.clientY, x:finger.clientX, y:finger.clientY, active:false, offsetY:Math.max(0,Math.min(rect.height,finger.clientY-rect.top)) };
+    touchMoveRef.current = session;
+    session.timer = setTimeout(() => {
+      if (touchMoveRef.current !== session) return;
+      session.active = true;
+      suppressClick.current = true;
+      element.classList.add('calendar-event--moving');
+      calendarScrollRef.current?.classList.add('calendar-scroll--gesture');
+      const move: MoveSession = { pointerId:-1, block, startX:session.startX, startY:session.startY, lastX:session.x, lastY:session.y, grabOffsetY:session.offsetY, fromHandle:false, dragging:true };
+      moveSession.current = move;
+      updatePreview(move, session.x, session.y);
+      animationFrame.current = requestAnimationFrame(autoScroll);
+    }, 480);
+  };
+  const touchMoveEvent = (event: React.TouchEvent<HTMLDivElement>) => {
+    const session = touchMoveRef.current;
+    if (!session || !event.touches.length) return;
+    const finger = event.touches[0];
+    session.x = finger.clientX; session.y = finger.clientY;
+    if (!session.active) {
+      if (Math.hypot(session.x-session.startX,session.y-session.startY)>9) {
+        if (session.timer) clearTimeout(session.timer);
+        touchMoveRef.current=null;
+      }
+      return;
+    }
+    event.preventDefault();
+    if (moveSession.current) updatePreview(moveSession.current,session.x,session.y);
+  };
+  const touchEndEvent = (event: React.TouchEvent<HTMLDivElement>) => {
+    const session=touchMoveRef.current;
+    if (!session) return;
+    if (session.timer) clearTimeout(session.timer);
+    touchMoveRef.current=null;
+    if (!session.active) return;
+    event.preventDefault(); event.stopPropagation();
+    const touch = event.changedTouches[0];
+    const drop = moveSession.current && touch ? previewAt(moveSession.current,touch.clientX,touch.clientY) : null;
+    session.element.classList.remove('calendar-event--moving');
+    calendarScrollRef.current?.classList.remove('calendar-scroll--gesture');
+    moveSession.current=null; stopAutoScroll();setMovePreview(null);
+    if (drop && (drop.date!==session.block.date || drop.time!==session.block.time)) {
+      onDropBlock(session.block.kind,session.block.sourceId,drop.date,drop.time,session.block.occurrenceDate??session.block.date);
+    }
+    suppressClick.current=true;
+    setTimeout(()=>{suppressClick.current=false;},100);
+  };
+
+  const minuteAt = (lane:HTMLDivElement, y:number) => {
+    const rect=lane.getBoundingClientRect();
+    return Math.max(0,Math.min(END-15,Math.floor(((y-rect.top)/HOUR_HEIGHT*60)/15)*15));
+  };
+  const updateRange=(session:NonNullable<typeof rangeRef.current>,y:number)=>{
+    session.y=y;
+    const at=minuteAt(session.lane,y);
+    const start=Math.min(session.anchor,at);
+    const end=Math.min(END,Math.max(session.anchor,at)+15);
+    setRangePreview({date:session.date,start,end});
+  };
+  const rangeStart=(event:React.TouchEvent<HTMLDivElement>,date:string)=>{
+    if(event.touches.length!==1 || event.target!==event.currentTarget || touchMoveRef.current?.active) return;
+    const finger=event.touches[0],lane=event.currentTarget;
+    const session={timer:null as ReturnType<typeof setTimeout>|null,date,lane,y:finger.clientY,x:finger.clientX,startY:finger.clientY,active:false,anchor:minuteAt(lane,finger.clientY)};
+    rangeRef.current=session;
+    session.timer=setTimeout(()=>{
+      if(rangeRef.current!==session)return;
+      session.active=true;suppressClick.current=true;
+      calendarScrollRef.current?.classList.add('calendar-scroll--gesture');
+      updateRange(session,session.y);
+      stopAutoScroll();animationFrame.current=requestAnimationFrame(autoScroll);
+    },480);
+  };
+  const rangeMove=(event:React.TouchEvent<HTMLDivElement>)=>{
+    const session=rangeRef.current;if(!session||!event.touches.length)return;
+    const finger=event.touches[0];
+    if(!session.active){
+      if(Math.hypot(finger.clientY-session.startY,finger.clientX-session.x)>9){
+        if(session.timer)clearTimeout(session.timer);rangeRef.current=null;
+      }
+      return;
+    }
+    event.preventDefault();session.x=finger.clientX;updateRange(session,finger.clientY);
+  };
+  const rangeEnd=(event:React.TouchEvent<HTMLDivElement>)=>{
+    const session=rangeRef.current;if(!session)return;
+    if(session.timer)clearTimeout(session.timer);
+    rangeRef.current=null;stopAutoScroll();
+    calendarScrollRef.current?.classList.remove('calendar-scroll--gesture');
+    if(!session.active)return;
+    event.preventDefault();event.stopPropagation();
+    const y=event.changedTouches[0]?.clientY??session.y;
+    const at=minuteAt(session.lane,y);
+    const start=Math.min(session.anchor,at),end=Math.min(END,Math.max(session.anchor,at)+15);
+    setRangePreview(null);
+    onAddAt(session.date,timeFromMinutes(start),end-start);
+    suppressClick.current=true;
+    setTimeout(()=>{suppressClick.current=false;},150);
+  };
 
   // Pointer-based movement is independent of the browser's native HTML5 drag ghost.
   // Preserve the exact point at which the user grabbed the block, then snap its start to 15 min.
@@ -113,7 +222,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
     const date = lane.dataset.calendarDate;
     if (!date) return null;
     const rect = lane.getBoundingClientRect();
-    const start = START + Math.round(((clientY - rect.top - session.grabOffsetY) / hourHeight * 60) / 15) * 15;
+    const start = START + Math.round(((clientY - rect.top - session.grabOffsetY) / HOUR_HEIGHT * 60) / 15) * 15;
     const latest = Math.max(START, END - Math.max(15, session.block.duration));
     return {
       id: session.block.id, sourceId: session.block.sourceId, date, time: timeFromMinutes(Math.max(START, Math.min(latest, start))),
@@ -135,9 +244,10 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   const autoScroll = () => {
     const session = moveSession.current;
     const scroller = calendarScrollRef.current;
-    if (!session?.dragging || !scroller) { animationFrame.current = null; return; }
+    if (!scroller || (!session?.dragging && !rangeRef.current?.active)) { animationFrame.current = null; return; }
     const rect = scroller.getBoundingClientRect();
-    const { lastX, lastY } = session;
+    const lastX = session?.lastX ?? rangeRef.current!.x;
+    const lastY = session?.lastY ?? rangeRef.current!.y;
     let velocity = 0;
     if (lastX >= rect.left && lastX <= rect.right && lastY >= rect.top - 18 && lastY <= rect.bottom + 18) {
       if (lastY < rect.top + 52) velocity = -Math.min(17, Math.max(4, (rect.top + 52 - lastY) / 3));
@@ -146,7 +256,10 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
     if (velocity) {
       const previousScroll = scroller.scrollTop;
       scroller.scrollTop += velocity;
-      if (scroller.scrollTop !== previousScroll) updatePreview(session, lastX, lastY);
+      if (scroller.scrollTop !== previousScroll) {
+        if(session) updatePreview(session,lastX,lastY);
+        else if(rangeRef.current?.active) updateRange(rangeRef.current,lastY);
+      }
     }
     animationFrame.current = requestAnimationFrame(autoScroll);
   };
@@ -156,7 +269,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
     const target = event.target as HTMLElement;
     // Na iOS palec na treści wydarzenia przewija pionowo kalendarz.
     // Przenoszenie dotykiem uruchamiamy wyłącznie z dedykowanego uchwytu.
-    if (event.pointerType === 'touch' && !target.closest('.event-move-handle')) return;
+    if (event.pointerType === 'touch') return;
     if (target.closest('button:not(.event-move-handle), .event-resize-handle')) return;
     const rect = event.currentTarget.getBoundingClientRect();
     moveSession.current = {
@@ -209,7 +322,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
 
   // Zmiana wielkości odbywa się co 15 minut, zawsze w granicach siatki (do 23:00).
   const proposedDuration = (session: ResizeSession, clientY: number): number => {
-    const deltaSteps = Math.round((clientY - session.startY) / hourHeight * 4);
+    const deltaSteps = Math.round((clientY - session.startY) / HOUR_HEIGHT * 4);
     const maxDuration = END - minuteOfDay(session.block.time);
     return Math.max(15, Math.min(maxDuration, session.block.duration + deltaSteps * 15));
   };
@@ -257,7 +370,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   const getTimeFromPosition = (event: React.DragEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>, element: HTMLDivElement): string => {
     const rect = element.getBoundingClientRect();
     const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
-    const min = Math.min(END - 15, START + Math.round((y / hourHeight * 60) / 15) * 15);
+    const min = Math.min(END - 15, START + Math.round((y / HOUR_HEIGHT * 60) / 15) * 15);
     return timeFromMinutes(min);
   };
 
@@ -329,8 +442,8 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
             ))}
           </div>
           <div className="calendar-grid" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
-            <div className="time-gutter" style={{ height: gridHeight }}>
-              {HOURS.map((h, i) => <span className="time-label" style={{ top: i * hourHeight }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
+            <div className="time-gutter" style={{ height: GRID_HEIGHT }}>
+              {HOURS.map((h, i) => <span className="time-label" style={{ top: i * HOUR_HEIGHT }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
             </div>
             {dates.map(d => {
               const todaysBlocks = blocks.filter(b => b.date === d && minuteOfDay(b.time) >= START && minuteOfDay(b.time) < END);
@@ -345,7 +458,11 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                 <div
                   className={`day-lane ${d === today ? 'day-lane--today' : ''} ${hovered === d || movePreview?.date === d ? 'day-lane--hover' : ''}`}
                   data-calendar-date={d}
-                  style={{ height: gridHeight, backgroundSize: `100% ${hourHeight}px` }} key={d}
+                  style={{ height: GRID_HEIGHT, backgroundSize: `100% ${HOUR_HEIGHT}px` }} key={d}
+                  onTouchStart={e=>rangeStart(e,d)}
+                  onTouchMove={rangeMove}
+                  onTouchEnd={rangeEnd}
+                  onTouchCancel={e=>{const session=rangeRef.current;if(session?.timer)clearTimeout(session.timer);rangeRef.current=null;setRangePreview(null);stopAutoScroll();calendarScrollRef.current?.classList.remove('calendar-scroll--gesture');}}
                   onDragOver={e => {
                     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
                     setEmptyHover(null);
@@ -382,13 +499,13 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                   title="Kliknij puste miejsce, aby dodać zadanie na wybraną godzinę"
                 >
                   {d === today && nowMinutes >= START && nowMinutes < END && (
-                    <div className="now-line" style={{ top: ((nowMinutes - START) / 60) * hourHeight }}><span /></div>
+                    <div className="now-line" style={{ top: ((nowMinutes - START) / 60) * HOUR_HEIGHT }}><span /></div>
                   )}
                   {todaysBlocks.map(block => {
                     const style = categories[block.category] ?? categories.unpaid;
                     const displayDuration = resizePreview?.id === block.id ? resizePreview.duration : block.duration;
-                    const top = ((minuteOfDay(block.time) - START) / 60) * hourHeight;
-                    const height = Math.max(32, Math.min(displayDuration, END - minuteOfDay(block.time)) / 60 * hourHeight - 3);
+                    const top = ((minuteOfDay(block.time) - START) / 60) * HOUR_HEIGHT;
+                    const height = Math.max(32, Math.min(displayDuration, END - minuteOfDay(block.time)) / 60 * HOUR_HEIGHT - 3);
                     const placement = eventPositions.get(block.id);
                     const crowded = (placement?.columns ?? 1) > 1;
                     return (
@@ -396,6 +513,10 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                         className={`calendar-event ${block.done ? 'calendar-event--done' : ''} ${height < 62 ? 'calendar-event--small' : ''} ${resizePreview?.id === block.id ? 'calendar-event--resizing' : ''} ${movePreview?.id === block.id ? 'calendar-event--moving' : ''} ${crowded ? 'calendar-event--overlap' : ''}`}
                         draggable={false}
                         onDragStart={e => e.preventDefault()}
+                        onTouchStart={e => touchStartEvent(e, block)}
+                        onTouchMove={touchMoveEvent}
+                        onTouchEnd={touchEndEvent}
+                        onTouchCancel={touchEndEvent}
                         onPointerDown={e => startMove(e, block)}
                         onPointerMove={moveBlock}
                         onPointerUp={e => finishMove(e)}
@@ -429,7 +550,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                         <div className="event-body">
                           <TaskVisual icon={block.icon} image={block.image} category={block.category} categories={categories} className="event-visual" size="small" />
                           <div className="event-text"><strong>{block.title}</strong><small>{block.time} · {displayDuration} min</small></div>
-                          {block.kind === 'task' && <button
+                          {block.kind === 'task' && !block.done && <button
                             type="button"
                             className="event-focus"
                             aria-label={`Rozpocznij Focus: ${block.title}`}
@@ -480,14 +601,17 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                     );
                   })}
                   {emptyHover?.date === d && !movePreview && !externalPreview && (
-                    <div className="calendar-empty-hint" style={{ top: ((minuteOfDay(emptyHover.time) - START) / 60) * hourHeight }}>
+                    <div className="calendar-empty-hint" style={{ top: ((minuteOfDay(emptyHover.time) - START) / 60) * HOUR_HEIGHT }}>
                       <Plus size={13} /> {emptyHover.time} · Dodaj zadanie
                     </div>
                   )}
+                  {rangePreview?.date===d && <div className="calendar-range-preview" style={{top:(rangePreview.start/60)*HOUR_HEIGHT,height:((rangePreview.end-rangePreview.start)/60)*HOUR_HEIGHT}}>
+                    <span>{timeFromMinutes(rangePreview.start)} – {timeFromMinutes(rangePreview.end)} · {rangePreview.end-rangePreview.start} min</span>
+                  </div>}
                   {movePreview?.date === d && (
                     <div className="calendar-move-preview" style={{
-                      top: ((minuteOfDay(movePreview.time) - START) / 60) * hourHeight,
-                      height: Math.max(32, movePreview.duration / 60 * hourHeight - 3),
+                      top: ((minuteOfDay(movePreview.time) - START) / 60) * HOUR_HEIGHT,
+                      height: Math.max(32, movePreview.duration / 60 * HOUR_HEIGHT - 3),
                       '--event-color': categories[movePreview.category]?.color ?? '#7061ee',
                     } as React.CSSProperties}>
                       <strong>{movePreview.title}</strong>
@@ -495,7 +619,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                     </div>
                   )}
                   {externalPreview?.date === d && !movePreview && (
-                    <div className="calendar-drop-time" style={{ top: ((minuteOfDay(externalPreview.time) - START) / 60) * hourHeight }}>
+                    <div className="calendar-drop-time" style={{ top: ((minuteOfDay(externalPreview.time) - START) / 60) * HOUR_HEIGHT }}>
                       <span>{externalPreview.time}</span>
                     </div>
                   )}
