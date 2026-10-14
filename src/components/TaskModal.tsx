@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Clock3, FolderKanban, ImagePlus, Link2, Plus, Play, Timer, Trash2, X } from 'lucide-react';
+import { Camera, Check, ChevronDown, Clock3, FolderKanban, ImagePlus, Link2, Plus, Play, Timer, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -30,6 +30,59 @@ const EMPTY: Omit<Task, 'id' | 'createdAt'> = {
   title: '', description: '', category: 'potential', icon: 'target',
   image: undefined, date: null, time: null, duration: 45, done: false, xp: 40,
 };
+
+type PickerOption = { value: string; label: string };
+
+function ProjectPicker({ label, value, options, disabled = false, onChange }: {
+  label: string;
+  value: string;
+  options: PickerOption[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = options.find(option => option.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className={`project-select-field momentum-project-picker ${open ? 'is-open' : ''}`} ref={rootRef}>
+      <span className="momentum-project-picker-label">{label}</span>
+      <button type="button" className="momentum-project-picker-trigger" disabled={disabled}
+        aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen(current => !current)}>
+        <span className="momentum-project-picker-current">{selected?.label ?? 'Wybierz'}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {open && <div className="momentum-project-picker-list" role="listbox" aria-label={label}>
+        {options.map(option => (
+          <button type="button" key={option.value || '__none'} role="option"
+            aria-selected={option.value === value}
+            className={`momentum-project-picker-option ${option.value === value ? 'is-selected' : ''}`}
+            onClick={() => { onChange(option.value); setOpen(false); }}>
+            <span>{option.label}</span>
+            {option.value === value && <Check size={16} aria-hidden="true" />}
+          </button>
+        ))}
+      </div>}
+    </div>
+  );
+}
 
 export function TaskModal({ task, initialDate, initialTime, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, onFocus, onSave, onDelete, onClose }: Props) {
   const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null, projectId: initialProjectId ?? null, milestoneId: initialMilestoneId ?? null, subtasks: [] });
@@ -66,8 +119,12 @@ export function TaskModal({ task, initialDate, initialTime, initialProjectId, in
           <div className="field"><span>Kategoria finansowa</span><CategoryChoices categories={categories} value={form.category} onChange={v=>change('category',v)}/></div>
           <div className="field"><span><FolderKanban size={14}/> Projekt i kamień milowy</span>
             <div className="two-fields project-task-links">
-              <label className="project-select-field"><span>Projekt</span><select value={form.projectId ?? ''} onChange={e=>setForm(current=>({...current,projectId:e.target.value||null,milestoneId:null}))}><option value="">Bez projektu</option>{projects.filter(project=>!project.archived||project.id===form.projectId).map(project=><option key={project.id} value={project.id}>{project.title}</option>)}</select></label>
-              <label className="project-select-field"><span>Etap</span><select disabled={!selectedProject} value={form.milestoneId ?? ''} onChange={e=>change('milestoneId',e.target.value||null)}><option value="">Bez kamienia milowego</option>{selectedProject?.milestones.map(milestone=><option value={milestone.id} key={milestone.id}>{milestone.title}</option>)}</select></label>
+              <ProjectPicker label="Projekt" value={form.projectId ?? ''}
+                options={[{ value: '', label: 'Bez projektu' }, ...projects.filter(project => !project.archived || project.id === form.projectId).map(project => ({ value: project.id, label: project.title }))]}
+                onChange={projectId => setForm(current => ({ ...current, projectId: projectId || null, milestoneId: null }))} />
+              <ProjectPicker label="Etap" disabled={!selectedProject} value={form.milestoneId ?? ''}
+                options={[{ value: '', label: 'Bez kamienia milowego' }, ...(selectedProject?.milestones ?? []).map(milestone => ({ value: milestone.id, label: milestone.title }))]}
+                onChange={milestoneId => change('milestoneId', milestoneId || null)} />
             </div>
             {selectedProject&&<small className="project-form-hint"><Link2 size={12}/> Ukończenie zadania automatycznie zwiększy postęp projektu.</small>}
           </div>
