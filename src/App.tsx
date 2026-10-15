@@ -554,7 +554,7 @@ function App() {
     }
     window.scrollTo(0, 0);
   }
-  function addPreset(title:string,category:CategoryKey,icon:IconKey,duration:number,xp:number){
+  function addPreset(title:string,category:CategoryKey,icon:IconKey,duration:number,_xp:number){
     saveTask({id:crypto.randomUUID(),title,description:'',category,icon,date:null,time:null,duration,xp:automaticXp(duration,category),done:false,createdAt:new Date().toISOString()});
   }
 

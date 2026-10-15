@@ -462,7 +462,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                   onTouchStart={e=>rangeStart(e,d)}
                   onTouchMove={rangeMove}
                   onTouchEnd={rangeEnd}
-                  onTouchCancel={e=>{const session=rangeRef.current;if(session?.timer)clearTimeout(session.timer);rangeRef.current=null;setRangePreview(null);stopAutoScroll();calendarScrollRef.current?.classList.remove('calendar-scroll--gesture');}}
+                  onTouchCancel={()=>{const session=rangeRef.current;if(session?.timer)clearTimeout(session.timer);rangeRef.current=null;setRangePreview(null);stopAutoScroll();calendarScrollRef.current?.classList.remove('calendar-scroll--gesture');}}
                   onDragOver={e => {
                     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
                     setEmptyHover(null);
