@@ -236,3 +236,34 @@ export async function syncOfflineSnapshot(): Promise<void> {
 
 /** Wait for all queued writes (testing and controlled shutdown only). */
 export async function flushOfflineWrites(): Promise<void> { await pendingWrites; }
+
+/** Read-only verification. Completes pending writes before comparing the in-memory
+ * snapshot with the independently read IndexedDB state. Does not alter user data. */
+export interface OfflineIntegrityReport {
+  status: OfflineDatabaseStatus;
+  consistent: boolean;
+  dataValid: boolean;
+  keysChecked: number;
+  mismatchedKeys: number;
+}
+
+export async function verifyOfflineStorage(): Promise<OfflineIntegrityReport> {
+  await flushOfflineWrites();
+  const expected = getMomentumSnapshot();
+  const dataValid = validMainState(expected[MAIN_KEY]);
+  if (status !== 'ready') return {
+    status, consistent: false, dataValid,
+    keysChecked: Object.keys(expected).length, mismatchedKeys: 0,
+  };
+  try {
+    const stored = await readDatabaseSnapshot();
+    const keys = new Set([...Object.keys(expected), ...Object.keys(stored)]);
+    const mismatchedKeys = [...keys].filter(key => expected[key] !== stored[key]).length;
+    return { status, consistent: mismatchedKeys === 0 && dataValid, dataValid,
+      keysChecked: keys.size, mismatchedKeys };
+  } catch (error) {
+    console.warn('[Momentum] Cannot verify IndexedDB:', error);
+    return { status: 'local-only', consistent: false, dataValid,
+      keysChecked: Object.keys(expected).length, mismatchedKeys: 0 };
+  }
+}
