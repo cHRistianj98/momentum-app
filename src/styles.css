@@ -2861,3 +2861,45 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .backup-health { padding:12px; }
   .backup-health > .btn { width:100%; justify-content:center; }
 }
+
+/* Momentum PWA etap 5 — aktualizacje kontrolowane przez użytkownika. */
+.momentum-update-notice {
+  position: fixed;
+  z-index: 85;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, calc(100vw - 28px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 15px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e9e8f1);
+  border-radius: 18px;
+  box-shadow: 0 20px 54px rgba(28, 24, 63, .23);
+  color: var(--text, #27243f);
+}
+.momentum-update-info { display: grid; gap: 4px; flex: 1 1 175px; min-width: 0; }
+.momentum-update-info strong { font-size: 14px; line-height: 1.35; }
+.momentum-update-info small { font-size: 11px; line-height: 1.45; color: var(--muted, #77758e); }
+.momentum-update-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.momentum-update-actions button {
+  cursor: pointer; border: 0; border-radius: 11px; min-height: 39px;
+  padding: 9px 12px; font: inherit; font-size: 12px; font-weight: 700;
+}
+.momentum-update-later { background: var(--surface-soft, #f3f1fa); color: var(--text, #27243f); }
+.momentum-update-apply { background: var(--primary, #745ef2); color: #fff; }
+.momentum-update-actions button:disabled { cursor: wait; opacity: .65; }
+@media (max-width: 620px) {
+  .momentum-update-notice {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 22px);
+    padding: 12px 13px;
+    border-radius: 16px;
+  }
+  .momentum-update-actions { width: 100%; }
+  .momentum-update-actions button { flex: 1; }
+}
