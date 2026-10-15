@@ -17,6 +17,8 @@ import { DataBackup } from './components/DataBackup';
 import { useFocusTimer } from './lib/useFocusTimer';
 import { formatFocusClock, type FocusRecord } from './lib/focus';
 import { emptyLog, RoutineEditor, routineOccurs, RoutineSession } from './components/RoutineModal';
+import { checkedWithParentPropagation, toggleRoutineStepBranch } from './lib/routineHierarchy';
+import type { RoutineStep } from './types';
 import { TaskIcon } from './lib/icons';
 import { CategoryBadge, TaskVisual } from './components/VisualIdentity';
 import { formatDuration, mondayOf, monthTitle, parseDate, shiftDate, todayKey } from './lib/date';
@@ -403,7 +405,14 @@ function App() {
     setToast(`Przeniesiono zadanie na ${plannedTime}`);
   }
   function saveRoutine(routine: Routine) {
-    setData(prev=>({...prev,routines:prev.routines.some(r=>r.id===routine.id)?prev.routines.map(r=>r.id===routine.id?routine:r):[...prev.routines,routine]}));
+    setData(prev=>({
+      ...prev,
+      routines:prev.routines.some(r=>r.id===routine.id)?prev.routines.map(r=>r.id===routine.id?routine:r):[...prev.routines,routine],
+      routineLogs:Object.fromEntries(Object.entries(prev.routineLogs).map(([key,log])=>
+        key.startsWith(`${routine.id}:`)
+          ? [key,{...log,checkedStepIds:checkedWithParentPropagation(routine.steps,log.checkedStepIds)}]
+          : [key,log])),
+    }));
     setEditorDialog(null);setRoutineDialog(null);setToast('Rutyna zapisana');
   }
   function deleteRoutine(id: string) {
@@ -415,7 +424,19 @@ function App() {
     setData(prev=>({...prev,routineLogs:{...prev.routineLogs,[key]:fn(prev.routineLogs[key]??emptyLog(key))}}));
   }
   function toggleRoutineStep(id: string,date: string,stepId: string) {
-    updateRoutineLog(id,date,log=>({...log,checkedStepIds:log.checkedStepIds.includes(stepId)?log.checkedStepIds.filter(v=>v!==stepId):[...log.checkedStepIds,stepId]}));
+    const routine = data.routines.find(r=>r.id===id);
+    if (!routine) return;
+    updateRoutineLog(id,date,log=>({...log,checkedStepIds:toggleRoutineStepBranch(routine.steps, log.checkedStepIds, stepId)}));
+  }
+  function changeRoutineSteps(id: string, steps: RoutineStep[]) {
+    setData(prev => ({
+      ...prev,
+      routines: prev.routines.map(r=>r.id===id?{...r,steps}:r),
+      routineLogs: Object.fromEntries(Object.entries(prev.routineLogs).map(([key,log])=>
+        key.startsWith(`${id}:`)
+          ? [key,{...log,checkedStepIds:checkedWithParentPropagation(steps,log.checkedStepIds)}]
+          : [key,log])),
+    }));
   }
   function completeRoutine(id: string,date: string) {
     const routine=data.routines.find(r=>r.id===id);if(!routine)return;
@@ -601,7 +622,7 @@ function App() {
       onOnlyThis={()=>confirmRoutineMove('single')} onAll={()=>confirmRoutineMove('all')} onCancel={()=>setPendingRoutineMove(null)}/>}
     {pendingResize&&<ResizeConfirmModal title={pendingResize.block.title} date={pendingResize.block.date} time={pendingResize.block.time} previousDuration={pendingResize.block.duration} nextDuration={pendingResize.nextDuration} onOnlyThis={()=>confirmResize('single')} onAll={()=>confirmResize('all')} onCancel={()=>setPendingResize(null)}/>}
     {taskDialog&&<TaskModal task={taskDialog.id?data.tasks.find(t=>t.id===taskDialog.id):undefined} initialDate={taskDialog.date} initialTime={taskDialog.time} initialProjectId={taskDialog.projectId} initialMilestoneId={taskDialog.milestoneId} projects={data.projects} categories={categories} focusSeconds={focus.history.filter(record=>record.taskId===taskDialog.id).reduce((sum,record)=>sum+record.focusSeconds,0)} onFocus={startFocus} onSave={saveTask} onDelete={deleteTask} onClose={()=>setTaskDialog(null)}/>}
-    {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} duration={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).durationOverride ?? r.duration} displayTime={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,routineDialog.occurrenceDate ?? routineDialog.date,step)} onComplete={()=>completeRoutine(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,routineDialog.occurrenceDate ?? routineDialog.date,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onDelete={()=>deleteRoutine(r.id)} onClose={()=>setRoutineDialog(null)}/>:null;})()}
+    {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} duration={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).durationOverride ?? r.duration} displayTime={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,routineDialog.occurrenceDate ?? routineDialog.date,step)} onChangeSteps={steps=>changeRoutineSteps(r.id,steps)} onComplete={()=>completeRoutine(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,routineDialog.occurrenceDate ?? routineDialog.date,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onDelete={()=>deleteRoutine(r.id)} onClose={()=>setRoutineDialog(null)}/>:null;})()}
     {editorDialog&&<RoutineEditor routine={editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined} categories={categories} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}/>}
     {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Twoje kolory i styl</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><DataBackup data={data}/><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){void eraseStoredData().then(()=>window.location.reload()).catch(()=>window.alert('Nie udało się zresetować danych. Spróbuj ponownie.'));}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>{getOfflineDatabaseStatus() === 'ready' ? 'Dane lokalne: IndexedDB + kopia zgodności. Zapisuj backup JSON poza telefonem.' : 'Zapis lokalny: localStorage. IndexedDB niedostępne — zrób backup JSON.'}</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
     {weeklyNudge && <div className="wr-notice" role="dialog" aria-label="Tygodniowe podsumowanie">

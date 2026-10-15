@@ -32,6 +32,8 @@ export interface Task {
 export interface RoutineStep {
   id: string;
   title: string;
+  /** Optional ID of the parent step; only one level of nesting. */
+  parentId?: string;
 }
 
 export interface Routine {

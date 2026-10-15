@@ -2903,3 +2903,26 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .momentum-update-actions { width: 100%; }
   .momentum-update-actions button { flex: 1; }
 }
+
+/* Momentum: nested routine steps — one hierarchy level, touch-first. */
+.routine-gesture-note { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; margin: 6px 0 12px; }
+.routine-step--child { margin-left: 24px; width: calc(100% - 24px); border-left: 2px solid var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface-2)); }
+.routine-step--child .step-counter { width: 26px; height: 26px; font-size: 15px; }
+.routine-step-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.routine-step--child .routine-step-title { font-size: 11px; }
+.routine-step--dragging { outline: 2px dashed var(--primary); outline-offset: 2px; box-shadow: 0 6px 18px rgba(100,90,220,.13); }
+.routine-step--drop-parent { border-color: var(--primary) !important; background: color-mix(in srgb, var(--primary) 12%, var(--surface-2)) !important; }
+.routine-gesture-active { user-select: none; -webkit-user-select: none; }
+.routine-drag-hint { display: block; border-radius: 10px; background: color-mix(in srgb, var(--primary) 11%, var(--surface)); color: var(--primary); padding: 9px 12px; margin: 6px 0 15px; font-size: 11px; font-weight: 750; }
+.editor-step { min-width: 0; }
+.editor-step--child { margin-left: 24px; padding-left: 8px; border-left: 2px solid var(--primary); }
+.editor-step .editor-step-drag { width: 30px; height: 36px; flex: 0 0 30px; display: grid; place-items: center; background: var(--surface-3); color: var(--subtext); border-radius: 9px; cursor: grab; touch-action: none; }
+.editor-step input { min-width: 0; }
+@media (max-width: 620px) {
+  .routine-step--child { margin-left: 18px; width: calc(100% - 18px); }
+  .editor-step--child { margin-left: 18px; }
+  .editor-step .editor-step-drag { min-width: 30px; }
+}
+
+.routine-step { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.editor-step .editor-step-nest { width: 27px; height: 34px; flex: 0 0 27px; display: grid; place-items: center; border-radius: 8px; color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
