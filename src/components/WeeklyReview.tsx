@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { readMomentumKey, saveMomentumKey } from '../lib/offlineDatabase';
 import { ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, Flame, Info, Lightbulb, ListChecks, PencilLine, ShieldCheck, Sparkles, TrendingUp, Trophy, Wallet } from 'lucide-react';
 import { fullDate, mondayOf, parseDate, shiftDate, shortWeekday, todayKey } from '../lib/date';
 import { REALITY_STORAGE_KEY, parseActualOverrides } from '../lib/planReality';
@@ -13,7 +14,7 @@ type PlanningState = { checks: Record<string, boolean>; notes: Record<string, st
 const emptyPlanning: PlanningState = { checks: {}, notes: {} };
 function loadPlanning(): PlanningState {
   try {
-    const data: unknown = JSON.parse(localStorage.getItem(PLAN_KEY) || 'null');
+    const data: unknown = JSON.parse(readMomentumKey(PLAN_KEY) || 'null');
     if (!data || typeof data !== 'object' || Array.isArray(data)) return emptyPlanning;
     const parsed = data as Partial<PlanningState>;
     return { checks: parsed.checks && typeof parsed.checks === 'object' ? parsed.checks : {}, notes: parsed.notes && typeof parsed.notes === 'object' ? parsed.notes : {} };
@@ -34,7 +35,7 @@ export function WeeklyReview({ data, focusHistory, onOpenNextWeek }: {data: AppD
   const [weekStart, setWeekStart] = useState(() => mostRecentReviewMonday());
   const [plan, setPlan] = useState<PlanningState>(loadPlanning);
   const [overrides] = useState(() => {
-    try { return parseActualOverrides(window.localStorage.getItem(REALITY_STORAGE_KEY)); }
+    try { return parseActualOverrides(readMomentumKey(REALITY_STORAGE_KEY)); }
     catch { return {}; }
   });
   const today = todayKey();
@@ -55,7 +56,7 @@ export function WeeklyReview({ data, focusHistory, onOpenNextWeek }: {data: AppD
     if (next <= maxStart) setWeekStart(next);
   };
   useEffect(() => {
-    try { window.localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); }
+    try { saveMomentumKey(PLAN_KEY, JSON.stringify(plan)); }
     catch { /* Przegląd pozostaje dostępny także gdy zapis lokalny jest zablokowany. */ }
   }, [plan]);
 

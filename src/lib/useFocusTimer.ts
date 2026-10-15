@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
+import { readMomentumKey, saveMomentumKey } from './offlineDatabase';
 import {
   FOCUS_STORAGE_KEY, changePhase, createFocusSession, finishFocusSession, readFocusStore, snapshot,
   type FocusPhase, type FocusRecord,
 } from './focus';
 
 export function useFocusTimer() {
-  const [store, setStore] = useState(() => readFocusStore(window.localStorage.getItem(FOCUS_STORAGE_KEY)));
+  const [store, setStore] = useState(() => readFocusStore(readMomentumKey(FOCUS_STORAGE_KEY)));
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    try { window.localStorage.setItem(FOCUS_STORAGE_KEY, JSON.stringify(store)); }
+    try { saveMomentumKey(FOCUS_STORAGE_KEY, JSON.stringify(store)); }
     catch (error) { console.warn('Nie można zapisać sesji Focus:', error); }
   }, [store]);
 

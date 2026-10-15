@@ -22,6 +22,7 @@ import { CategoryBadge, TaskVisual } from './components/VisualIdentity';
 import { formatDuration, mondayOf, monthTitle, parseDate, shiftDate, todayKey } from './lib/date';
 import { TASK_PRESETS } from './lib/seed';
 import { eraseStoredData, resolveCategories, useAppData } from './lib/storage';
+import { getOfflineDatabaseStatus, readMomentumKey, saveMomentumKey } from './lib/offlineDatabase';
 import type { CategoryKey, IconKey, Page, Routine, Task, Project } from './types';
 
 const NAV: { id: Page; label: string; icon: typeof CalendarDays }[] = [
@@ -183,7 +184,7 @@ function App() {
   const [activeAchievement, setActiveAchievement] = useState<AchievementView | null>(null);
   const [earnedAchievementIds, setEarnedAchievementIds] = useState<string[]>(() => {
     try {
-      const parsed: unknown = JSON.parse(window.localStorage.getItem('momentum.earned-achievements') ?? '[]');
+      const parsed: unknown = JSON.parse(readMomentumKey('momentum.earned-achievements') ?? '[]');
       return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
     } catch { return []; }
   });
@@ -197,8 +198,8 @@ function App() {
       if (parseDate(localToday).getDay() !== 0) return;
       const key = `momentum.weekly-notice:${mondayOf(localToday)}`;
       try {
-        if (window.localStorage.getItem(key) === '1') return;
-        window.localStorage.setItem(key, '1');
+        if (readMomentumKey(key) === '1') return;
+        saveMomentumKey(key, '1');
       } catch { /* localStorage może być wyłączony */ }
       setWeeklyNudge(true);
     };
@@ -271,7 +272,7 @@ function App() {
     if (newlyEarned.length) setEarnedAchievementIds(current => [...new Set([...current, ...newlyEarned])]);
   }, [computedAchievements, earnedAchievementIds]);
   useEffect(() => {
-    try { window.localStorage.setItem('momentum.earned-achievements', JSON.stringify(earnedAchievementIds)); }
+    try { saveMomentumKey('momentum.earned-achievements', JSON.stringify(earnedAchievementIds)); }
     catch { /* localStorage unavailable or full: keep achievements in memory */ }
   }, [earnedAchievementIds]);
   const currentRank = useMemo(() => resolveRank(totalXp), [totalXp]);
@@ -289,21 +290,21 @@ function App() {
     const migrationKey = 'momentum.achievements.catalog.v042';
     let seenIds: string[] = [];
     try {
-      const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey) ?? '[]');
+      const parsed: unknown = JSON.parse(readMomentumKey(storageKey) ?? '[]');
       seenIds = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
     } catch { /* corrupted notification history, not application data */ }
     const seen = new Set<string>(seenIds);
-    if (window.localStorage.getItem(migrationKey) !== '1') {
+    if (readMomentumKey(migrationKey) !== '1') {
       // Existing achievements are shown as earned but do not flood the screen on upgrade.
       achievements.filter(a => a.unlocked).forEach(a => seen.add(a.id));
-      window.localStorage.setItem(storageKey, JSON.stringify([...seen]));
-      window.localStorage.setItem(migrationKey, '1');
+      saveMomentumKey(storageKey, JSON.stringify([...seen]));
+      saveMomentumKey(migrationKey, '1');
       return;
     }
     const fresh = achievements.filter(achievement => achievement.unlocked && !seen.has(achievement.id));
     if (!fresh.length) return;
     fresh.forEach(achievement => seen.add(achievement.id));
-    window.localStorage.setItem(storageKey, JSON.stringify(Array.from(seen)));
+    saveMomentumKey(storageKey, JSON.stringify(Array.from(seen)));
     setAchievementQueue(prev => {
       const merged = [...prev];
       fresh.forEach(achievement => {
@@ -602,7 +603,7 @@ function App() {
     {taskDialog&&<TaskModal task={taskDialog.id?data.tasks.find(t=>t.id===taskDialog.id):undefined} initialDate={taskDialog.date} initialTime={taskDialog.time} initialProjectId={taskDialog.projectId} initialMilestoneId={taskDialog.milestoneId} projects={data.projects} categories={categories} focusSeconds={focus.history.filter(record=>record.taskId===taskDialog.id).reduce((sum,record)=>sum+record.focusSeconds,0)} onFocus={startFocus} onSave={saveTask} onDelete={deleteTask} onClose={()=>setTaskDialog(null)}/>}
     {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} duration={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).durationOverride ?? r.duration} displayTime={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,routineDialog.occurrenceDate ?? routineDialog.date,step)} onComplete={()=>completeRoutine(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,routineDialog.occurrenceDate ?? routineDialog.date,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onDelete={()=>deleteRoutine(r.id)} onClose={()=>setRoutineDialog(null)}/>:null;})()}
     {editorDialog&&<RoutineEditor routine={editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined} categories={categories} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}/>}
-    {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Twoje kolory i styl</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><DataBackup data={data}/><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){eraseStoredData();window.location.reload();}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>Dane zapisują się tylko w pamięci tej przeglądarki (localStorage).</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
+    {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Twoje kolory i styl</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><DataBackup data={data}/><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){void eraseStoredData().then(()=>window.location.reload()).catch(()=>window.alert('Nie udało się zresetować danych. Spróbuj ponownie.'));}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>{getOfflineDatabaseStatus() === 'ready' ? 'Dane lokalne: IndexedDB + kopia zgodności. Zapisuj backup JSON poza telefonem.' : 'Zapis lokalny: localStorage. IndexedDB niedostępne — zrób backup JSON.'}</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
     {weeklyNudge && <div className="wr-notice" role="dialog" aria-label="Tygodniowe podsumowanie">
       <span className="wr-notice-icon"><Trophy size={22}/></span>
       <div><span className="eyebrow eyebrow--indigo">NIEDZIELNY PRZEGLĄD</span><strong>Twój tydzień w pigułce</strong><small>Postępy, rutyny, czas i pomysły na następne dni.</small><button type="button" onClick={()=>{setWeeklyNudge(false);goPage('review');}}>Zobacz raport <ArrowRight size={14}/></button></div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { readMomentumKey, saveMomentumKey } from '../lib/offlineDatabase';
 import { Activity, CalendarDays, CheckCircle2, Clock3, Info, PencilLine, RotateCcw, Target, TrendingUp } from 'lucide-react';
 import { fullDate, parseDate, shiftDate, todayKey } from '../lib/date';
 import { buildDailyReality, parseActualOverrides, REALITY_STORAGE_KEY, summarizeReality, type ActualOverrides, type RealityItem } from '../lib/planReality';
@@ -38,11 +39,11 @@ export function PlanReality({ data, focusHistory }: { data: AppData; focusHistor
   const [period, setPeriod] = useState<'week' | 'month'>('week');
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const [overrides, setOverrides] = useState<ActualOverrides>(() => {
-    try { return parseActualOverrides(window.localStorage.getItem(REALITY_STORAGE_KEY)); }
+    try { return parseActualOverrides(readMomentumKey(REALITY_STORAGE_KEY)); }
     catch { return {}; }
   });
   useEffect(() => {
-    try { window.localStorage.setItem(REALITY_STORAGE_KEY, JSON.stringify(overrides)); }
+    try { saveMomentumKey(REALITY_STORAGE_KEY, JSON.stringify(overrides)); }
     catch (error) { console.warn('Nie udało się zapisać rzeczywistych czasów:', error); }
   }, [overrides]);
 

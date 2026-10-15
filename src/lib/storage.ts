@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createSeed } from './seed';
+import { readMomentumKey, removeMomentumKey, saveMomentumKey, syncOfflineSnapshot } from './offlineDatabase';
 import type { AppData, CategoryConfig, CategoryKey, Routine, Task, Project } from '../types';
 
 const STORAGE_KEY = 'momentum.v1';
@@ -83,7 +84,7 @@ export function migrateStoredData(value: unknown): AppData | null {
 
 function loadData(): AppData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readMomentumKey(STORAGE_KEY);
     if (raw) {
       const migrated = migrateStoredData(JSON.parse(raw));
       if (migrated) return migrated;
@@ -98,16 +99,17 @@ function loadData(): AppData {
 export function useAppData() {
   const [data, setData] = useState<AppData>(loadData);
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    try { saveMomentumKey(STORAGE_KEY, JSON.stringify(data)); }
     catch (error) { console.warn('Nie udało się zapisać danych (możliwy limit localStorage):', error); }
   }, [data]);
   useEffect(() => { document.documentElement.dataset.theme = data.theme; }, [data.theme]);
   return [data, setData] as const;
 }
 
-export function eraseStoredData() {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem('momentum.earned-achievements');
-  localStorage.removeItem('momentum.seen-achievements');
-  localStorage.removeItem('momentum.achievements.catalog.v042');
+export async function eraseStoredData(): Promise<void> {
+  removeMomentumKey(STORAGE_KEY);
+  removeMomentumKey('momentum.earned-achievements');
+  removeMomentumKey('momentum.seen-achievements');
+  removeMomentumKey('momentum.achievements.catalog.v042');
+  await syncOfflineSnapshot();
 }
