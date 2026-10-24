@@ -2926,3 +2926,40 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
 .routine-step { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .editor-step .editor-step-nest { width: 27px; height: 34px; flex: 0 0 27px; display: grid; place-items: center; border-radius: 8px; color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+
+/* v0.5.18 — reorder and nest exclusively in the routine template editor */
+.editor-steps .editor-step { position: relative; }
+.editor-steps .editor-step.routine-step--drop-before::before,
+.editor-steps .editor-step.routine-step--drop-after::after {
+  content: '';
+  display: block;
+  position: absolute;
+  z-index: 12;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  border-radius: 10px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent);
+  pointer-events: none;
+}
+.editor-steps .editor-step.routine-step--drop-before::before { top: -5px; }
+.editor-steps .editor-step.routine-step--drop-after::after { bottom: -5px; }
+.editor-steps .editor-step.routine-step--dragging { position: relative; z-index: 14; }
+.editor-steps .editor-step-drag { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+
+/* v0.5.19 — smooth sortable routine steps in the template editor only. */
+.editor-steps { position: relative; }
+.editor-steps.routine-gesture-active { touch-action: none; }
+.editor-steps.routine-gesture-active .editor-step:not(.routine-step--dragging) {
+  transition: transform 170ms cubic-bezier(.22, .8, .22, 1);
+}
+.editor-steps .editor-step.routine-step--dragging {
+  z-index: 20 !important;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 13px 28px rgba(43,34,105,.18);
+  outline: 2px solid var(--primary);
+  outline-offset: 0;
+}
+.editor-steps.routine-gesture-active .editor-step-drag { cursor: grabbing; }

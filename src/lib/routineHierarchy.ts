@@ -81,3 +81,41 @@ export function unnestRoutineStep(steps: RoutineStep[], id: string): RoutineStep
   const nextRoot = ordered.slice(parentIndex + 1).find(step => !step.parentId);
   return placeRoutineStep(ordered, id, null, nextRoot?.id);
 }
+
+/** Sort steps without changing their nesting. A parent moves together with all its children.
+ * Children can be sorted only within the same parent; nesting is a separate horizontal gesture.
+ */
+export function reorderRoutineStep(
+  steps: RoutineStep[], draggedId: string, targetId: string, position: 'before' | 'after',
+): RoutineStep[] {
+  const ordered = orderRoutineSteps(steps);
+  const dragged = ordered.find(step => step.id === draggedId);
+  const hovered = ordered.find(step => step.id === targetId);
+  if (!dragged || !hovered || dragged.id === hovered.id) return ordered;
+
+  if (!dragged.parentId) {
+    // Root steps are whole movable groups: keep all children with their parent.
+    const targetRootId = hovered.parentId ?? hovered.id;
+    if (targetRootId === dragged.id) return ordered;
+    const block = ordered.filter(step => step.id === dragged.id || step.parentId === dragged.id);
+    const remaining = ordered.filter(step => !block.some(part => part.id === step.id));
+    const targetIndex = remaining.findIndex(step => step.id === targetRootId);
+    if (targetIndex < 0) return ordered;
+    let insertion = targetIndex;
+    if (position === 'after') {
+      while (insertion < remaining.length &&
+        (remaining[insertion].id === targetRootId || remaining[insertion].parentId === targetRootId)) insertion++;
+    }
+    remaining.splice(insertion, 0, ...block);
+    return orderRoutineSteps(remaining);
+  }
+
+  // Children can be rearranged after the parent or among their own siblings.
+  if (hovered.id !== dragged.parentId && hovered.parentId !== dragged.parentId) return ordered;
+  if (hovered.id === dragged.parentId && position === 'before') return ordered;
+  const remaining = ordered.filter(step => step.id !== dragged.id);
+  const at = remaining.findIndex(step => step.id === hovered.id);
+  if (at < 0) return ordered;
+  remaining.splice(at + (position === 'after' ? 1 : 0), 0, dragged);
+  return orderRoutineSteps(remaining);
+}

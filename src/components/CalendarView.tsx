@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Play, Plus } from 'lucide-react';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { layoutOverlappingEvents } from '../lib/calendarOverlap';
@@ -72,6 +72,14 @@ interface MovePreview {
 
 export function CalendarView({ referenceDate, onChangeDate, blocks, categories, mode, onChangeMode, onAddAt, onOpenBlock, onFocusBlock, onToggleBlock, onDropBlock, onResizeBlock, compact = false }: CalendarViewProps) {
   const [hovered, setHovered] = useState<string | null>(null);
+  const [clock, setClock] = useState(() => new Date());
+  // Refresh the red current-time line while the PWA stays open or returns to foreground.
+  useEffect(() => {
+    const refresh = () => setClock(new Date());
+    const timer = window.setInterval(refresh, 30_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, []);
   const [resizePreview, setResizePreview] = useState<{ id: string; duration: number } | null>(null);
   const resizeSession = useRef<ResizeSession | null>(null);
   const moveSession = useRef<MoveSession | null>(null);
@@ -88,11 +96,24 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   useEffect(()=>{const block=stopTouchScroll.current;document.addEventListener('touchmove',block,{passive:false,capture:true});return()=>document.removeEventListener('touchmove',block,true)},[]);
   const touchMoveRef = useRef<{timer: ReturnType<typeof setTimeout> | null; block: CalendarBlock; element: HTMLDivElement; startX:number; startY:number; x:number; y:number; active:boolean; offsetY:number} | null>(null);
 
-  // Pełna doba pozostaje dostępna przez przewijanie, a początkowy widok zaczyna się rano.
-  useEffect(() => {
+  // On opening the calendar, centre the current-time red line rather than midnight.
+  // Do this only when entering/changing the view; never fight manual scrolling.
+  useLayoutEffect(() => {
     const scroller = calendarScrollRef.current;
     if (!scroller) return;
-    scroller.scrollTop = 0;
+    const centreOnNow = () => {
+      const now = new Date();
+      const minutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      const heading = scroller.querySelector<HTMLElement>('.calendar-head');
+      const availableHeight = scroller.clientHeight - (heading?.offsetHeight ?? 0);
+      if (availableHeight <= 0) return;
+      const position = ((minutes - START) / 60) * HOUR_HEIGHT;
+      const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      scroller.scrollTop = Math.max(0, Math.min(maximum, position - availableHeight / 2));
+    };
+    centreOnNow();
+    const frame = requestAnimationFrame(centreOnNow);
+    return () => cancelAnimationFrame(frame);
   }, [mode, compact]);
 
 
@@ -452,8 +473,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                 start: minuteOfDay(block.time),
                 end: Math.min(END, minuteOfDay(block.time) + (resizePreview?.id === block.id ? resizePreview.duration : block.duration)),
               })));
-              const now = new Date();
-              const nowMinutes = now.getHours() * 60 + now.getMinutes();
+              const nowMinutes = clock.getHours() * 60 + clock.getMinutes() + clock.getSeconds() / 60;
               return (
                 <div
                   className={`day-lane ${d === today ? 'day-lane--today' : ''} ${hovered === d || movePreview?.date === d ? 'day-lane--hover' : ''}`}
