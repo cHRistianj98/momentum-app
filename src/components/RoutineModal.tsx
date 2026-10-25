@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, Pause, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -34,19 +34,62 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
   const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, date));
   const completed = visibleSteps.filter(step => log.checkedStepIds.includes(step.id)).length;
   const count = visibleSteps.length;
+  const [timer, setTimer] = useState<{ stepId: string; seconds: number; endAt: number | null } | null>(null);
+  const [timerNow, setTimerNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!timer?.endAt) return;
+    const handle = window.setInterval(() => setTimerNow(Date.now()), 250);
+    return () => window.clearInterval(handle);
+  }, [timer?.endAt]);
+  useEffect(() => {
+    if (timer?.endAt && timerNow >= timer.endAt) {
+      setTimer(previous => previous?.endAt && timerNow >= previous.endAt
+        ? { ...previous, seconds: 0, endAt: null } : previous);
+    }
+  }, [timer?.endAt, timerNow]);
+  const remaining = (step: RoutineStep) => timer?.stepId !== step.id
+    ? (step.timerSeconds ?? 0)
+    : timer.endAt ? Math.max(0, Math.ceil((timer.endAt - timerNow) / 1000)) : timer.seconds;
+  function toggleTimer(step: RoutineStep) {
+    setTimer(previous => {
+      if (previous?.stepId !== step.id) return { stepId: step.id, seconds: step.timerSeconds ?? 30, endAt: Date.now() + (step.timerSeconds ?? 30) * 1000 };
+      if (previous.endAt) return { ...previous, seconds: Math.max(0, Math.ceil((previous.endAt - Date.now()) / 1000)), endAt: null };
+      const seconds = previous.seconds > 0 ? previous.seconds : step.timerSeconds ?? 30;
+      return { ...previous, seconds, endAt: Date.now() + seconds * 1000 };
+    });
+    setTimerNow(Date.now());
+  }
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-modal" role="dialog" aria-modal="true" aria-label="Rutyna">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJA RUTYNA · {fullDate(date)}</span><h2>{routine.title}</h2><CategoryBadge category={routine.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
     <div className="routine-banner" style={{ '--routine-color': categoryColor } as React.CSSProperties}><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="routine-banner-icon"/><div><strong>{routine.description || 'Małe kroki, wielki progres.'}</strong><span><Clock3 size={14} /> {displayTime} · {formatDuration(duration)} <span className="dot-spacer">·</span> <Flame size={14} /> +{routine.xp} XP</span></div></div>
     <div className="routine-progress-heading"><strong>Twoje kroki</strong><span>{completed}/{count} wykonane</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
     <div className="routine-checklist">
       {count === 0 && <div className="routine-no-steps">W tym dniu nie zaplanowano żadnych kroków. Harmonogram każdego kroku zmienisz w „Edytuj szablon”.</div>}
-      {visibleSteps.map((step, i) => <button key={step.id} type="button" data-routine-step-id={step.id}
-        className={`routine-step ${step.parentId ? 'routine-step--child' : ''} ${log.checkedStepIds.includes(step.id) ? 'checked' : ''}`}
-        disabled={log.completed} onClick={() => onToggleStep(step.id)}>
-        <span className="step-counter">{log.checkedStepIds.includes(step.id) ? <Check size={17} strokeWidth={3} /> : step.parentId ? '↳' : String(i + 1).padStart(2, '0')}</span>
-        <span className="routine-step-title">{step.title}</span>
-        <CheckCircle2 className="step-right" size={18}/>
-      </button>)}
+      {visibleSteps.map((step, i) => {
+        const isDone = log.checkedStepIds.includes(step.id);
+        const body = <>
+          <span className="step-counter">{isDone ? <Check size={17} strokeWidth={3} /> : step.parentId ? '↳' : String(i + 1).padStart(2, '0')}</span>
+          <span className="routine-step-title">{step.title}</span>
+          <CheckCircle2 className="step-right" size={18}/>
+        </>;
+        if (!step.timerSeconds) return <button key={step.id} type="button" data-routine-step-id={step.id}
+          className={`routine-step ${step.parentId ? 'routine-step--child' : ''} ${isDone ? 'checked' : ''}`}
+          disabled={log.completed} onClick={() => onToggleStep(step.id)}>{body}</button>;
+        const active = timer?.stepId === step.id;
+        const running = active && Boolean(timer.endAt);
+        return <div key={step.id} data-routine-step-id={step.id}
+          className={`routine-step routine-step--timed ${step.parentId ? 'routine-step--child' : ''} ${isDone ? 'checked' : ''}`}>
+          <button type="button" className="routine-step-main" disabled={log.completed}
+            aria-label={`${isDone ? 'Odznacz' : 'Oznacz'} ${step.title}`} onClick={() => onToggleStep(step.id)}>{body}</button>
+          <button type="button" className={`routine-step-timer ${running ? 'routine-step-timer--running' : ''}`}
+            aria-label={`${running ? 'Pauza' : 'Uruchom stoper'}: ${step.title}`}
+            title="Stoper kroku — dotknij, aby uruchomić lub zatrzymać"
+            onClick={() => toggleTimer(step)}>
+            {running ? <Pause size={13}/> : <Play size={13} fill="currentColor"/>}
+            <span>{remaining(step)} s</span>
+          </button>
+        </div>;
+      })}
     </div>
     {log.completed && <div className="completion-message"><span>✦</span><div><strong>Rutyna ukończona!</strong><small>Świetna robota. +{routine.xp} XP zostało uwzględnione w Twoim progresie.</small></div></div>}
     <div className="modal-bottom routine-session-actions"><div className="routine-session-manage"><button className="btn btn--ghost" onClick={onEdit}>Edytuj szablon</button><button type="button" className="btn btn--danger routine-session-delete" onClick={()=>{if(window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`))onDelete();}}><Trash2 size={15}/> Usuń rutynę</button></div><div className="modal-bottom-right">{log.completed ? <button className="btn btn--secondary" onClick={onUndo}><RotateCcw size={15}/> Cofnij</button> : <button disabled={count === 0 || completed !== count} className="btn btn--primary" onClick={onComplete}><Check size={16}/> Zakończ rutynę · +{routine.xp} XP</button>}</div></div>
@@ -163,6 +206,7 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
           </div>
           {scheduledStep.parentId && <small className="routine-step-schedule-info">Ten krok będzie widoczny tylko wtedy, gdy aktywny jest również jego rodzic.</small>}
           <div className="routine-weekdays-actions">
+            <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:[]}:step))}>Żaden dzień</button>
             <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:undefined}:step))}>Codziennie</button>
             <button type="button" className="btn btn--primary" onClick={()=>setScheduleStepId(null)}><Check size={15}/> Gotowe</button>
           </div>

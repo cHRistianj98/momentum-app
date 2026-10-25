@@ -3111,3 +3111,19 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 .editor-steps.routine-gesture-active [data-step-drag-handle] { cursor: grabbing; }
 .editor-steps.routine-gesture-active { overscroll-behavior: contain; }
+
+/* v0.5.26 — import of a single routine and short step timers */
+.routine-import-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 0 0 18px; }
+.routine-import-bar .btn { display: inline-flex; align-items: center; gap: 8px; }
+.routine-import-bar small { color: var(--muted); line-height: 1.4; font-size: 11px; }
+.routine-step--timed { padding: 5px; gap: 6px; }
+.routine-step-main { display:flex; align-items:center; gap: 10px; min-width: 0; min-height: 44px; padding: 5px 3px 5px 7px; border:0; background: transparent; color:inherit; font:inherit; text-align:left; flex:1; }
+.routine-step-main:disabled { opacity: .6; }
+.routine-step--timed .routine-step-title { flex: 1; min-width:0; overflow-wrap:anywhere; }
+.routine-step--timed.checked .routine-step-title { text-decoration: line-through; color: var(--muted); }
+.routine-step--timed .step-right { display: none; }
+.routine-step-timer { display:flex; flex-shrink:0; align-items:center; justify-content:center; gap:4px; border:1px solid color-mix(in srgb, var(--primary) 25%, var(--line)); background:var(--surface); color:var(--primary); border-radius:10px; font-size:12px; font-weight:800; padding:6px 8px; min-width:67px; min-height:34px; font-variant-numeric:tabular-nums; }
+.routine-step-timer--running { background:color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+@media (max-width:620px) { .routine-import-bar { padding: 8px 14px 0; } .routine-import-bar small { display:none; } .routine-step--timed { gap: 3px; } .routine-step-main { gap:6px; } }
+
+.routine-weekdays-actions { flex-wrap: wrap; }

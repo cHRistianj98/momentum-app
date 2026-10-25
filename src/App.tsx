@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, BarChart3, Bell, CalendarDays, Check, CheckCircle2,
   ChevronRight, Clock3, Crown, Flame, Focus, Gem, LayoutDashboard, Menu, Moon, MoreHorizontal,
-  Plus, FolderKanban, Rocket, RotateCcw, Search, Settings2, ShieldCheck, Sparkles, Star, Sun, Target, Trash2, Trophy, Wallet, X, Zap,
+  Plus, Upload, FolderKanban, Rocket, RotateCcw, Search, Settings2, ShieldCheck, Sparkles, Star, Sun, Target, Trash2, Trophy, Wallet, X, Zap,
 } from 'lucide-react';
 import { CalendarView, type CalendarBlock } from './components/CalendarView';
 import { MobileMonthView } from './components/MobileMonthView';
@@ -19,6 +19,7 @@ import { formatFocusClock, type FocusRecord } from './lib/focus';
 import { emptyLog, RoutineEditor, routineOccurs, RoutineSession } from './components/RoutineModal';
 import { checkedWithParentPropagation, toggleRoutineStepBranch } from './lib/routineHierarchy';
 import { routineStepsOnDate } from './lib/routineStepSchedule';
+import { parseRoutineTransfer, replaceRoutineKeepingIdentity } from './lib/routineImport';
 import type { RoutineStep } from './types';
 import { TaskIcon } from './lib/icons';
 import { CategoryBadge, TaskVisual } from './components/VisualIdentity';
@@ -164,6 +165,7 @@ function buildAchievements(data: ReturnType<typeof useAppData>[0], totalXp: numb
 
 function App() {
   const [data, setData] = useAppData();
+  const routineImportRef = useRef<HTMLInputElement>(null);
   const categories = useMemo(() => resolveCategories(data.categories), [data.categories]);
   const [page, setPage] = useState<Page>('overview');
   const [referenceDate, setReferenceDate] = useState(todayKey());
@@ -416,6 +418,33 @@ function App() {
     }));
     setEditorDialog(null);setRoutineDialog(null);setToast('Rutyna zapisana');
   }
+  async function importRoutineFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const incoming = parseRoutineTransfer(await file.text());
+      const normalize = (title: string) => title.trim().toLocaleLowerCase('pl');
+      // If the user already has a morning routine (even named "Poranny start"), propose replacing it.
+      const existing = data.routines.find(r => r.id === incoming.id)
+        ?? data.routines.find(r => normalize(r.title) === normalize(incoming.title))
+        ?? (/porann/i.test(incoming.title) ? data.routines.find(r => /porann/i.test(r.title)) : undefined);
+      const message = existing
+        ? `Zastąpić szablon „${existing.title}” nową rutyną „${incoming.title}” (${incoming.steps.length} kroków, ${incoming.time}, ${incoming.duration} min)?\n\nPozostałe dane i historia zostają zachowane. Zrób wcześniej backup JSON.`
+        : `Dodać rutynę „${incoming.title}” (${incoming.steps.length} kroków, ${incoming.time}, ${incoming.duration} min)?\n\nPozostałe dane nie zostaną zmienione.`;
+      if (!window.confirm(message)) return;
+      const merged = existing ? replaceRoutineKeepingIdentity(existing, incoming) : incoming;
+      setData(previous => ({
+        ...previous,
+        routines: existing
+          ? previous.routines.map(r => r.id === existing.id ? merged : r)
+          : [...previous.routines, merged],
+      }));
+      setToast(`Wczytano rutynę: ${merged.title} (${merged.steps.length} kroków)`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Nie udało się wczytać rutyny.');
+    }
+  }
   function deleteRoutine(id: string) {
     setData(prev=>({...prev,routines:prev.routines.filter(r=>r.id!==id),routineLogs:Object.fromEntries(Object.entries(prev.routineLogs).filter(([key])=>!key.startsWith(`${id}:`)))}));
     setEditorDialog(null);setRoutineDialog(null);setToast('Rutyna usunięta');
@@ -612,7 +641,7 @@ function App() {
         </div>}
         {page==='calendar'&&<><MobileMonthView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} onOpenDate={date=>{setReferenceDate(date);goPage('overview');setCalendarMode('day');}}/><PageHeading kicker="TWÓJ CZAS MA ZNACZENIE" title="Kalendarz" accent=" & timeblocking" description="Zaplanuj dzień, przeciągaj zadania między godzinami i obserwuj swój progres. Kliknij puste miejsce, aby dodać blok."/><div className="calendar-page-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode={calendarMode} onChangeMode={setCalendarMode} onAddAt={(date,time,duration)=>setTaskDialog({date,time,duration})} onOpenBlock={openBlock} onFocusBlock={block=>startFocus(block.sourceId)} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock}/><RightPanel upcoming={upcomingTasks} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div></>}
         {page==='tasks'&&<><PageHeading kicker="MAŁE KROKI, WIELKIE EFEKTY" title="Moje" accent=" zadania" description="Wszystkie Twoje zadania w jednym miejscu. Zaplanuj je lub zrealizuj od razu." action={<button className="btn btn--primary" onClick={()=>setTaskDialog({})}><Plus size={18}/> Dodaj zadanie</button>}/><div className="tasks-page"><div className="task-filters">{([{id:'all',label:'Wszystkie'},{id:'today',label:'Na dzisiaj'},{id:'completed',label:'Ukończone'}] as const).map(f=><button key={f.id} className={taskFilter===f.id?'active':''} onClick={()=>setTaskFilter(f.id)}>{f.label}</button>)}</div><TaskGroups tasks={data.tasks.filter(t=>(!search||t.title.toLocaleLowerCase('pl-PL').includes(search.toLocaleLowerCase('pl-PL')))&&(taskFilter==='all'||(taskFilter==='today'&&t.date===today)||(taskFilter==='completed'&&t.done)))} categories={categories} projects={data.projects} onEdit={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onAdd={()=>setTaskDialog({})}/></div></>}
-        {page==='routines'&&<><PageHeading kicker="KONSEKWENCJA TWORZY NAWYKI" title="Twoje" accent=" rutyny" description="Jeden prosty rytuał, wiele małych zwycięstw. Kończ wszystkie kroki jednym kliknięciem." action={<button className="btn btn--primary" onClick={()=>setEditorDialog({})}><Plus size={18}/> Nowa rutyna</button>}/><div className="routines-intro"><div><span>✦ CODZIENNY RYTM</span><h3>Nie musisz robić wszystkiego naraz.</h3><p>Zaznacz kolejne kroki, a po zakończeniu rutyny zaktualizujemy kalendarz i XP automatycznie.</p></div><div className="routine-intro-ornament">☼</div></div><div className="routine-cards">{data.routines.map(r=>{const occurs=dueRoutines.some(item=>item.id===r.id),log=logFor(r.id,sourceForToday(r.id)),style=(categories[r.category] ?? categories.unpaid);const todaysSteps=routineStepsOnDate(r.steps,today);const checkedCount=todaysSteps.filter(s=>log.checkedStepIds.includes(s.id)).length;return <button key={r.id} className="routine-card" onClick={()=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="large" className="routine-icon-large"/><div className="routine-card-top"><span className="routine-card-frequency">{r.weekdays.length===7?'Codziennie':`${r.weekdays.length} dni w tygodniu`}</span><CategoryBadge category={r.category} categories={categories} compact/></div><h3>{r.title}</h3><p>{r.description}</p><div className="routine-mini-stats"><span><Clock3 size={15}/> {r.time} · {r.duration} min</span><span><Zap size={14}/> +{r.xp} XP</span></div><div className="routine-card-progress"><div><span style={{width:`${checkedCount/Math.max(todaysSteps.length,1)*100}%`,background:style.color}}/></div><small>{log.completed?'Zakończona ✓':!occurs?'Poza planem na dziś':`${checkedCount}/${todaysSteps.length} kroków`}</small></div><div className="routine-card-cta">{log.completed?'Zobacz ukończoną': 'Otwórz rutynę'} <ArrowRight size={15}/></div></button>;})}<button className="routine-card routine-card--add" onClick={()=>setEditorDialog({})}><span><Plus size={27}/></span><strong>Stwórz własną rutynę</strong><p>Dodaj kroki, harmonogram i nagrodę XP.</p></button></div></>}
+        {page==='routines'&&<><PageHeading kicker="KONSEKWENCJA TWORZY NAWYKI" title="Twoje" accent=" rutyny" description="Jeden prosty rytuał, wiele małych zwycięstw. Kończ wszystkie kroki jednym kliknięciem." action={<button className="btn btn--primary" onClick={()=>setEditorDialog({})}><Plus size={18}/> Nowa rutyna</button>}/><div className="routine-import-bar"><input ref={routineImportRef} type="file" accept=".json,application/json" hidden onChange={importRoutineFile}/><button type="button" className="btn btn--secondary" onClick={()=>routineImportRef.current?.click()}><Upload size={16}/> Wczytaj rutynę z pliku</button><small>Import dotyczy tylko jednej rutyny — pozostałe dane nie zostaną zastąpione.</small></div><div className="routines-intro"><div><span>✦ CODZIENNY RYTM</span><h3>Nie musisz robić wszystkiego naraz.</h3><p>Zaznacz kolejne kroki, a po zakończeniu rutyny zaktualizujemy kalendarz i XP automatycznie.</p></div><div className="routine-intro-ornament">☼</div></div><div className="routine-cards">{data.routines.map(r=>{const occurs=dueRoutines.some(item=>item.id===r.id),log=logFor(r.id,sourceForToday(r.id)),style=(categories[r.category] ?? categories.unpaid);const todaysSteps=routineStepsOnDate(r.steps,today);const checkedCount=todaysSteps.filter(s=>log.checkedStepIds.includes(s.id)).length;return <button key={r.id} className="routine-card" onClick={()=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="large" className="routine-icon-large"/><div className="routine-card-top"><span className="routine-card-frequency">{r.weekdays.length===7?'Codziennie':`${r.weekdays.length} dni w tygodniu`}</span><CategoryBadge category={r.category} categories={categories} compact/></div><h3>{r.title}</h3><p>{r.description}</p><div className="routine-mini-stats"><span><Clock3 size={15}/> {r.time} · {r.duration} min</span><span><Zap size={14}/> +{r.xp} XP</span></div><div className="routine-card-progress"><div><span style={{width:`${checkedCount/Math.max(todaysSteps.length,1)*100}%`,background:style.color}}/></div><small>{log.completed?'Zakończona ✓':!occurs?'Poza planem na dziś':`${checkedCount}/${todaysSteps.length} kroków`}</small></div><div className="routine-card-cta">{log.completed?'Zobacz ukończoną': 'Otwórz rutynę'} <ArrowRight size={15}/></div></button>;})}<button className="routine-card routine-card--add" onClick={()=>setEditorDialog({})}><span><Plus size={27}/></span><strong>Stwórz własną rutynę</strong><p>Dodaj kroki, harmonogram i nagrodę XP.</p></button></div></>}
         {page==='projects'&&<><div className="projects-mobile-heading"><PageHeading kicker="WIELKIE CELE · MAŁE KROKI" title="Projekty" accent=" & cele" description="Łącz zadania, kamienie milowe i checklisty w jedną drogę do celu."/></div><ProjectsView projects={data.projects} tasks={data.tasks} categories={categories} onSaveProject={saveProject} onDeleteProject={deleteProject} onToggleTask={toggleTask} onOpenTask={id=>setTaskDialog({id})} onCreateTask={(projectId,milestoneId)=>setTaskDialog({projectId,milestoneId})} onLinkTask={linkTaskToProject}/></>}
         {page==='review'&&<><PageHeading kicker="CO TYDZIEŃ O KROK DALEJ" title="Weekly" accent=" Review" description="Podsumuj ostatni tydzień, zobacz, co zadziałało, i zaplanuj następny bez presji."/><WeeklyReview data={data} focusHistory={focus.history} onOpenNextWeek={monday=>{setReferenceDate(monday);setCalendarMode('week');goPage('calendar');}}/></>}
         {page==='insights'&&<><PageHeading kicker="POSTĘP TO SUMA MAŁYCH KROKÓW" title="Twoje" accent=" statystyki" description="Zobacz, gdzie inwestujesz swój czas i jak rośnie Twoja regularność."/><Insights data={data} totalXp={totalXp} currentLevel={currentLevel} streak={daysStreak} achievements={achievements} rank={currentRank} nextRank={nextRank} focusHistory={focus.history}/></>}
