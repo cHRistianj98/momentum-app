@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -9,6 +9,7 @@ import { CategoryChoices } from './CategoryChoices';
 import { formatDuration, fullDate, todayKey } from '../lib/date';
 import { orderRoutineSteps, placeRoutineStep, unnestRoutineStep } from '../lib/routineHierarchy';
 import { useRoutineStepDrag } from '../lib/useRoutineStepDrag';
+import { normalizeStepWeekdays, routineStepsOnDate, stepWeekdaysLabel } from '../lib/routineStepSchedule';
 import type { CategoryConfig, CategoryKey, IconKey, Routine, RoutineLog, RoutineStep } from '../types';
 
 interface SessionProps {
@@ -30,14 +31,15 @@ interface SessionProps {
 }
 
 export function RoutineSession({ routine, date, log, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose }: SessionProps) {
-  const visibleSteps = orderRoutineSteps(routine.steps);
-  const completed = routine.steps.filter(step => log.checkedStepIds.includes(step.id)).length;
-  const count = routine.steps.length;
+  const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, date));
+  const completed = visibleSteps.filter(step => log.checkedStepIds.includes(step.id)).length;
+  const count = visibleSteps.length;
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-modal" role="dialog" aria-modal="true" aria-label="Rutyna">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJA RUTYNA · {fullDate(date)}</span><h2>{routine.title}</h2><CategoryBadge category={routine.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
     <div className="routine-banner" style={{ '--routine-color': categoryColor } as React.CSSProperties}><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="routine-banner-icon"/><div><strong>{routine.description || 'Małe kroki, wielki progres.'}</strong><span><Clock3 size={14} /> {displayTime} · {formatDuration(duration)} <span className="dot-spacer">·</span> <Flame size={14} /> +{routine.xp} XP</span></div></div>
     <div className="routine-progress-heading"><strong>Twoje kroki</strong><span>{completed}/{count} wykonane</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
     <div className="routine-checklist">
+      {count === 0 && <div className="routine-no-steps">W tym dniu nie zaplanowano żadnych kroków. Harmonogram każdego kroku zmienisz w „Edytuj szablon”.</div>}
       {visibleSteps.map((step, i) => <button key={step.id} type="button" data-routine-step-id={step.id}
         className={`routine-step ${step.parentId ? 'routine-step--child' : ''} ${log.checkedStepIds.includes(step.id) ? 'checked' : ''}`}
         disabled={log.completed} onClick={() => onToggleStep(step.id)}>
@@ -71,10 +73,28 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
   const [xp, setXp] = useState(routine?.xp ?? 40);
   const [weekdays, setWeekdays] = useState(routine?.weekdays ?? [0,1,2,3,4,5,6]);
   const [steps, setSteps] = useState<RoutineStep[]>(routine?.steps ?? [{ id: crypto.randomUUID(), title: '' }]);
+  const [scheduleStepId, setScheduleStepId] = useState<string | null>(null);
   const [picker, setPicker] = useState<'icons' | 'photos' | null>(null);
+  const toggleStepWeekday = (stepId: string, weekday: number) => setSteps(previous => previous.map(step => {
+    if (step.id !== stepId) return step;
+    // On the first tap, switch from daily to this one day (e.g. Sunday peeling).
+    if (!Array.isArray(step.weekdays)) return {...step, weekdays: [weekday]};
+    const selected = step.weekdays;
+    // Keep at least one day active. Use "Codziennie" to reset the schedule.
+    if (selected.includes(weekday) && selected.length === 1) return step;
+    return {...step, weekdays: normalizeStepWeekdays(selected.includes(weekday) ? selected.filter(d => d !== weekday) : [...selected,weekday])};
+  }));
   const { listRef: stepsRef, hint: editorHint } = useRoutineStepDrag(steps, setSteps);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (!scheduleStepId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.stopPropagation(); setScheduleStepId(null); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [scheduleStepId]);
   function save() {
     const validSteps = orderRoutineSteps(steps.filter(s => s.title.trim()).map(s => ({ ...s, title: s.title.trim() })));
     if (!title.trim() || !validSteps.length || !weekdays.length) return;
@@ -97,7 +117,19 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
       <div className="editor-steps" ref={stepsRef}>
         {orderRoutineSteps(steps).map((s,i)=><div className={`editor-step ${s.parentId ? 'editor-step--child' : ''} ${editorHint?.id === s.id ? 'routine-step--dragging' : ''} ${editorHint?.action === 'nest' && editorHint.targetId === s.id ? 'routine-step--drop-parent' : ''} ${editorHint?.action === 'reorder' && editorHint.markerId === s.id ? `routine-step--drop-${editorHint.position}` : ''}`} data-routine-step-id={s.id} key={s.id}>
           <span className="editor-step-drag" data-step-drag-handle title="Przytrzymaj: w pionie zmienisz kolejność, w poziomie zagnieżdżenie" aria-label={`Przenieś krok ${s.title}`}><GripVertical size={18}/></span>
-          <input value={s.title} placeholder={`Krok ${i+1}`} onChange={e=>setSteps(arr=>arr.map(x=>x.id===s.id ? {...x,title:e.target.value} : x))}/>
+          <div className="editor-step-field">
+            <span className="routine-step-days-badge" title={`Harmonogram: ${stepWeekdaysLabel(s)}`}>
+              <CalendarDays size={11}/>{stepWeekdaysLabel(s)}
+            </span>
+            <input className="editor-step-name" value={s.title} placeholder={`Krok ${i+1}`} onChange={e=>setSteps(arr=>arr.map(x=>x.id===s.id ? {...x,title:e.target.value} : x))}/>
+          </div>
+          <button type="button" className={`routine-step-schedule-toggle ${Array.isArray(s.weekdays) ? 'routine-step-schedule-toggle--custom' : ''}`}
+            aria-label={`Harmonogram kroku ${s.title || i+1}: ${stepWeekdaysLabel(s)}`}
+            title={`Wybierz dni wykonywania: ${stepWeekdaysLabel(s)}`}
+            onClick={()=>setScheduleStepId(s.id)}>
+            <CalendarDays size={15}/>
+
+          </button>
           <button type="button" className="editor-step-nest" title={s.parentId ? 'Zmień na osobny krok' : 'Zrób podzadanie poprzedniego kroku'} aria-label={s.parentId ? `Odłącz ${s.title}` : `Zagnieźdź ${s.title}`} onClick={()=>setSteps(arr=>{
             const ordered=orderRoutineSteps(arr);
             if(s.parentId)return unnestRoutineStep(ordered,s.id);
@@ -105,7 +137,7 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
             const parent=[...ordered.slice(0,index)].reverse().find(item=>!item.parentId);
             return parent?placeRoutineStep(ordered,s.id,parent.id):ordered;
           })}>{s.parentId ? <ArrowLeft size={15}/> : <ArrowRight size={15}/>}</button>
-          <button type="button" aria-label="Usuń krok" onClick={()=>setSteps(arr=>arr.filter(x=>x.id!==s.id).map(x=>x.parentId===s.id?{...x,parentId:undefined}:x))}><X size={16}/></button>
+          <button type="button" aria-label="Usuń krok" onClick={()=>{setScheduleStepId(current=>current===s.id?null:current);setSteps(arr=>arr.filter(x=>x.id!==s.id).map(x=>x.parentId===s.id?{...x,parentId:undefined}:x));}}><X size={16}/></button>
         </div>)}
       </div>
       {editorHint && <small className="routine-drag-hint" role="status">{editorHint.label}</small>}
@@ -113,7 +145,31 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
     </div>
     <div className="field"><span>XP za całą rutynę</span><XpStepper value={xp} onChange={setXp}/></div></div>
     <div className="modal-bottom">{routine ? <button className="btn btn--danger" onClick={()=>{if(window.confirm('Usunąć rutynę i historię jej wykonań?')) onDelete(routine.id);}}><Trash2 size={15}/> Usuń</button> : <span className="modal-tip"><ArrowLeft size={13}/> Możesz edytować rutynę później</span>}<div className="modal-bottom-right"><button className="btn btn--ghost" onClick={onClose}>Anuluj</button><button className="btn btn--primary" disabled={!title.trim() || !weekdays.length || !steps.some(s=>s.title.trim())} onClick={save}><Check size={16}/> Zapisz rutynę</button></div></div>
-  </div></div>;
+  </div>
+    {scheduleStepId && (() => {
+      const scheduledStep = steps.find(step => step.id === scheduleStepId);
+      if (!scheduledStep) return null;
+      return <div className="routine-weekdays-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setScheduleStepId(null);}}>
+        <div className="routine-weekdays-dialog" role="dialog" aria-modal="true" aria-label={`Dni wykonywania kroku ${scheduledStep.title}`}>
+          <div className="routine-weekdays-heading"><div><span className="eyebrow">HARMONOGRAM KROKU</span><h3>{scheduledStep.title || 'Krok rutyny'}</h3></div>
+            <button type="button" className="icon-btn" aria-label="Zamknij wybór dni" onClick={()=>setScheduleStepId(null)}><X size={19}/></button>
+          </div>
+          <p className="routine-weekdays-description">Zaznacz dni, w które ten krok ma się pojawiać. Pierwsze dotknięcie przy ustawieniu „Codziennie” wybierze tylko wskazany dzień.</p>
+          <div className="routine-step-weekdays">
+            {WEEK.map((day,weekDay)=><button type="button" key={weekDay}
+              className={!scheduledStep.weekdays || scheduledStep.weekdays.includes(weekDay) ? 'selected' : ''}
+              aria-pressed={!scheduledStep.weekdays || scheduledStep.weekdays.includes(weekDay)}
+              onClick={()=>toggleStepWeekday(scheduledStep.id,weekDay)}>{day}</button>)}
+          </div>
+          {scheduledStep.parentId && <small className="routine-step-schedule-info">Ten krok będzie widoczny tylko wtedy, gdy aktywny jest również jego rodzic.</small>}
+          <div className="routine-weekdays-actions">
+            <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:undefined}:step))}>Codziennie</button>
+            <button type="button" className="btn btn--primary" onClick={()=>setScheduleStepId(null)}><Check size={15}/> Gotowe</button>
+          </div>
+        </div>
+      </div>;
+    })()}
+</div>;
 }
 
 export function emptyLog(id: string): RoutineLog { return { id, checkedStepIds: [], completed: false }; }

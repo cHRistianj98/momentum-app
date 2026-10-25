@@ -10,255 +10,317 @@ type DropHint = {
   position?: 'before' | 'after';
   label: string;
 };
+
 type DragSession = {
+  source: 'pointer' | 'touch';
+  identifier: number;
   id: string;
+  startX: number;
+  startY: number;
   x: number;
   y: number;
-  lastX: number;
-  lastY: number;
-  listTop: number;
+  initialScrollTop: number;
   active: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   preview: RoutineStep[];
+  grip: HTMLElement;
 };
 
-/** Gesture handling belongs ONLY to the template editor.
- * Keep DOM nodes in place throughout a touch gesture (Safari cancels touches if the
- * original target is reordered). Instead, slide siblings into the future slots using
- * CSS transforms and commit the order when the user lifts their finger.
+/**
+ * Sortable routine template steps. Only the grip starts a drag, so form inputs
+ * and the weekday picker retain their normal touch/scroll behaviour.
+ *
+ * iOS Safari can cancel Pointer Events when the scrollable modal handles a
+ * touch. We therefore handle Touch Events separately and prevent the native
+ * gesture *from touchstart on the grip*. Mouse/pen retain Pointer Events.
+ * The DOM order is stable during dragging; rows are moved visually using FLIP-
+ * like transforms and the new step order is committed only on release.
  */
 export function useRoutineStepDrag(steps: RoutineStep[], onChange: (steps: RoutineStep[]) => void) {
   const listRef = useRef<HTMLDivElement>(null);
-  const stepsRef = useRef(steps);
-  const onChangeRef = useRef(onChange);
-  const hintRef = useRef<DropHint | null>(null);
+  const currentSteps = useRef(steps);
+  const changeRef = useRef(onChange);
+  const dropRef = useRef<DropHint | null>(null);
   const [hint, setHint] = useState<DropHint | null>(null);
-  stepsRef.current = steps;
-  onChangeRef.current = onChange;
+  currentSteps.current = steps;
+  changeRef.current = onChange;
 
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
     const modal = list.closest<HTMLElement>('.modal');
     let session: DragSession | null = null;
-    let touchId: number | null = null;
-    let lastHint: DropHint | null = null;
-    let scrollFrame = 0;
-    let cleanupFrame = 0;
+    let autoScrollFrame = 0;
+    let clearFrame = 0;
+    let previousHint: DropHint | null = null;
 
     const rows = () => Array.from(list.querySelectorAll<HTMLElement>('[data-routine-step-id]'));
-    const resetTransforms = () => {
+    const cleanupTransforms = () => {
       for (const row of rows()) {
         row.style.removeProperty('transform');
         row.style.removeProperty('transition');
-        row.style.removeProperty('will-change');
         row.style.removeProperty('z-index');
+        row.style.removeProperty('will-change');
       }
     };
-    const reset = (delayForReact = false) => {
-      if (session?.timer) clearTimeout(session.timer);
-      if (scrollFrame) cancelAnimationFrame(scrollFrame);
-      scrollFrame = 0;
+    const stop = (afterCommit = false) => {
+      const old = session;
+      if (old?.timer) clearTimeout(old.timer);
       session = null;
-      touchId = null;
-      hintRef.current = null;
-      lastHint = null;
+      if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame);
+      autoScrollFrame = 0;
+      previousHint = null;
+      dropRef.current = null;
       setHint(null);
       list.classList.remove('routine-gesture-active');
-      if (cleanupFrame) cancelAnimationFrame(cleanupFrame);
-      if (delayForReact) cleanupFrame = requestAnimationFrame(() => { cleanupFrame = 0; resetTransforms(); });
-      else resetTransforms();
+      if (clearFrame) cancelAnimationFrame(clearFrame);
+      // React must render the committed order before dropping visual transforms.
+      if (afterCommit) {
+        clearFrame = requestAnimationFrame(() => {
+          clearFrame = requestAnimationFrame(() => { clearFrame = 0; cleanupTransforms(); });
+        });
+      } else cleanupTransforms();
+      if (old?.source === 'pointer' && old.grip.hasPointerCapture(old.identifier)) {
+        try { old.grip.releasePointerCapture(old.identifier); } catch { /* pointer already released */ }
+      }
     };
-    const setDropHint = (next: DropHint) => {
-      const old = lastHint;
-      if (old?.id === next.id && old?.action === next.action && old?.targetId === next.targetId && old?.markerId === next.markerId && old?.position === next.position && old?.label === next.label) return;
-      lastHint = next;
-      hintRef.current = next;
+    const setDrop = (next: DropHint) => {
+      dropRef.current = next;
+      if (previousHint && previousHint.id === next.id && previousHint.action === next.action &&
+        previousHint.targetId === next.targetId && previousHint.markerId === next.markerId &&
+        previousHint.position === next.position && previousHint.label === next.label) return;
+      previousHint = next;
       setHint(next);
     };
 
-    const moveRows = (gesture: DragSession, nextOrder: RoutineStep[], deltaX: number, deltaY: number) => {
-      const allRows = rows();
-      const elements = new Map(allRows.map(row => [row.dataset.routineStepId!, row]));
-      const movedIds = new Set([gesture.id, ...gesture.preview.filter(step => step.parentId === gesture.id).map(step => step.id)]);
-      const gap = parseFloat(window.getComputedStyle(list).rowGap) || 0;
-      const originalY = allRows[0]?.offsetTop ?? 0;
-      let desiredY = originalY;
-      for (const step of nextOrder) {
-        const row = elements.get(step.id);
+    // The list stays in the old DOM order until the finger is released.
+    // Put each row in the slot it will occupy after the drop. Neighbours slide
+    // out of the way while the dragged row follows the finger directly.
+    const renderPositions = (gesture: DragSession, ordered: RoutineStep[], dx: number, dy: number) => {
+      const dom = rows();
+      const byId = new Map(dom.map(row => [row.dataset.routineStepId!, row]));
+      const moving = new Set([gesture.id, ...gesture.preview.filter(s => s.parentId === gesture.id).map(s => s.id)]);
+      const rowGap = parseFloat(getComputedStyle(list).rowGap) || 0;
+      let nextTop = dom[0]?.offsetTop ?? 0;
+      const scrollDelta = (modal?.scrollTop ?? 0) - gesture.initialScrollTop;
+      for (const step of ordered) {
+        const row = byId.get(step.id);
         if (!row) continue;
-        const dragging = movedIds.has(step.id);
-        // Account for a modal scroll while holding the row, so it follows the finger.
-        const scrollDelta = gesture.listTop - list.getBoundingClientRect().top;
-        const shiftY = dragging ? deltaY + scrollDelta : desiredY - row.offsetTop;
-        row.style.transform = `translate3d(${dragging ? Math.max(-68, Math.min(68, deltaX)) : 0}px, ${shiftY}px, 0)`;
-        row.style.transition = dragging ? 'none' : 'transform 170ms cubic-bezier(.22,.8,.22,1)';
+        const dragged = moving.has(step.id);
+        const x = dragged ? Math.max(-54, Math.min(54, dx)) : 0;
+        const y = dragged ? dy + scrollDelta : nextTop - row.offsetTop;
+        row.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        row.style.transition = dragged ? 'none' : 'transform 170ms cubic-bezier(.2,.8,.2,1)';
+        row.style.zIndex = dragged ? '40' : '1';
         row.style.willChange = 'transform';
-        row.style.zIndex = dragging ? '20' : '1';
-        desiredY += row.offsetHeight + gap;
+        nextTop += row.offsetHeight + rowGap;
       }
     };
 
-    const update = (x: number, y: number) => {
-      const gesture = session;
-      if (!gesture?.active) return;
-      gesture.lastX = x;
-      gesture.lastY = y;
-      const dx = x - gesture.x;
-      const dy = y - gesture.y;
-      const ordered = orderRoutineSteps(stepsRef.current);
-      const moved = ordered.find(step => step.id === gesture.id);
-      if (!moved) { reset(); return; }
-      const allRows = rows();
-      // offsetTop is layout position, unaffected by our sibling transforms.
-      const topOfList = list.getBoundingClientRect().top;
-      const relativeY = y - topOfList;
-      const center = (id: string) => {
-        const row = allRows.find(item => item.dataset.routineStepId === id);
-        return row ? row.offsetTop + row.offsetHeight / 2 : 0;
+    const update = () => {
+      const drag = session;
+      if (!drag?.active) return;
+      const ordered = orderRoutineSteps(currentSteps.current);
+      const moving = ordered.find(step => step.id === drag.id);
+      if (!moving) { stop(); return; }
+      const dx = drag.x - drag.startX;
+      const dy = drag.y - drag.startY;
+      const dom = rows();
+      const byId = new Map(dom.map(row => [row.dataset.routineStepId!, row]));
+      const movingRow = byId.get(moving.id);
+      if (!movingRow) { stop(); return; }
+      const scrollDelta = (modal?.scrollTop ?? 0) - drag.initialScrollTop;
+      // offsetTop is not affected by transforms, so the threshold never
+      // oscillates while neighbouring rows animate.
+      const centerY = movingRow.offsetTop + movingRow.offsetHeight / 2 + dy + scrollDelta;
+      const underFingerY = drag.y - list.getBoundingClientRect().top;
+      const excluded = new Set([moving.id, ...ordered.filter(s => s.parentId === moving.id).map(s => s.id)]);
+      const underFinger = dom.find(row => !excluded.has(row.dataset.routineStepId!) &&
+        underFingerY >= row.offsetTop && underFingerY <= row.offsetTop + row.offsetHeight);
+      const hoveredStep = ordered.find(step => step.id === underFinger?.dataset.routineStepId);
+
+      const display = (preview: RoutineStep[], next: DropHint) => {
+        drag.preview = preview;
+        renderPositions(drag, preview, dx, dy);
+        setDrop(next);
       };
-      const excluded = new Set([moved.id, ...ordered.filter(step => step.parentId === moved.id).map(step => step.id)]);
-      const hovered = allRows.find(row => {
-        const id = row.dataset.routineStepId!;
-        return !excluded.has(id) && relativeY >= row.offsetTop && relativeY <= row.offsetTop + row.offsetHeight;
+      if (dx < -45 && moving.parentId) {
+        display(ordered, { id: moving.id, action: 'unnest', label: 'Odłącz od rodzica' });
+        return;
+      }
+      if (dx > 45) {
+        const parent = hoveredStep?.parentId ? ordered.find(s => s.id === hoveredStep.parentId) : hoveredStep;
+        if (parent && parent.id !== moving.id && !ordered.some(s => s.parentId === moving.id)) {
+          display(ordered, { id: moving.id, action: 'nest', targetId: parent.id, label: `Podzadanie: ${parent.title || 'krok'}` });
+        } else display(ordered, { id: moving.id, action: 'none', label: 'Przesuń w prawo na krok nadrzędny' });
+        return;
+      }
+
+      const siblings = moving.parentId
+        ? ordered.filter(s => s.parentId === moving.parentId && s.id !== moving.id)
+        : ordered.filter(s => !s.parentId && s.id !== moving.id);
+      if (!siblings.length) {
+        display(ordered, { id: moving.id, action: 'none', label: 'Brak kroków do przestawienia' });
+        return;
+      }
+      const firstBelow = siblings.find(step => {
+        const row = byId.get(step.id);
+        return row && centerY < row.offsetTop + row.offsetHeight / 2;
       });
-      const hoveredStep = ordered.find(step => step.id === hovered?.dataset.routineStepId);
-      const noDrop = (label: string) => {
-        gesture.preview = ordered;
-        moveRows(gesture, ordered, dx, dy);
-        setDropHint({ id: moved.id, action: 'none', label });
-      };
-      if (dx < -38 && moved.parentId) {
-        gesture.preview = ordered;
-        moveRows(gesture, ordered, dx, dy);
-        setDropHint({ id: moved.id, action: 'unnest', label: '↤ Odłącz krok od rodzica' });
-        return;
-      }
-      if (dx > 38) {
-        const target = hoveredStep?.parentId ? ordered.find(step => step.id === hoveredStep.parentId) : hoveredStep;
-        if (target && target.id !== moved.id && !ordered.some(step => step.parentId === moved.id)) {
-          gesture.preview = ordered;
-          moveRows(gesture, ordered, dx, dy);
-          setDropHint({ id: moved.id, action: 'nest', targetId: target.id, label: `↳ Podzadanie: ${target.title || 'krok'}` });
-        } else noDrop('Przesuń na inny krok, aby zrobić podzadanie');
-        return;
-      }
-
-      // Determine insertion by crossing another item's midpoint. No requirement
-      // to hit a narrow row with the finger on release; empty gaps work too.
-      const candidates = moved.parentId
-        ? ordered.filter(step => step.parentId === moved.parentId && step.id !== moved.id)
-        : ordered.filter(step => !step.parentId && step.id !== moved.id);
-      if (!candidates.length) { noDrop('Brak innych kroków do przestawienia'); return; }
-      const next = candidates.find(step => relativeY < center(step.id));
-      const target = next ?? candidates[candidates.length - 1];
-      const position: 'before' | 'after' = next ? 'before' : 'after';
-      const preview = reorderRoutineStep(ordered, moved.id, target.id, position);
-      gesture.preview = preview;
-      moveRows(gesture, preview, dx, dy);
-      const changed = preview.some((step, i) => step.id !== ordered[i]?.id);
-      setDropHint(changed
-        ? { id: moved.id, action: 'reorder', targetId: target.id, markerId: target.id, position, label: 'Przeciągnij i puść — pozostałe kroki robią miejsce' }
-        : { id: moved.id, action: 'none', label: 'Przesuń w górę lub w dół' });
+      const target = firstBelow ?? siblings[siblings.length - 1];
+      const position: 'before' | 'after' = firstBelow ? 'before' : 'after';
+      const next = reorderRoutineStep(ordered, moving.id, target.id, position);
+      const changed = next.some((step, index) => step.id !== ordered[index]?.id);
+      display(next, changed
+        ? { id: moving.id, action: 'reorder', targetId: target.id, markerId: target.id, position, label: 'Puść, aby zapisać kolejność' }
+        : { id: moving.id, action: 'none', label: 'Przesuń krok w górę lub w dół' });
     };
 
-    const tickScroll = () => {
-      scrollFrame = 0;
+    const scrollNearEdge = () => {
+      autoScrollFrame = 0;
       if (!session?.active || !modal) return;
       const rect = modal.getBoundingClientRect();
-      const y = session.lastY;
-      let velocity = 0;
-      if (y >= rect.top && y <= rect.bottom && session.lastX >= rect.left && session.lastX <= rect.right) {
-        if (y < rect.top + 48) velocity = -Math.min(12, (rect.top + 48 - y) / 4);
-        else if (y > rect.bottom - 48) velocity = Math.min(12, (y - (rect.bottom - 48)) / 4);
+      const { x, y } = session;
+      if (x >= rect.left && x <= rect.right) {
+        const band = 64;
+        const speed = y < rect.top + band ? -Math.min(12, (rect.top + band - y) / 4) :
+          y > rect.bottom - band ? Math.min(12, (y - (rect.bottom - band)) / 4) : 0;
+        if (speed) {
+          const before = modal.scrollTop;
+          modal.scrollTop += speed;
+          if (modal.scrollTop !== before) update();
+        }
       }
-      if (velocity) {
-        const before = modal.scrollTop;
-        modal.scrollTop += velocity;
-        if (before !== modal.scrollTop) update(session.lastX, session.lastY);
-      }
-      scrollFrame = requestAnimationFrame(tickScroll);
+      autoScrollFrame = requestAnimationFrame(scrollNearEdge);
     };
 
-    const start = (target: EventTarget | null, x: number, y: number) => {
-      if (!(target instanceof Element) || !target.closest('[data-step-drag-handle]')) return;
-      const row = target.closest<HTMLElement>('[data-routine-step-id]');
-      const id = row?.dataset.routineStepId;
-      if (!row || !id || !list.contains(row)) return;
-      reset();
-      const gesture: DragSession = { id, x, y, lastX: x, lastY: y, listTop: list.getBoundingClientRect().top, active: false, timer: null, preview: [] };
-      session = gesture;
-      gesture.timer = setTimeout(() => {
-        if (session !== gesture) return;
-        gesture.active = true;
-        gesture.preview = orderRoutineSteps(stepsRef.current);
-        list.classList.add('routine-gesture-active');
-        if (navigator.vibrate) navigator.vibrate(12);
-        update(x, y);
-        scrollFrame = requestAnimationFrame(tickScroll);
-      }, 420);
+    const activate = (drag: DragSession) => {
+      if (session !== drag || drag.active) return;
+      drag.active = true;
+      drag.preview = orderRoutineSteps(currentSteps.current);
+      list.classList.add('routine-gesture-active');
+      if (typeof navigator.vibrate === 'function') navigator.vibrate(8);
+      update();
+      autoScrollFrame = requestAnimationFrame(scrollNearEdge);
     };
-    const move = (x: number, y: number, prevent?: () => void) => {
-      if (!session) return;
-      if (!session.active) {
-        if (Math.hypot(x - session.x, y - session.y) > 12) reset();
-        return;
-      }
-      prevent?.();
-      update(x, y);
+    const begin = (source: DragSession['source'], identifier: number, grip: HTMLElement, id: string, x: number, y: number) => {
+      if (session) return;
+      session = {
+        source, identifier, id, grip,
+        startX: x, startY: y, x, y,
+        initialScrollTop: modal?.scrollTop ?? 0,
+        active: false, timer: null, preview: [],
+      };
+      if (source === 'touch') {
+        // A short hold works, but moving straight away also works since the
+        // grip is a dedicated drag handle, not a scrolling surface.
+        const created = session;
+        created.timer = setTimeout(() => activate(created), 120);
+      } else activate(session);
     };
-    const finish = (prevent?: () => void) => {
-      if (!session) return;
-      if (!session.active) { reset(); return; }
-      prevent?.();
-      const drop = hintRef.current;
-      const current = orderRoutineSteps(stepsRef.current);
-      const dragged = session.id;
-      if (drop?.action === 'nest' && drop.targetId) onChangeRef.current(placeRoutineStep(current, dragged, drop.targetId));
-      else if (drop?.action === 'unnest') onChangeRef.current(unnestRoutineStep(current, dragged));
-      else if (drop?.action === 'reorder') onChangeRef.current(session.preview);
-      reset(true);
+    const move = (source: DragSession['source'], identifier: number, x: number, y: number) => {
+      const drag = session;
+      if (!drag || drag.source !== source || drag.identifier !== identifier) return;
+      drag.x = x;
+      drag.y = y;
+      if (!drag.active && Math.hypot(x - drag.startX, y - drag.startY) > 4) activate(drag);
+      if (drag.active) update();
     };
+    const release = (source: DragSession['source'], identifier: number) => {
+      const drag = session;
+      if (!drag || drag.source !== source || drag.identifier !== identifier) return;
+      if (drag.active) {
+        const action = dropRef.current;
+        const before = orderRoutineSteps(currentSteps.current);
+        let next = before;
+        if (action?.action === 'nest' && action.targetId) next = placeRoutineStep(before, drag.id, action.targetId);
+        else if (action?.action === 'unnest') next = unnestRoutineStep(before, drag.id);
+        else if (action?.action === 'reorder') next = drag.preview;
+        const changed = next.some((step, index) => step.id !== before[index]?.id || step.parentId !== before[index]?.parentId);
+        if (changed) changeRef.current(next);
+        stop(changed);
+      } else stop();
+    };
+
+    const handleFromTarget = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return null;
+      const grip = target.closest<HTMLElement>('[data-step-drag-handle]');
+      const row = grip?.closest<HTMLElement>('[data-routine-step-id]');
+      return grip && row && list.contains(row) && row.dataset.routineStepId
+        ? { grip, id: row.dataset.routineStepId } : null;
+    };
+
+    // Touch Events intentionally take priority over Pointer Events on iOS.
+    // Prevent native modal scrolling ONLY when the finger starts on ⋮⋮.
     const touchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) return;
+      const hit = handleFromTarget(event.target);
+      if (!hit || session || event.changedTouches.length !== 1) return;
+      if (event.cancelable) event.preventDefault();
       const touch = event.changedTouches[0];
-      start(event.target, touch.clientX, touch.clientY);
-      if (session) touchId = touch.identifier;
+      begin('touch', touch.identifier, hit.grip, hit.id, touch.clientX, touch.clientY);
+    };
+    const findTouch = (event: TouchEvent) => {
+      if (!session || session.source !== 'touch') return null;
+      return Array.from(event.changedTouches).find(t => t.identifier === session?.identifier) ?? null;
     };
     const touchMove = (event: TouchEvent) => {
-      if (touchId === null) return;
-      const touch = Array.from(event.changedTouches).find(item => item.identifier === touchId);
-      if (touch) move(touch.clientX, touch.clientY, () => { if (event.cancelable) event.preventDefault(); });
+      const touch = findTouch(event);
+      if (!touch) return;
+      if (event.cancelable) event.preventDefault();
+      move('touch', touch.identifier, touch.clientX, touch.clientY);
     };
     const touchEnd = (event: TouchEvent) => {
-      if (touchId === null) return;
-      const touch = Array.from(event.changedTouches).find(item => item.identifier === touchId);
-      if (touch) finish(() => { if (event.cancelable) event.preventDefault(); });
+      const touch = findTouch(event);
+      if (!touch) return;
+      if (event.cancelable) event.preventDefault();
+      move('touch', touch.identifier, touch.clientX, touch.clientY);
+      release('touch', touch.identifier);
     };
-    const mouseStart = (event: MouseEvent) => { if (event.button === 0) start(event.target, event.clientX, event.clientY); };
-    const mouseMove = (event: MouseEvent) => {
-      if (session && (event.buttons & 1) === 0) { reset(); return; }
-      move(event.clientX, event.clientY, () => event.preventDefault());
+    const touchCancel = (event: TouchEvent) => {
+      if (findTouch(event)) stop();
     };
-    const mouseEnd = () => finish();
-    const cancel = () => reset();
-    list.addEventListener('touchstart', touchStart, { passive: true });
-    list.addEventListener('touchmove', touchMove, { passive: false });
-    list.addEventListener('touchend', touchEnd, { passive: false });
-    list.addEventListener('touchcancel', cancel);
-    list.addEventListener('mousedown', mouseStart);
-    window.addEventListener('mousemove', mouseMove);
-    window.addEventListener('mouseup', mouseEnd);
+    const pointerDown = (event: PointerEvent) => {
+      if (event.pointerType === 'touch' || event.button !== 0 || session) return;
+      const hit = handleFromTarget(event.target);
+      if (!hit) return;
+      event.preventDefault();
+      try { hit.grip.setPointerCapture(event.pointerId); } catch { /* unsupported capture */ }
+      begin('pointer', event.pointerId, hit.grip, hit.id, event.clientX, event.clientY);
+    };
+    const pointerMove = (event: PointerEvent) => {
+      if (session?.source !== 'pointer') return;
+      if (event.cancelable) event.preventDefault();
+      move('pointer', event.pointerId, event.clientX, event.clientY);
+    };
+    const pointerUp = (event: PointerEvent) => {
+      if (session?.source === 'pointer') {
+        move('pointer', event.pointerId, event.clientX, event.clientY);
+        release('pointer', event.pointerId);
+      }
+    };
+    const pointerCancel = (event: PointerEvent) => {
+      if (session?.source === 'pointer' && session.identifier === event.pointerId) stop();
+    };
+
+    list.addEventListener('touchstart', touchStart, { passive: false });
+    window.addEventListener('touchmove', touchMove, { passive: false });
+    window.addEventListener('touchend', touchEnd, { passive: false });
+    window.addEventListener('touchcancel', touchCancel);
+    list.addEventListener('pointerdown', pointerDown);
+    window.addEventListener('pointermove', pointerMove, { passive: false });
+    window.addEventListener('pointerup', pointerUp);
+    window.addEventListener('pointercancel', pointerCancel);
     return () => {
-      reset();
-      if (cleanupFrame) cancelAnimationFrame(cleanupFrame);
+      stop();
+      if (clearFrame) cancelAnimationFrame(clearFrame);
       list.removeEventListener('touchstart', touchStart);
-      list.removeEventListener('touchmove', touchMove);
-      list.removeEventListener('touchend', touchEnd);
-      list.removeEventListener('touchcancel', cancel);
-      list.removeEventListener('mousedown', mouseStart);
-      window.removeEventListener('mousemove', mouseMove);
-      window.removeEventListener('mouseup', mouseEnd);
+      window.removeEventListener('touchmove', touchMove);
+      window.removeEventListener('touchend', touchEnd);
+      window.removeEventListener('touchcancel', touchCancel);
+      list.removeEventListener('pointerdown', pointerDown);
+      window.removeEventListener('pointermove', pointerMove);
+      window.removeEventListener('pointerup', pointerUp);
+      window.removeEventListener('pointercancel', pointerCancel);
     };
   }, []);
 

@@ -2963,3 +2963,151 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   outline-offset: 0;
 }
 .editor-steps.routine-gesture-active .editor-step-drag { cursor: grabbing; }
+
+
+/* v0.5.23 — keep draggable routine rows at a constant compact height.
+   The weekday editor now uses a separate overlay, outside the sortable list. */
+.editor-steps .editor-step { min-height: 44px; gap: 6px; align-items: center; }
+.editor-steps .editor-step-name { flex: 1 1 0; width: auto; min-width: 0; }
+.editor-steps .routine-step-schedule-toggle {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  flex: 0 0 32px; width: 32px; height: 34px; min-width: 0;
+  padding: 0 5px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-2); color: var(--muted); cursor: pointer;
+}
+.editor-steps .routine-step-schedule-toggle svg { flex-shrink: 0; }
+.editor-steps .routine-step-schedule-toggle span { display: none; }
+.editor-steps .routine-step-schedule-toggle--custom {
+  flex-basis: 56px; width: 56px; border-color: color-mix(in srgb, var(--primary) 30%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface)); color: var(--primary);
+}
+.editor-steps .routine-step-schedule-toggle--custom span {
+  display: inline-block; min-width: 0; max-width: 30px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-size: 10px; font-weight: 750;
+}
+.editor-steps .routine-step-schedule-toggle:hover { color: var(--primary); border-color: var(--primary); }
+
+.routine-weekdays-overlay {
+  position: fixed; inset: 0; z-index: 3000; display: flex; justify-content: center;
+  align-items: flex-end; background: rgba(18, 16, 34, .50); padding: 18px;
+  padding-bottom: max(18px, env(safe-area-inset-bottom, 0px));
+}
+.routine-weekdays-dialog {
+  width: min(440px, 100%); max-height: min(85dvh, 590px); overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 20px;
+  background: var(--surface); color: var(--text); padding: 18px;
+  box-shadow: 0 22px 60px rgba(15, 10, 47, .22);
+}
+.routine-weekdays-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.routine-weekdays-heading h3 { margin: 5px 0 0; font-size: 17px; line-height: 1.3; overflow-wrap: anywhere; }
+.routine-weekdays-description { margin: 12px 0 15px; color: var(--subtext); font-size: 12px; line-height: 1.55; }
+.routine-weekdays-dialog .routine-step-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; width: 100%; }
+.routine-weekdays-dialog .routine-step-weekdays button {
+  display: grid; place-items: center; min-width: 0; min-height: 42px; border-radius: 10px;
+  border: 1px solid var(--line-strong); background: var(--surface-2);
+  color: var(--subtext); font: inherit; font-size: 11px; font-weight: 800; cursor: pointer;
+}
+.routine-weekdays-dialog .routine-step-weekdays button.selected { color: #fff; background: var(--primary); border-color: var(--primary); }
+.routine-weekdays-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; }
+.routine-weekdays-actions .btn { min-height: 41px; }
+.routine-step-schedule-info { display: block; margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.routine-no-steps { padding: 18px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--surface-2); color: var(--subtext); font-size: 12px; line-height: 1.5; }
+@media (max-width: 620px) {
+  .editor-steps .editor-step { gap: 5px; }
+  .editor-steps .editor-step--child { margin-left: 14px; padding-left: 4px; }
+  .editor-steps .routine-step-schedule-toggle--custom { flex-basis: 44px; width: 44px; }
+  .editor-steps .routine-step-schedule-toggle--custom span { max-width: 18px; }
+  .routine-weekdays-overlay { padding: 0; align-items: flex-end; }
+  .routine-weekdays-dialog {
+    width: 100%; padding: 19px 18px max(22px, env(safe-area-inset-bottom, 0px));
+    border-radius: 22px 22px 0 0; border-bottom: none;
+  }
+}
+
+/* v0.5.24 — weekday hint above a stable-height routine step; editor-only sorting. */
+.editor-steps { row-gap: 9px; }
+.editor-steps .editor-step {
+  min-height: 60px;
+  gap: 5px;
+  align-items: center;
+  isolation: isolate;
+}
+.editor-steps .editor-step-field {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  padding-top: 9px;
+}
+.editor-steps .editor-step-field .editor-step-name {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding-top: 8px;
+  padding-bottom: 5px;
+}
+.editor-steps .routine-step-days-badge {
+  position: absolute;
+  right: 6px;
+  top: 0;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - 12px);
+  padding: 2px 6px;
+  border: 1px solid #b8f1d5;
+  background: #e7fff1;
+  border-radius: 999px;
+  color: #18774c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 750;
+  pointer-events: none;
+}
+.editor-steps .routine-step-days-badge svg { flex-shrink: 0; }
+/* The icon opens the day picker; the badge only communicates the chosen days. */
+.editor-steps .routine-step-schedule-toggle,
+.editor-steps .routine-step-schedule-toggle--custom {
+  flex: 0 0 31px;
+  width: 31px;
+  min-width: 31px;
+  height: 35px;
+  border-color: var(--line);
+  color: var(--subtext);
+  background: var(--surface-2);
+}
+.editor-steps .editor-step-drag { touch-action: none; }
+.editor-steps.routine-gesture-active .editor-step.routine-step--dragging {
+  outline: 1px solid color-mix(in srgb, var(--primary) 47%, white);
+  background: var(--surface);
+  box-shadow: 0 14px 34px rgba(62,49,143,.23);
+  border-radius: 12px;
+}
+@media (max-width: 620px) {
+  .editor-steps .editor-step { min-height: 60px; }
+  .editor-steps .routine-step-days-badge { font-size: 8px; padding: 2px 5px; }
+  .editor-steps .editor-step-field .editor-step-name { font-size: 12px; }
+  .editor-steps .editor-step--child { margin-left: 12px; }
+}
+
+
+/* v0.5.25 — reliable grip-only touch sorting on iPhone. */
+.editor-steps [data-step-drag-handle],
+.editor-steps [data-step-drag-handle] * {
+  touch-action: none !important;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.editor-steps [data-step-drag-handle] {
+  min-width: 34px;
+  min-height: 44px;
+  cursor: grab;
+}
+.editor-steps.routine-gesture-active [data-step-drag-handle] { cursor: grabbing; }
+.editor-steps.routine-gesture-active { overscroll-behavior: contain; }

@@ -34,6 +34,8 @@ export interface RoutineStep {
   title: string;
   /** Optional ID of the parent step; only one level of nesting. */
   parentId?: string;
+  /** 0 = Sunday ... 6 = Saturday. Missing property means every occurrence of the routine. */
+  weekdays?: number[];
 }
 
 export interface Routine {
