@@ -1,6 +1,6 @@
 /* Momentum PWA — bezpieczna aktualizacja statycznych zasobów. Dane użytkownika
  * pozostają WYŁĄCZNIE w IndexedDB/localStorage; service worker ich nie obsługuje. */
-const VERSION = 'momentum-pwa-3-__MOMENTUM_BUILD_ID__';
+const VERSION = 'momentum-pwa-4-__MOMENTUM_BUILD_ID__';
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const SHELL_FILES = [
@@ -8,10 +8,35 @@ const SHELL_FILES = [
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
 ];
 
+// Cache only the exact assets from the same build. A failed or misrouted
+// /assets/*.js request can otherwise cache HTML and break every offline launch.
+function isValidAsset(path, response) {
+  if (!response.ok || response.type !== 'basic') return false;
+  const type = (response.headers.get('Content-Type') || '').toLowerCase();
+  if (/\.js$/i.test(path)) return /javascript|ecmascript/.test(type);
+  if (/\.css$/i.test(path)) return type.includes('text/css');
+  if (/\.(?:png|jpe?g|webp|svg|ico)$/i.test(path)) return type.startsWith('image/');
+  if (/\.woff2?$/i.test(path)) return type.includes('font/') || type.includes('application/font');
+  return false;
+}
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const shell = await caches.open(SHELL_CACHE);
-    await shell.addAll(SHELL_FILES);
+    // No browser HTTP cache: install each build with its own matching HTML.
+    for (const path of SHELL_FILES) {
+      const response = await fetch(new Request(path, { cache: 'no-store' }));
+      if (!response.ok) throw new Error(`Nie można pobrać pliku PWA ${path}: ${response.status}`);
+      const type = (response.headers.get('Content-Type') || '').toLowerCase();
+      if (path === '/' || path === '/index.html') {
+        if (!type.includes('text/html')) throw new Error(`Niepoprawny HTML PWA: ${path}`);
+      } else if (path === '/offline-assets.json') {
+        if (!type.includes('json')) throw new Error('Niepoprawny manifest offline Momentum');
+      } else if (path.endsWith('.png') && !type.startsWith('image/')) {
+        throw new Error(`Niepoprawna ikona PWA: ${path}`);
+      }
+      await shell.put(path, response);
+    }
     const response = await shell.match('/offline-assets.json');
     if (!response) throw new Error('Brak manifestu plików offline Momentum');
     const manifest = await response.json();
@@ -20,9 +45,14 @@ self.addEventListener('install', event => {
       throw new Error('Niepoprawny manifest plików offline Momentum');
     }
     const assets = await caches.open(ASSET_CACHE);
-    await assets.addAll(manifest.paths);
-    // Bez skipWaiting(): nowa wersja czeka, aż użytkownik wybierze Zaktualizuj.
-    // Na pierwszej instalacji aktywacja następuje standardowo bez pytania.
+    for (const path of manifest.paths) {
+      const result = await fetch(new Request(path, { cache: 'no-store' }));
+      if (!isValidAsset(path, result)) {
+        throw new Error(`Niepoprawny lub brakujący zasób wydania: ${path}`);
+      }
+      await assets.put(path, result);
+    }
+    // Do not skipWaiting automatically. The user decides when to activate.
   })());
 });
 
@@ -39,7 +69,7 @@ self.addEventListener('message', event => {
     await Promise.allSettled(paths.slice(0, 250).map(async path => {
       if (await cache.match(path)) return;
       const response = await fetch(path);
-      if (response.ok && response.type === 'basic') await cache.put(path, response);
+      if (isValidAsset(path, response)) await cache.put(path, response);
     }));
   })());
 });
@@ -60,25 +90,41 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin || /^\/(api|auth)\//.test(url.pathname)) return;
 
   if (request.mode === 'navigate') {
-    // Index i zasoby JS/CSS pochodzą z tej samej wersji buildu.
-    // Nie nadpisuj indeksu nową wersją przed świadomą aktualizacją.
+    // Online: ALWAYS obtain fresh HTML from the server. Cache-first here
+    // caused the hard-reload/normal-reload mismatch seen on iOS and desktop.
+    // Offline: fall back to the HTML precached with THIS version's assets.
     event.respondWith((async () => {
+      try {
+        const response = await fetch(new Request(request, { cache: 'no-store' }));
+        if (response.ok) return response;
+        if (response.status < 500) return response;
+      } catch { /* offline: use matching shell */ }
       const shell = await caches.open(SHELL_CACHE);
-      const cached = await shell.match('/index.html');
-      if (cached) return cached;
-      return fetch(request);
+      const fallback = await shell.match('/index.html');
+      if (fallback) return fallback;
+      return new Response('Momentum jest offline i nie ma zapisanej wersji aplikacji.', {
+        status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
     })());
     return;
   }
+
   const isStatic = url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/') ||
     /\.(?:js|css|png|jpg|jpeg|webp|svg|woff2?|ico|webmanifest)$/i.test(url.pathname);
   if (!isStatic) return;
   event.respondWith((async () => {
+    // Never search across ALL CacheStorage versions: old bundles may contain
+    // a stale file or even an HTML fallback saved under a JS/CSS pathname.
     const cache = await caches.open(ASSET_CACHE);
-    const cached = await caches.match(request);
-    if (cached) return cached;
+    const shell = await caches.open(SHELL_CACHE);
+    const cached = await cache.match(request) || await shell.match(request);
+    if (cached && (url.pathname.startsWith('/icons/') || isValidAsset(url.pathname, cached) ||
+      url.pathname.endsWith('.webmanifest'))) return cached;
+
     const response = await fetch(request);
-    if (response.ok && response.type === 'basic') await cache.put(request, response.clone());
+    if (isValidAsset(url.pathname, response)) {
+      await cache.put(request, response.clone());
+    }
     return response;
   })());
 });

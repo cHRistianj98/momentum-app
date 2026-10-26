@@ -103,7 +103,7 @@ function cacheCurrentAssets(registration: ServiceWorkerRegistration): void {
 }
 
 async function setupMomentumPwa(): Promise<void> {
-  const registration = await navigator.serviceWorker.register('/sw.js');
+  const registration = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
   let lastUpdateCheck = 0;
 
   const checkWaiting = () => {
@@ -138,6 +138,12 @@ async function setupMomentumPwa(): Promise<void> {
   });
   document.addEventListener('visibilitychange', checkForUpdates);
   window.addEventListener('online', checkForUpdates);
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) {
+      checkWaiting();
+      checkForUpdates();
+    }
+  });
 
   void navigator.serviceWorker.ready.then(ready => cacheCurrentAssets(ready)).catch(() => undefined);
   checkForUpdates();
