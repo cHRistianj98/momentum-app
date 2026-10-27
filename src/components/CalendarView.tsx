@@ -90,6 +90,13 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   const [externalPreview, setExternalPreview] = useState<{date: string; time: string} | null>(null);
   const [emptyHover, setEmptyHover] = useState<{date: string; time: string} | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  // Gesture tracking on the hour grid: horizontal swipe = adjacent day/week;
+  // vertical swipe still scrolls, while long press keeps move/range selection.
+  const gridSwipeRef = useRef<{ startX: number; startY: number; lastX: number; lastY: number; horizontal: boolean; cancelled: boolean } | null>(null);
+  const [daySwipeDirection, setDaySwipeDirection] = useState<'next' | 'previous' | null>(null);
+  const daySwipeResetRef = useRef<number | null>(null);
+  useEffect(() => () => { if (daySwipeResetRef.current !== null) window.clearTimeout(daySwipeResetRef.current); }, []);
+
   const [rangePreview, setRangePreview] = useState<{date:string;start:number;end:number}|null>(null);
   const rangeRef = useRef<{timer:ReturnType<typeof setTimeout>|null; date:string; lane:HTMLDivElement; y:number; x:number; startY:number; active:boolean; anchor:number}|null>(null);
   const stopTouchScroll = useRef<(event:TouchEvent)=>void>((event)=>{ if(touchMoveRef.current?.active || rangeRef.current?.active) event.preventDefault(); });
@@ -382,6 +389,53 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   }, [referenceDate, mode]);
 
   const change = (direction: number) => onChangeDate(shiftDate(referenceDate, direction * (mode === 'week' ? 7 : 1)));
+
+  const gridSwipeStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    gridSwipeRef.current = null;
+    if (event.touches.length !== 1 || !window.matchMedia('(max-width: 850px)').matches) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button, input, .event-resize-handle, .momentum-control-popover')) return;
+    const point = event.touches[0];
+    gridSwipeRef.current = { startX: point.clientX, startY: point.clientY,
+      lastX: point.clientX, lastY: point.clientY, horizontal: false, cancelled: false };
+  };
+  const gridSwipeMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const swipe = gridSwipeRef.current;
+    if (!swipe || event.touches.length !== 1 || swipe.cancelled) return;
+    if (touchMoveRef.current?.active || rangeRef.current?.active || moveSession.current?.dragging || resizeSession.current) {
+      swipe.cancelled = true;
+      return;
+    }
+    const finger = event.touches[0];
+    swipe.lastX = finger.clientX; swipe.lastY = finger.clientY;
+    const dx = finger.clientX - swipe.startX;
+    const dy = finger.clientY - swipe.startY;
+    if (!swipe.horizontal) {
+      if (Math.abs(dy) > 18 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+        swipe.cancelled = true; // The user is scrolling hours vertically.
+        return;
+      }
+      if (Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy) * 1.5) swipe.horizontal = true;
+    }
+    if (swipe.horizontal && event.cancelable) event.preventDefault();
+  };
+  const gridSwipeEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const swipe = gridSwipeRef.current;
+    gridSwipeRef.current = null;
+    if (!swipe || swipe.cancelled || !swipe.horizontal || touchMoveRef.current?.active || rangeRef.current?.active || moveSession.current?.dragging || resizeSession.current) return;
+    const point = event.changedTouches[0];
+    const dx = (point?.clientX ?? swipe.lastX) - swipe.startX;
+    const dy = (point?.clientY ?? swipe.lastY) - swipe.startY;
+    if (Math.abs(dx) < 65 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
+    if (event.cancelable) event.preventDefault();
+    suppressClick.current = true;
+    setDaySwipeDirection(dx < 0 ? 'next' : 'previous');
+    if (daySwipeResetRef.current !== null) window.clearTimeout(daySwipeResetRef.current);
+    daySwipeResetRef.current = window.setTimeout(() => setDaySwipeDirection(null), 230);
+    change(dx < 0 ? 1 : -1);
+    window.setTimeout(() => { suppressClick.current = false; }, 250);
+  };
+
   const scheduledDates = useMemo(() => new Set(blocks.map(block => block.date)), [blocks]);
   const header = mode === 'day'
     ? fullDate(referenceDate)
@@ -452,7 +506,9 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           })}
         </div>
       </div>}
-      <div className="calendar-scroll" ref={calendarScrollRef}>
+      <div className={`calendar-scroll ${daySwipeDirection ? `calendar-scroll--swipe-${daySwipeDirection}` : ''}`} ref={calendarScrollRef}
+        onTouchStart={gridSwipeStart} onTouchMove={gridSwipeMove}
+        onTouchEnd={gridSwipeEnd} onTouchCancel={() => { gridSwipeRef.current = null; }}>
         <div className={`calendar-body ${mode === 'day' ? 'calendar-body--day' : 'calendar-body--week'}`} style={{ minWidth: mode === 'week' ? 980 : 520 }}>
           <div className="calendar-head" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
             <div className="timezone">LOKALNIE</div>

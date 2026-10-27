@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, ChevronDown, Clock3, FolderKanban, ImagePlus, Link2, Plus, Play, Timer, Trash2, X } from 'lucide-react';
+import { Camera, Check, CheckCircle2, ChevronDown, Clock3, FolderKanban, ImagePlus, Link2, Plus, Play, Timer, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -15,6 +15,7 @@ interface Props {
   task?: Task;
   initialDate?: string | null;
   initialTime?: string | null;
+  initialDuration?: number;
   initialProjectId?: string;
   initialMilestoneId?: string;
   projects: Project[];
@@ -84,8 +85,8 @@ function ProjectPicker({ label, value, options, disabled = false, onChange }: {
   );
 }
 
-export function TaskModal({ task, initialDate, initialTime, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, onFocus, onSave, onDelete, onClose }: Props) {
-  const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null, projectId: initialProjectId ?? null, milestoneId: initialMilestoneId ?? null, subtasks: [] });
+export function TaskModal({ task, initialDate, initialTime, initialDuration, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, onFocus, onSave, onDelete, onClose }: Props) {
+  const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null, duration: initialDuration ?? EMPTY.duration, projectId: initialProjectId ?? null, milestoneId: initialMilestoneId ?? null, subtasks: [] });
   const [subtaskText, setSubtaskText] = useState('');
   const selectedProject = projects.find(project => project.id === form.projectId);
   const [imageError, setImageError] = useState('');
@@ -94,9 +95,9 @@ export function TaskModal({ task, initialDate, initialTime, initialProjectId, in
   useEffect(() => { titleRef.current?.focus(); }, []);
   const change = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm(p => ({ ...p, [key]: value }));
 
-  function save() {
+  function save(doneOverride?: boolean) {
     if (!form.title.trim()) { titleRef.current?.focus(); return; }
-    onSave({ ...form, title: form.title.trim(), duration: Math.max(15, Number(form.duration)), xp: Math.max(0, Number(form.xp)), id: task?.id ?? crypto.randomUUID(), createdAt: task?.createdAt ?? new Date().toISOString() });
+    onSave({ ...form, done: doneOverride ?? form.done, title: form.title.trim(), duration: Math.max(15, Number(form.duration)), xp: Math.max(0, Number(form.xp)), id: task?.id ?? crypto.randomUUID(), createdAt: task?.createdAt ?? new Date().toISOString() });
   }
 
   function onImage(file: File | undefined) {
@@ -109,8 +110,9 @@ export function TaskModal({ task, initialDate, initialTime, initialProjectId, in
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="modal-backdrop task-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal task-modal" role="dialog" aria-modal="true" aria-label={task ? 'Edytuj zadanie' : 'Nowe zadanie'}>
+        <div className="task-modal-scroll">
         <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={form.icon} image={form.image} category={form.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJE ZADANIA</span><h2>{task ? 'Edytuj zadanie' : 'Nowe zadanie'}</h2><CategoryBadge category={form.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
         {!task && <div className="presets"><span>Dodaj szybko:</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration, xp: p.xp }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
         <div className="modal-fields">
@@ -146,10 +148,22 @@ export function TaskModal({ task, initialDate, initialTime, initialProjectId, in
             {picker==='icons'&&<IconPicker value={form.icon} onSelect={icon=>{change('icon',icon);setPicker(null);}}/>}
             {picker==='photos'&&<PhotoPicker value={form.image} onSelect={image=>{change('image',image);setPicker(null);}}/>}
           </div>
-          <label className="toggle-row"><span className={`toggle ${form.done ? 'on' : ''}`}><input type="checkbox" checked={form.done} onChange={e => change('done', e.target.checked)} /><Check size={13}/></span>Oznacz zadanie jako wykonane</label>
         </div>
         {task && <div className="task-focus-row"><div><Timer size={17}/><span><strong>Focus Mode</strong><small>Realnie przepracowano: {Math.floor(focusSeconds/3600)>0?`${Math.floor(focusSeconds/3600)} h `:''}${Math.floor((focusSeconds%3600)/60)} min</small></span></div><button className="btn btn--focus" type="button" onClick={()=>onFocus(task.id)}><Play size={15} fill="currentColor"/> Rozpocznij Focus</button></div>}
-        <div className="modal-bottom">{task ? <button className="btn btn--danger" onClick={() => { if (window.confirm('Usunąć to zadanie?')) onDelete(task.id); }}><Trash2 size={16} /> Usuń</button> : <span className="modal-tip">Szybkie zadanie może pozostać w Inbox.</span>}<div className="modal-bottom-right"><button className="btn btn--ghost" onClick={onClose}>Anuluj</button><button className="btn btn--primary" disabled={!form.title.trim()} onClick={save}><Check size={16} />{task ? 'Zapisz zmiany' : 'Dodaj zadanie'}</button></div></div>
+        </div>
+        <div className="modal-bottom task-modal-footer">
+          {task ? <div className="task-modal-status-row">
+            <button type="button" className="btn btn--danger" onClick={() => { if (window.confirm('Usunąć to zadanie?')) onDelete(task.id); }}><Trash2 size={16} /> Usuń</button>
+            <button type="button" className={`btn task-modal-complete-btn ${form.done ? 'is-complete' : ''}`}
+              onClick={() => save(!form.done)}>
+              <CheckCircle2 size={16} /> {form.done ? 'Oznacz jako niewykonane' : 'Oznacz jako ukończone'}
+            </button>
+          </div> : <span className="modal-tip">Możesz zapisać zadanie bez podawania daty.</span>}
+          <div className="modal-bottom-right">
+            <button type="button" className="btn btn--ghost" onClick={onClose}>Anuluj</button>
+            <button type="button" className="btn btn--primary" disabled={!form.title.trim()} onClick={() => save()}><Check size={16} />{task ? 'Zapisz zmiany' : 'Dodaj zadanie'}</button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -60,6 +60,7 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
     setTimerNow(Date.now());
   }
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-modal" role="dialog" aria-modal="true" aria-label="Rutyna">
+    <div className="routine-session-scroll">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJA RUTYNA · {fullDate(date)}</span><h2>{routine.title}</h2><CategoryBadge category={routine.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
     <div className="routine-banner" style={{ '--routine-color': categoryColor } as React.CSSProperties}><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="routine-banner-icon"/><div><strong>{routine.description || 'Małe kroki, wielki progres.'}</strong><span><Clock3 size={14} /> {displayTime} · {formatDuration(duration)} <span className="dot-spacer">·</span> <Flame size={14} /> +{routine.xp} XP</span></div></div>
     <div className="routine-progress-heading"><strong>Twoje kroki</strong><span>{completed}/{count} wykonane</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
@@ -92,7 +93,8 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
       })}
     </div>
     {log.completed && <div className="completion-message"><span>✦</span><div><strong>Rutyna ukończona!</strong><small>Świetna robota. +{routine.xp} XP zostało uwzględnione w Twoim progresie.</small></div></div>}
-    <div className="modal-bottom routine-session-actions"><div className="routine-session-manage"><button className="btn btn--ghost" onClick={onEdit}>Edytuj szablon</button><button type="button" className="btn btn--danger routine-session-delete" onClick={()=>{if(window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`))onDelete();}}><Trash2 size={15}/> Usuń rutynę</button></div><div className="modal-bottom-right">{log.completed ? <button className="btn btn--secondary" onClick={onUndo}><RotateCcw size={15}/> Cofnij</button> : <button disabled={count === 0 || completed !== count} className="btn btn--primary" onClick={onComplete}><Check size={16}/> Zakończ rutynę · +{routine.xp} XP</button>}</div></div>
+    </div>
+    <div className="modal-bottom routine-session-actions"><div className="routine-session-manage"><button type="button" className="btn btn--secondary routine-session-edit" onClick={onEdit}><ArrowRight size={14}/> Edytuj szablon</button><button type="button" className="btn btn--danger routine-session-delete" onClick={()=>{if(window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`))onDelete();}}><Trash2 size={15}/> Usuń rutynę</button></div><div className="modal-bottom-right">{log.completed ? <button className="btn btn--secondary" onClick={onUndo}><RotateCcw size={15}/> Cofnij</button> : <button disabled={count === 0 || completed !== count} className="btn btn--primary" onClick={onComplete}><Check size={16}/> Zakończ rutynę · +{routine.xp} XP</button>}</div><button type="button" className="btn btn--secondary routine-session-back" onClick={onClose}><ArrowLeft size={16}/> Wróć do kalendarza</button></div>
   </div></div>;
 }
 
@@ -121,6 +123,7 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
   const toggleStepWeekday = (stepId: string, weekday: number) => setSteps(previous => previous.map(step => {
     if (step.id !== stepId) return step;
     // On the first tap, switch from daily to this one day (e.g. Sunday peeling).
+    if (step.repeatEveryDays) return {...step, weekdays: [weekday], repeatEveryDays: undefined, repeatFrom: undefined};
     if (!Array.isArray(step.weekdays)) return {...step, weekdays: [weekday]};
     const selected = step.weekdays;
     // Keep at least one day active. Use "Codziennie" to reset the schedule.
@@ -166,7 +169,7 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
             </span>
             <input className="editor-step-name" value={s.title} placeholder={`Krok ${i+1}`} onChange={e=>setSteps(arr=>arr.map(x=>x.id===s.id ? {...x,title:e.target.value} : x))}/>
           </div>
-          <button type="button" className={`routine-step-schedule-toggle ${Array.isArray(s.weekdays) ? 'routine-step-schedule-toggle--custom' : ''}`}
+          <button type="button" className={`routine-step-schedule-toggle ${Array.isArray(s.weekdays) || s.repeatEveryDays ? 'routine-step-schedule-toggle--custom' : ''}`}
             aria-label={`Harmonogram kroku ${s.title || i+1}: ${stepWeekdaysLabel(s)}`}
             title={`Wybierz dni wykonywania: ${stepWeekdaysLabel(s)}`}
             onClick={()=>setScheduleStepId(s.id)}>
@@ -197,17 +200,30 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
           <div className="routine-weekdays-heading"><div><span className="eyebrow">HARMONOGRAM KROKU</span><h3>{scheduledStep.title || 'Krok rutyny'}</h3></div>
             <button type="button" className="icon-btn" aria-label="Zamknij wybór dni" onClick={()=>setScheduleStepId(null)}><X size={19}/></button>
           </div>
-          <p className="routine-weekdays-description">Zaznacz dni, w które ten krok ma się pojawiać. Pierwsze dotknięcie przy ustawieniu „Codziennie” wybierze tylko wskazany dzień.</p>
+          <p className="routine-weekdays-description">Wybierz dni tygodnia albo powtarzanie co 2 dni.</p>
+          <div className="routine-weekdays-actions">
+            <button type="button" className={`btn ${scheduledStep.repeatEveryDays === 2 ? 'btn--primary' : 'btn--secondary'}`}
+              onClick={() => setSteps(previous => previous.map(step => step.id === scheduledStep.id
+                ? {...step, weekdays: undefined, repeatEveryDays: 2, repeatFrom: step.repeatFrom ?? todayKey()} : step))}>
+              Co 2 dni
+            </button>
+          </div>
+          {scheduledStep.repeatEveryDays === 2 && <label className="field">
+            <span>Pierwszy dzień cyklu</span>
+            <input type="date" value={scheduledStep.repeatFrom ?? todayKey()}
+              onChange={event => { const date = event.target.value; if (!date) return;
+                setSteps(previous => previous.map(step => step.id === scheduledStep.id ? {...step, repeatFrom: date} : step)); }}/>
+          </label>}
           <div className="routine-step-weekdays">
             {WEEK.map((day,weekDay)=><button type="button" key={weekDay}
-              className={!scheduledStep.weekdays || scheduledStep.weekdays.includes(weekDay) ? 'selected' : ''}
-              aria-pressed={!scheduledStep.weekdays || scheduledStep.weekdays.includes(weekDay)}
+              className={!scheduledStep.repeatEveryDays && (!scheduledStep.weekdays || scheduledStep.weekdays.includes(weekDay)) ? 'selected' : ''}
+              aria-pressed={!scheduledStep.repeatEveryDays && (!scheduledStep.weekdays || scheduledStep.weekdays.includes(weekDay))}
               onClick={()=>toggleStepWeekday(scheduledStep.id,weekDay)}>{day}</button>)}
           </div>
           {scheduledStep.parentId && <small className="routine-step-schedule-info">Ten krok będzie widoczny tylko wtedy, gdy aktywny jest również jego rodzic.</small>}
           <div className="routine-weekdays-actions">
-            <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:[]}:step))}>Żaden dzień</button>
-            <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:undefined}:step))}>Codziennie</button>
+            <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:[],repeatEveryDays:undefined,repeatFrom:undefined}:step))}>Żaden dzień</button>
+            <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:undefined,repeatEveryDays:undefined,repeatFrom:undefined}:step))}>Codziennie</button>
             <button type="button" className="btn btn--primary" onClick={()=>setScheduleStepId(null)}><Check size={15}/> Gotowe</button>
           </div>
         </div>

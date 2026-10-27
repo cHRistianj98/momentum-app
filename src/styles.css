@@ -3127,3 +3127,198 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 @media (max-width:620px) { .routine-import-bar { padding: 8px 14px 0; } .routine-import-bar small { display:none; } .routine-step--timed { gap: 3px; } .routine-step-main { gap:6px; } }
 
 .routine-weekdays-actions { flex-wrap: wrap; }
+
+
+/* v0.5.29 — single-action task completion footer and mobile calendar swipes */
+.task-modal-footer { display: flex; align-items: stretch; flex-direction: column; gap: 10px; }
+.task-modal-footer .task-modal-status-row { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
+.task-modal-footer .modal-bottom-right { margin-left: 0; width: 100%; }
+.task-modal-complete-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid #80d5b0; background: #e9f8f0; color: #12734d; font-weight: 800;
+  border-radius: 12px; padding: 9px 12px; }
+.task-modal-complete-btn:hover, .task-modal-complete-btn.is-complete { background: #dff4eb; color: #0c6c46; border-color: #63c79c; }
+:root[data-theme='dark'] .task-modal-complete-btn { background: #173c31; color: #87e2b8; border-color: #347e5d; }
+@media (max-width: 620px) {
+  .task-modal-footer { padding-top: 12px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+  .task-modal-footer .task-modal-status-row .btn { min-height: 40px; font-size: 11px; padding: 9px 10px; white-space: nowrap; }
+  .task-modal-footer .modal-bottom-right .btn--primary { flex: 1; }
+  .calendar-scroll { overscroll-behavior-x: contain; touch-action: pan-y pinch-zoom; }
+  .calendar-scroll--swipe-next .calendar-body--day .calendar-grid { animation: momentum-calendar-next 210ms ease-out both; }
+  .calendar-scroll--swipe-previous .calendar-body--day .calendar-grid { animation: momentum-calendar-previous 210ms ease-out both; }
+}
+@keyframes momentum-calendar-next { from { opacity: .72; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes momentum-calendar-previous { from { opacity: .72; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .calendar-scroll--swipe-next .calendar-body--day .calendar-grid,
+  .calendar-scroll--swipe-previous .calendar-body--day .calendar-grid { animation: none; }
+}
+
+/* Momentum v0.5.30 — routine dialog header/safe-area and opaque anchored actions */
+.routine-session-edit {
+  background: var(--primary-pale);
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--line));
+}
+.routine-session-edit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 19%, var(--surface));
+  color: var(--primary);
+}
+.routine-session-back { display: inline-flex; align-items: center; gap: 7px; }
+.routine-modal .routine-session-actions { flex-wrap: wrap; }
+
+@media (max-width: 620px) {
+  /* Leave the global header visible, but reserve its actual height instead of
+     rendering the dialog under it. This also fixes the first open at scroll 0. */
+  .modal-backdrop:has(> .routine-modal),
+  .modal-backdrop:has(> .routine-editor) {
+    position: fixed;
+    inset: calc(54px + env(safe-area-inset-top, 0px)) 0 0 0;
+    z-index: 120;
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  /* Only the middle routine content scrolls: the solid footer remains flush to
+     the very bottom, including the iPhone home-indicator safe area. */
+  .modal-backdrop > .routine-modal {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 0;
+    padding: 0;
+    background: var(--surface);
+  }
+  .routine-modal > .routine-session-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 17px 24px;
+    background: var(--surface);
+  }
+  .routine-modal > .routine-session-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    position: relative;
+    bottom: auto;
+    z-index: 3;
+    width: 100%;
+    margin: 0;
+    gap: 9px;
+    padding: 13px 17px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -9px 23px rgba(25, 20, 58, .09);
+  }
+  .routine-session-actions .routine-session-manage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    width: 100%;
+    align-items: center;
+  }
+  .routine-session-actions .routine-session-manage .btn {
+    min-height: 42px;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .routine-session-actions .routine-session-manage .routine-session-edit {
+    justify-content: center;
+  }
+  .routine-session-actions .modal-bottom-right {
+    width: 100%;
+    margin: 0;
+  }
+  .routine-session-actions .modal-bottom-right .btn { width: 100%; min-height: 44px; }
+  .routine-session-actions .routine-session-back {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+    background: var(--surface-2);
+    color: var(--subtext);
+    border-color: var(--line);
+  }
+
+  /* The editor uses the same safe top boundary; its existing scroll and step
+     dragging behavior are preserved. */
+  .modal-backdrop > .routine-editor {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 620px) {
+  /* Avoid even a one-pixel gap between the opaque sheet and the screen edge. */
+  .modal-backdrop > .routine-modal { border: 0; }
+}
+
+
+/* v0.5.31 — ordinary task dialog: fully opaque, fixed bottom action bar on mobile. */
+@media (max-width: 620px) {
+  /* Just like the routine dialog, the task dialog begins below the global topbar. */
+  .task-modal-backdrop {
+    position: fixed;
+    inset: calc(54px + env(safe-area-inset-top, 0px)) 0 0;
+    z-index: 120;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    overscroll-behavior: contain;
+  }
+  .task-modal-backdrop > .task-modal {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: var(--surface);
+  }
+  .task-modal > .task-modal-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 16px 17px 24px;
+    background: var(--surface);
+  }
+  /* Not sticky within a long scrolling modal: it is a sibling of the scroll area. */
+  .task-modal > .task-modal-footer {
+    position: relative;
+    bottom: auto;
+    z-index: 4;
+    flex: 0 0 auto;
+    width: 100%;
+    margin: 0;
+    border-top: 1px solid var(--line);
+    padding: 12px 17px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    box-shadow: 0 -9px 23px rgba(25, 20, 58, .09);
+    gap: 9px;
+  }
+  .task-modal-footer .task-modal-status-row { width: 100%; }
+  .task-modal-footer .modal-bottom-right { display: flex; width: 100%; margin: 0; }
+  .task-modal-footer .modal-bottom-right .btn { min-height: 44px; }
+  .task-modal-footer .task-modal-status-row .btn { min-height: 42px; }
+}
