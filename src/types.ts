@@ -36,6 +36,10 @@ export interface RoutineStep {
   parentId?: string;
   /** 0 = Sunday ... 6 = Saturday. Missing property means every occurrence of the routine. */
   weekdays?: number[];
+  /** Optional interval recurrence for individual steps. */
+  repeatEveryDays?: number;
+  /** First date (YYYY-MM-DD) of interval recurrence. */
+  repeatFrom?: string;
   /** Optional countdown in seconds for timed exercises inside a routine. */
   timerSeconds?: number;
 }
