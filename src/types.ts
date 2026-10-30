@@ -27,6 +27,8 @@ export interface Task {
   projectId?: string | null;
   milestoneId?: string | null;
   subtasks?: ProjectSubtask[];
+  /** Przypomnienia w minutach przed rozpoczęciem (0 = w chwili startu). Działają dla zadań z datą i godziną. */
+  reminders?: number[];
 }
 
 export interface RoutineStep {
@@ -57,6 +59,8 @@ export interface Routine {
   steps: RoutineStep[];
   xp: number;
   active: boolean;
+  /** Przypomnienia dla każdego wystąpienia, w minutach przed godziną rutyny. */
+  reminders?: number[];
 }
 
 export interface RoutineLog {
@@ -99,6 +103,15 @@ export interface Project {
   archived?: boolean;
 }
 
+export interface NotificationSettings {
+  /** Użytkownik włączył powiadomienia systemowe w Momentum. Zgoda przeglądarki/iOS jest osobna. */
+  enabled: boolean;
+  /** Domyślne przypomnienia proponowane dla nowych zadań. */
+  taskDefaults: number[];
+  /** Domyślne przypomnienia proponowane dla nowych rutyn. */
+  routineDefaults: number[];
+}
+
 export interface AppData {
   tasks: Task[];
   projects: Project[];
@@ -106,6 +119,7 @@ export interface AppData {
   routineLogs: Record<string, RoutineLog>;
   categories: CategoryConfig;
   theme: 'light' | 'dark';
+  notifications?: NotificationSettings;
 }
 
 export interface TaskPreset {

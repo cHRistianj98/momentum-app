@@ -6,6 +6,7 @@ import { IconPicker } from './IconPicker';
 import { PhotoPicker } from './PhotoPicker';
 import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { CategoryChoices } from './CategoryChoices';
+import { ReminderPicker } from './ReminderPicker';
 import { formatDuration, fullDate, todayKey } from '../lib/date';
 import { orderRoutineSteps, placeRoutineStep, unnestRoutineStep } from '../lib/routineHierarchy';
 import { useRoutineStepDrag } from '../lib/useRoutineStepDrag';
@@ -101,13 +102,17 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
 interface EditorProps {
   routine?: Routine;
   categories: CategoryConfig;
+  /** Przypomnienia proponowane dla nowej rutyny (z ustawień powiadomień). */
+  defaultReminders?: number[];
+  notificationsEnabled?: boolean;
+  onEnableNotifications?: () => void;
   onSave: (routine: Routine) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }
 const WEEK = ['N', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
 
-export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }: EditorProps) {
+export function RoutineEditor({ routine, categories, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onSave, onDelete, onClose }: EditorProps) {
   const [title, setTitle] = useState(routine?.title ?? '');
   const [description, setDescription] = useState(routine?.description ?? '');
   const [icon, setIcon] = useState<IconKey>(routine?.icon ?? 'sun');
@@ -117,6 +122,7 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
   const [duration, setDuration] = useState(routine?.duration ?? 30);
   const [xp, setXp] = useState(routine?.xp ?? 40);
   const [weekdays, setWeekdays] = useState(routine?.weekdays ?? [0,1,2,3,4,5,6]);
+  const [reminders, setReminders] = useState<number[]>(() => routine ? [...(routine.reminders ?? [])] : [...defaultReminders]);
   const [steps, setSteps] = useState<RoutineStep[]>(routine?.steps ?? [{ id: crypto.randomUUID(), title: '' }]);
   const [scheduleStepId, setScheduleStepId] = useState<string | null>(null);
   const [picker, setPicker] = useState<'icons' | 'photos' | null>(null);
@@ -144,7 +150,7 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
   function save() {
     const validSteps = orderRoutineSteps(steps.filter(s => s.title.trim()).map(s => ({ ...s, title: s.title.trim() })));
     if (!title.trim() || !validSteps.length || !weekdays.length) return;
-    onSave({ id: routine?.id ?? crypto.randomUUID(), title: title.trim(), description: description.trim(), icon, image, category, time, duration, xp, weekdays, steps: validSteps, active: routine?.active ?? true });
+    onSave({ id: routine?.id ?? crypto.randomUUID(), title: title.trim(), description: description.trim(), icon, image, category, time, duration, xp, weekdays, steps: validSteps, active: routine?.active ?? true, ...(reminders.length ? { reminders } : {}) });
   }
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-editor" role="dialog" aria-modal="true" aria-label="Edytor rutyny">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={icon} image={image} category={category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">BUDUJ DOBRE NAWYKI</span><h2>{routine ? 'Edytuj rutynę' : 'Nowa rutyna'}</h2><CategoryBadge category={category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20}/></button></div>
@@ -157,6 +163,7 @@ export function RoutineEditor({ routine, categories, onSave, onDelete, onClose }
     <label className="field"><span>Opis</span><input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Co daje Ci ta rutyna?" /></label>
     <div className="field"><span>Kategoria finansowa</span><CategoryChoices categories={categories} value={category} onChange={setCategory}/></div>
     <div className="two-fields"><div className="field"><span>Godzina</span><TimePicker value={time} onChange={v => setTime(v ?? '07:00')}/></div><div className="field"><span>Czas trwania</span><DurationPicker value={duration} onChange={setDuration}/></div></div>
+    <ReminderPicker value={reminders} onChange={setReminders} time={time} systemEnabled={notificationsEnabled} onEnableSystem={onEnableNotifications}/>
     <div className="field"><span>Powtarzaj w dni</span><div className="weekday-picker">{WEEK.map((w,i)=><button key={i} className={weekdays.includes(i) ? 'selected' : ''} onClick={()=>setWeekdays(arr=>arr.includes(i) ? arr.filter(x=>x!==i) : [...arr,i].sort())}>{w}</button>)}</div></div>
     <div className="field"><span>Lista kroków</span>
       <small className="routine-gesture-note">Przytrzymaj ⋮⋮: przesuń w górę lub dół, aby zmienić kolejność; w prawo — dodaj podzadanie, w lewo — odłącz.</small>

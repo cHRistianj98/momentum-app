@@ -83,6 +83,48 @@ self.addEventListener('activate', event => {
   })());
 });
 
+/* Powiadomienia: dotknięcie otwiera Momentum na zadaniu lub rutynie.
+ * Adres ?open=... jest przekazywany do otwartej karty albo do nowego okna. */
+function sameOriginUrl(value) {
+  try {
+    const url = new URL(typeof value === 'string' ? value : '/', self.location.origin);
+    return url.origin === self.location.origin ? url : new URL('/', self.location.origin);
+  } catch {
+    return new URL('/', self.location.origin);
+  }
+}
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = sameOriginUrl(event.notification.data && event.notification.data.url);
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const client = windows.find(item => new URL(item.url).origin === self.location.origin);
+    if (client) {
+      client.postMessage({ type: 'MOMENTUM_OPEN', url: target.pathname + target.search });
+      if ('focus' in client) return client.focus();
+      return undefined;
+    }
+    return self.clients.openWindow(target.href);
+  })());
+});
+
+/* Gotowość na serwer Web Push: każda wiadomość musi wyświetlić powiadomienie (wymóg iOS). */
+self.addEventListener('push', event => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; }
+  catch { payload = { body: event.data ? event.data.text() : '' }; }
+  const title = typeof payload.title === 'string' && payload.title ? payload.title : 'Momentum';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: typeof payload.body === 'string' ? payload.body : '',
+    tag: typeof payload.tag === 'string' ? payload.tag : undefined,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    lang: 'pl',
+    data: { url: sameOriginUrl(payload.url).pathname + sameOriginUrl(payload.url).search },
+  }));
+});
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;

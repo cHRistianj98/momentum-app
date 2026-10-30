@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Play, Plus } from 'lucide-react';
+import { CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Play, Plus } from 'lucide-react';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { layoutOverlappingEvents } from '../lib/calendarOverlap';
 import { MiniMonthPicker } from './MiniMonthPicker';
@@ -441,6 +441,16 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
     ? fullDate(referenceDate)
     : `${parseDate(dates[0]).getDate()} ${new Intl.DateTimeFormat('pl-PL', { month: 'short' }).format(parseDate(dates[0]))} – ${parseDate(dates[6]).getDate()} ${monthTitle(dates[6])}`;
   const today = todayKey();
+  // Kompaktowy pasek na telefonie: data jako przycisk wyboru, nawigacja ‹ Dziś › i przełącznik widoku.
+  const showsToday = mode === 'day' ? referenceDate === today : dates.includes(today);
+  const shortMonth = (date: string) => new Intl.DateTimeFormat('pl-PL', { month: 'short' }).format(parseDate(date)).replace('.', '');
+  const mobileEyebrow = mode === 'day' ? new Intl.DateTimeFormat('pl-PL', { weekday: 'long' }).format(parseDate(referenceDate)) : 'Tydzień';
+  const mobileRelative = mode === 'day'
+    ? referenceDate === today ? 'Dziś' : referenceDate === shiftDate(today, 1) ? 'Jutro' : referenceDate === shiftDate(today, -1) ? 'Wczoraj' : ''
+    : showsToday ? 'Bieżący' : '';
+  const mobileTitle = mode === 'day'
+    ? new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'long' }).format(parseDate(referenceDate))
+    : `${parseDate(dates[0]).getDate()} ${shortMonth(dates[0])} – ${parseDate(dates[6]).getDate()} ${shortMonth(dates[6])}`;
 
   const getTimeFromPosition = (event: React.DragEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>, element: HTMLDivElement): string => {
     const rect = element.getBoundingClientRect();
@@ -452,6 +462,36 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   return (
     <section className={`calendar-panel ${compact ? 'calendar-panel--compact' : ''}`}>
       <div className="calendar-toolbar">
+        <div className="cal-mbar" onTouchStart={e => {
+            if (e.touches.length === 1) swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }} onTouchEnd={e => {
+            const start = swipeStart.current;
+            swipeStart.current = null;
+            if (!start || !e.changedTouches.length) return;
+            const dx = e.changedTouches[0].clientX - start.x;
+            const dy = e.changedTouches[0].clientY - start.y;
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) change(dx < 0 ? 1 : -1);
+          }}>
+          <div className="cal-mbar-row">
+            <MiniMonthPicker selectedDate={referenceDate} scheduledDates={scheduledDates} selection={mode === 'day' ? 'day' : 'week'}
+              onSelectWeek={date => onChangeDate(date)} triggerClassName="cal-mbar-title"
+              triggerLabel={mode === 'day' ? 'Wybierz dzień z kalendarza' : 'Wybierz tydzień z kalendarza'}
+              triggerContent={<>
+                <span className="cal-mbar-eyebrow">{mobileEyebrow}{mobileRelative && <b>{mobileRelative}</b>}</span>
+                <span className="cal-mbar-date">{mobileTitle}<ChevronDown size={17} aria-hidden="true" /></span>
+              </>} />
+            <div className="cal-mbar-nav" role="group" aria-label="Zmień datę">
+              <button type="button" aria-label={mode === 'day' ? 'Poprzedni dzień' : 'Poprzedni tydzień'} onClick={() => change(-1)}><ChevronLeft size={19} /></button>
+              <button type="button" className={`cal-mbar-today ${showsToday ? 'is-current' : ''}`} onClick={() => onChangeDate(today)}>Dziś</button>
+              <button type="button" aria-label={mode === 'day' ? 'Następny dzień' : 'Następny tydzień'} onClick={() => change(1)}><ChevronRight size={19} /></button>
+            </div>
+          </div>
+          <div className="cal-mbar-switch" role="tablist" aria-label="Widok kalendarza" data-mode={mode}>
+            <span className="cal-mbar-thumb" aria-hidden="true" />
+            <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'active' : ''} onClick={() => onChangeMode('day')}><CalendarDays size={15} /> Dzień</button>
+            <button type="button" role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'active' : ''} onClick={() => onChangeMode('week')}><CalendarRange size={15} /> Tydzień</button>
+          </div>
+        </div>
         <div className="calendar-heading" onTouchStart={e=>{
             if (e.touches.length===1) swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};
           }} onTouchEnd={e=>{

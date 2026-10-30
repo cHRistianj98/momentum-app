@@ -14,9 +14,23 @@ npm install
 npm run dev
 ```
 
-3. Otwórz adres pokazany w terminalu (zwykle **http://localhost:5173/**).
+3. Otwórz adres pokazany w terminalu (zwykle **http://localhost:5180/** — port ustawiony w `vite.config.ts`).
 
 Do kompilacji produkcyjnej użyj `npm run build`, a do podglądu `npm run preview`.
+
+## Powiadomienia i przypomnienia
+
+- Każde zadanie (z datą i godziną) oraz każda rutyna może mieć **kilka przypomnień**, np. 30 min i 5 min przed startem — wybierasz je w formularzu (gotowe chipy albo „Własne”).
+- Domyślne przypomnienia dla nowych zadań i rutyn ustawisz w **Ustawienia → Powiadomienia i przypomnienia**.
+- Dzwonek w górnym pasku pokazuje nadchodzące przypomnienia (48 h) i historię; gdy aplikacja jest otwarta, przypomnienie pojawia się jako baner.
+
+**iPhone:** powiadomienia systemowe działają od iOS 16.4 wyłącznie w aplikacji dodanej do ekranu początkowego
+(Safari → Udostępnij → Do ekranu początkowego), uruchomionej z wersji produkcyjnej (`npm run build`) serwowanej przez **HTTPS**.
+Zgodę daje się przyciskiem „Włącz” w dzwonku lub w ustawieniach.
+
+**Ograniczenie bez serwera push:** przypomnienia są liczone i wysyłane przez samą aplikację, więc działają, gdy Momentum jest uruchomione
+(na komputerze — także w karcie w tle). iOS usypia zamkniętą aplikację, dlatego pewne powiadomienia na zablokowanym iPhonie wymagają
+serwera Web Push. Service worker (`public/sw.js`) obsługuje już zdarzenia `push` i `notificationclick`, więc serwer można dodać bez zmian w widokach.
 
 ## Co działa w tej wersji
 
@@ -33,7 +47,7 @@ Do kompilacji produkcyjnej użyj `npm run build`, a do podglądu `npm run previe
 
 ## Zakres i ograniczenia MVP
 
-**To jest świadomie frontend-first**: nie ma jeszcze backendu Spring Boot, PostgreSQL, logowania, API Google Calendar/Tasks, synchronizacji wielu urządzeń, powiadomień ani aplikacji mobilnej. Dane są lokalne w konkretnej przeglądarce. Zdjęcia są zapisywane jako data URI (limit 900 KB), co nadaje się do demo, nie do rozwiązania produkcyjnego.
+**To jest świadomie frontend-first**: nie ma jeszcze backendu Spring Boot, PostgreSQL, logowania, API Google Calendar/Tasks, synchronizacji wielu urządzeń, serwera powiadomień push ani aplikacji mobilnej. Dane są lokalne w konkretnej przeglądarce. Zdjęcia są zapisywane jako data URI (limit 900 KB), co nadaje się do demo, nie do rozwiązania produkcyjnego.
 
 Nie ma jeszcze resize drag krawędzi bloku ani przenoszenia pojedynczego wystąpienia rutyny między dniami. Długość bloku można zmienić w edytorze zadania. Dla rutyn kalendarz pokazuje wystąpienia według harmonogramu szablonu.
 
@@ -54,16 +68,25 @@ momentum-app/
   src/
     App.tsx                   # layout, nawigacja, stan i logika aplikacji
     styles.css                # design system, responsywność i dark mode
+    styles-v06.css            # pasek kalendarza na iPhone, powiadomienia, statystyki, Weekly Review
     types.ts                  # typy domenowe
     components/
       CalendarView.tsx        # kalendarz i natywny drag & drop
       TaskModal.tsx           # edytor zadania
       RoutineModal.tsx        # wykonywanie/edycja rutyn
+      InsightsView.tsx        # statystyki, mapa regularności, odznaki
+      WeeklyReview.tsx        # tygodniowe podsumowanie
+      NotificationCenter.tsx  # dzwonek, baner przypomnienia, status zgody
+      ReminderPicker.tsx      # wybór wielu przypomnień
     lib/
       date.ts                 # czas i daty lokalne
       icons.tsx               # zestaw ikon z lucide-react
       seed.ts                 # dane demonstracyjne, kategorie, presety
       storage.ts              # zapis lokalny
+      reminders.ts            # wyliczanie terminów przypomnień
+      notifications.ts        # zgoda, wyświetlanie powiadomień, historia
+      useReminders.ts         # harmonogram przypomnień w aplikacji
+      progression.ts          # rangi i osiągnięcia
 ```
 
 **Uwaga:** kody w przykładach są demonstracyjne i przechowywane tylko w przeglądarce. W produkcyjnym backendzie konieczna będzie spójna walidacja operacji i transakcyjne przydzielanie XP.

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createSeed } from './seed';
 import { readMomentumKey, removeMomentumKey, saveMomentumKey, syncOfflineSnapshot } from './offlineDatabase';
+import { normalizeReminders, resolveNotificationSettings } from './reminders';
 import type { AppData, CategoryConfig, CategoryKey, Routine, Task, Project } from '../types';
 
 const STORAGE_KEY = 'momentum.v1';
@@ -69,17 +70,27 @@ export function migrateStoredData(value: unknown): AppData | null {
     ...data,
     tasks: data.tasks
       .filter((task): task is Task => Boolean(task && typeof task === 'object'))
-      .map(task => ({ ...task, category: normalizeCategory(task.category) })),
+      .map(task => withReminders({ ...task, category: normalizeCategory(task.category) })),
     projects: Array.isArray(data.projects) ? data.projects.filter((project): project is Project => Boolean(project && typeof project === 'object' && typeof project.id === 'string'))
       .map(project => ({...project, milestones: Array.isArray(project.milestones) ? project.milestones.map(milestone => ({...milestone, subtasks: Array.isArray(milestone.subtasks) ? milestone.subtasks : []})) : []})) : [],
     routines: data.routines
       .filter((routine): routine is Routine => Boolean(routine && typeof routine === 'object'))
-      .map(routine => ({ ...routine, category: normalizeCategory(routine.category) })),
+      .map(routine => withReminders({ ...routine, category: normalizeCategory(routine.category) })),
     routineLogs: data.routineLogs && typeof data.routineLogs === 'object' && !Array.isArray(data.routineLogs)
       ? data.routineLogs : {},
     categories: resolveCategories(data.categories),
     theme: data.theme === 'dark' ? 'dark' : 'light',
+    notifications: resolveNotificationSettings(data.notifications),
   };
+}
+
+/** Przypomnienia z importu lub starszej wersji: tylko poprawne minuty, bez duplikatów. */
+function withReminders<T extends { reminders?: number[] }>(item: T): T {
+  const reminders = normalizeReminders(item.reminders);
+  const next = { ...item };
+  if (reminders?.length) next.reminders = reminders;
+  else delete next.reminders;
+  return next;
 }
 
 function loadData(): AppData {

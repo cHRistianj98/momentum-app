@@ -7,6 +7,7 @@ import { DatePicker } from './DatePicker';
 import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { PhotoPicker } from './PhotoPicker';
 import { CategoryChoices } from './CategoryChoices';
+import { ReminderPicker } from './ReminderPicker';
 import { TASK_PRESETS } from '../lib/seed';
 import type { CategoryConfig, Project, Task } from '../types';
 import { newSubtask } from '../lib/projects';
@@ -21,6 +22,10 @@ interface Props {
   projects: Project[];
   categories: CategoryConfig;
   focusSeconds: number;
+  /** Przypomnienia proponowane dla nowego zadania (z ustawień powiadomień). */
+  defaultReminders?: number[];
+  notificationsEnabled?: boolean;
+  onEnableNotifications?: () => void;
   onFocus: (id: string) => void;
   onSave: (task: Task) => void;
   onDelete: (id: string) => void;
@@ -85,8 +90,8 @@ function ProjectPicker({ label, value, options, disabled = false, onChange }: {
   );
 }
 
-export function TaskModal({ task, initialDate, initialTime, initialDuration, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, onFocus, onSave, onDelete, onClose }: Props) {
-  const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null, duration: initialDuration ?? EMPTY.duration, projectId: initialProjectId ?? null, milestoneId: initialMilestoneId ?? null, subtasks: [] });
+export function TaskModal({ task, initialDate, initialTime, initialDuration, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onFocus, onSave, onDelete, onClose }: Props) {
+  const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => task ? { ...task } : { ...EMPTY, date: initialDate ?? null, time: initialTime ?? null, duration: initialDuration ?? EMPTY.duration, projectId: initialProjectId ?? null, milestoneId: initialMilestoneId ?? null, subtasks: [], reminders: [...defaultReminders] });
   const [subtaskText, setSubtaskText] = useState('');
   const selectedProject = projects.find(project => project.id === form.projectId);
   const [imageError, setImageError] = useState('');
@@ -97,7 +102,8 @@ export function TaskModal({ task, initialDate, initialTime, initialDuration, ini
 
   function save(doneOverride?: boolean) {
     if (!form.title.trim()) { titleRef.current?.focus(); return; }
-    onSave({ ...form, done: doneOverride ?? form.done, title: form.title.trim(), duration: Math.max(15, Number(form.duration)), xp: Math.max(0, Number(form.xp)), id: task?.id ?? crypto.randomUUID(), createdAt: task?.createdAt ?? new Date().toISOString() });
+    const reminders = form.reminders?.length ? [...form.reminders] : undefined;
+    onSave({ ...form, reminders, done: doneOverride ?? form.done, title: form.title.trim(), duration: Math.max(15, Number(form.duration)), xp: Math.max(0, Number(form.xp)), id: task?.id ?? crypto.randomUUID(), createdAt: task?.createdAt ?? new Date().toISOString() });
   }
 
   function onImage(file: File | undefined) {
@@ -135,6 +141,9 @@ export function TaskModal({ task, initialDate, initialTime, initialDuration, ini
             <form className="project-task-add-subtask" onSubmit={e=>{e.preventDefault();if(!subtaskText.trim())return;change('subtasks',[...(form.subtasks??[]),newSubtask(subtaskText)]);setSubtaskText('');}}><input value={subtaskText} onChange={e=>setSubtaskText(e.target.value)} maxLength={110} placeholder="Np. Napisać testy..."/><button type="submit" disabled={!subtaskText.trim()}><Plus size={15}/> Dodaj</button></form>
           </div>
           <div className="two-fields"><div className="field"><span>Data</span><DatePicker value={form.date} onChange={date => setForm(current => ({ ...current, date, time: date ? current.time : null }))}/></div><div className="field"><span>Godzina</span><TimePicker disabled={!form.date} allowClear value={form.time} onChange={time => change('time', time)}/></div></div>
+          <ReminderPicker value={form.reminders ?? []} onChange={reminders => change('reminders', reminders)} time={form.time}
+            inactiveHint={!form.date || !form.time ? 'Przypomnienia zaczną działać po ustawieniu daty i godziny.' : undefined}
+            systemEnabled={notificationsEnabled} onEnableSystem={onEnableNotifications}/>
           <div className="two-fields"><div className="field"><span>Czas trwania <Clock3 size={13} /></span><DurationPicker value={form.duration} onChange={duration => change('duration',duration)}/></div><div className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><XpStepper value={form.xp} onChange={xp => change('xp',xp)}/></div></div>
           <div className="field">
             <span>Ikona i zdjęcie</span>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronDown, Circle, Clock3, Flag, Link2, MoreHorizontal, Plus, Rocket, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronDown, Circle, Clock3, Flag, Link2, MoreHorizontal, Plus, Search, Trash2, X } from 'lucide-react';
 import { DatePicker } from './DatePicker';
 import { CategoryChoices } from './CategoryChoices';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
@@ -139,7 +139,6 @@ export function ProjectsView({projects,tasks,categories,onSaveProject,onDeletePr
       {!projectTasks(active,tasks).some(t=>!active.milestones.some(m=>m.id===t.milestoneId))&&<p className="project-empty-line">Zadania bez kamienia milowego pojawią się tutaj.</p>}
       <div className="project-direct-actions"><button className="btn btn--secondary" onClick={()=>onCreateTask(active.id)}><Plus size={16}/> Nowe zadanie</button><TaskAttach tasks={unlinkedTasks} onAttach={id=>onLinkTask(id,active.id)}/></div></div>
     </div> : <>
-      <div className="project-intro"><div><span className="eyebrow eyebrow--indigo"><Sparkles size={13}/> TWÓJ DŁUGI HORYZONT</span><h2>Wielkie cele zaczynają się od małych kroków<span>.</span></h2><p>Łącz codzienne zadania w większe przedsięwzięcia. Każdy odhaczony krok przybliża Cię do celu.</p></div><div className="project-intro-ornament"><Rocket size={70}/></div></div>
       <div className="project-toolbar"><div className="project-tabs">{([{id:'all',label:'Wszystkie'},{id:'active',label:'W trakcie'},{id:'completed',label:'Ukończone'},{id:'archived',label:'Archiwum'}] as const).map(tab=><button className={filter===tab.id?'active':''} key={tab.id} onClick={()=>setFilter(tab.id)}>{tab.label}</button>)}</div><label className="project-search"><Search size={16}/><input placeholder="Szukaj projektów" value={search} onChange={e=>setSearch(e.target.value)}/></label><button className="btn btn--primary" onClick={()=>setEditor('new')}><Plus size={17}/> Nowy projekt</button></div>
       <div className="project-grid">{visible.map(project=><ProjectCard key={project.id} project={project} tasks={tasks} categories={categories} onClick={()=>setSelectedId(project.id)}/>)}<button className="project-create-card" onClick={()=>setEditor('new')}><span><Plus size={28}/></span><strong>Stwórz nowy projekt</strong><p>Dodaj cel, etapy i powiąż z nim zadania.</p></button></div>
     </>}
