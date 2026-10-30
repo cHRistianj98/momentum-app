@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, CheckCircle2, ChevronDown, Clock3, FolderKanban, ImagePlus, Link2, Plus, Play, Timer, Trash2, X } from 'lucide-react';
+import { Camera, Check, CheckCircle2, ChevronDown, Clock3, FolderKanban, ImagePlus, Link2, Plus, Play, RotateCcw, Timer, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -158,20 +158,23 @@ export function TaskModal({ task, initialDate, initialTime, initialDuration, ini
             {picker==='photos'&&<PhotoPicker value={form.image} onSelect={image=>{change('image',image);setPicker(null);}}/>}
           </div>
         </div>
-        {task && <div className="task-focus-row"><div><Timer size={17}/><span><strong>Focus Mode</strong><small>Realnie przepracowano: {Math.floor(focusSeconds/3600)>0?`${Math.floor(focusSeconds/3600)} h `:''}${Math.floor((focusSeconds%3600)/60)} min</small></span></div><button className="btn btn--focus" type="button" onClick={()=>onFocus(task.id)}><Play size={15} fill="currentColor"/> Rozpocznij Focus</button></div>}
+        {task && <div className="task-focus-row"><div><Timer size={17}/><span><strong>Focus Mode</strong><small>Realnie przepracowano: {Math.floor(focusSeconds/3600)>0?`${Math.floor(focusSeconds/3600)} h `:''}{Math.floor((focusSeconds%3600)/60)} min</small></span></div><button className="btn btn--focus" type="button" onClick={()=>onFocus(task.id)}><Play size={15} fill="currentColor"/> Rozpocznij Focus</button></div>}
         </div>
-        <div className="modal-bottom task-modal-footer">
-          {task ? <div className="task-modal-status-row">
-            <button type="button" className="btn btn--danger" onClick={() => { if (window.confirm('Usunąć to zadanie?')) onDelete(task.id); }}><Trash2 size={16} /> Usuń</button>
-            <button type="button" className={`btn task-modal-complete-btn ${form.done ? 'is-complete' : ''}`}
-              onClick={() => save(!form.done)}>
-              <CheckCircle2 size={16} /> {form.done ? 'Oznacz jako niewykonane' : 'Oznacz jako ukończone'}
+        <div className="modal-bottom task-modal-footer task-footer">
+          {task ? <>
+            <button type="button" className="task-footer-delete" aria-label="Usuń zadanie" title="Usuń zadanie"
+              onClick={() => { if (window.confirm('Usunąć to zadanie?')) onDelete(task.id); }}><Trash2 size={18} /><span className="task-footer-long">Usuń</span></button>
+            <button type="button" className={`task-footer-status ${form.done ? 'is-done' : ''}`} onClick={() => save(!form.done)}
+              title={form.done ? 'Oznacz jako niewykonane' : 'Oznacz jako ukończone'}>
+              {form.done ? <RotateCcw size={17} /> : <CheckCircle2 size={17} />}
+              <span className="task-footer-long">{form.done ? 'Oznacz jako niewykonane' : 'Oznacz jako ukończone'}</span>
+              <span className="task-footer-short">{form.done ? 'Przywróć' : 'Ukończ'}</span>
             </button>
-          </div> : <span className="modal-tip">Możesz zapisać zadanie bez podawania daty.</span>}
-          <div className="modal-bottom-right">
-            <button type="button" className="btn btn--ghost" onClick={onClose}>Anuluj</button>
-            <button type="button" className="btn btn--primary" disabled={!form.title.trim()} onClick={() => save()}><Check size={16} />{task ? 'Zapisz zmiany' : 'Dodaj zadanie'}</button>
-          </div>
+          </> : <span className="modal-tip task-footer-tip">Możesz zapisać zadanie bez podawania daty.</span>}
+          <button type="button" className="btn btn--ghost task-footer-cancel" onClick={onClose}>Anuluj</button>
+          <button type="button" className="btn btn--primary task-footer-save" disabled={!form.title.trim()} onClick={() => save()}>
+            <Check size={16} />{task ? <><span className="task-footer-long">Zapisz zmiany</span><span className="task-footer-short">Zapisz</span></> : 'Dodaj zadanie'}
+          </button>
         </div>
       </div>
     </div>

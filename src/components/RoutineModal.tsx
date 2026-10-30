@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, Pause, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -37,6 +37,17 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
   const count = visibleSteps.length;
   const [timer, setTimer] = useState<{ stepId: string; seconds: number; endAt: number | null } | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Menu „więcej” zamykamy dotknięciem obok albo klawiszem Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const dismiss = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); setMenuOpen(false); } };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', onKey); };
+  }, [menuOpen]);
   useEffect(() => {
     if (!timer?.endAt) return;
     const handle = window.setInterval(() => setTimerNow(Date.now()), 250);
@@ -95,7 +106,22 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
     </div>
     {log.completed && <div className="completion-message"><span>✦</span><div><strong>Rutyna ukończona!</strong><small>Świetna robota. +{routine.xp} XP zostało uwzględnione w Twoim progresie.</small></div></div>}
     </div>
-    <div className="modal-bottom routine-session-actions"><div className="routine-session-manage"><button type="button" className="btn btn--secondary routine-session-edit" onClick={onEdit}><ArrowRight size={14}/> Edytuj szablon</button><button type="button" className="btn btn--danger routine-session-delete" onClick={()=>{if(window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`))onDelete();}}><Trash2 size={15}/> Usuń rutynę</button></div><div className="modal-bottom-right">{log.completed ? <button className="btn btn--secondary" onClick={onUndo}><RotateCcw size={15}/> Cofnij</button> : <button disabled={count === 0 || completed !== count} className="btn btn--primary" onClick={onComplete}><Check size={16}/> Zakończ rutynę · +{routine.xp} XP</button>}</div><button type="button" className="btn btn--secondary routine-session-back" onClick={onClose}><ArrowLeft size={16}/> Wróć do kalendarza</button></div>
+    <div className="modal-bottom routine-session-actions routine-actions">
+      <button type="button" className="routine-actions-icon" onClick={onClose} aria-label="Wróć do kalendarza" title="Wróć do kalendarza"><ArrowLeft size={19}/></button>
+      {log.completed
+        ? <button type="button" className="btn btn--secondary routine-actions-main" onClick={onUndo}><RotateCcw size={16}/> Cofnij ukończenie</button>
+        : <button type="button" disabled={count === 0 || completed !== count} className="btn btn--primary routine-actions-main" onClick={onComplete}>
+          <Check size={17}/> Zakończ rutynę <span className="routine-actions-badge">{count > 0 && completed === count ? `+${routine.xp} XP` : `${completed}/${count}`}</span>
+        </button>}
+      <div className="routine-actions-more-wrap" ref={menuRef}>
+        <button type="button" className="routine-actions-icon routine-actions-more" aria-label="Więcej opcji rutyny" title="Więcej opcji"
+          aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}><MoreHorizontal size={19}/></button>
+        {menuOpen && <div className="routine-actions-menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onEdit(); }}><PencilLine size={16}/> Edytuj szablon</button>
+          <button type="button" role="menuitem" className="is-danger" onClick={() => { setMenuOpen(false); if (window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`)) onDelete(); }}><Trash2 size={16}/> Usuń rutynę</button>
+        </div>}
+      </div>
+    </div>
   </div></div>;
 }
 
@@ -197,7 +223,13 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
       <button type="button" className="link-btn" onClick={()=>setSteps(arr=>[...arr,{id:crypto.randomUUID(),title:''}])}><Plus size={15}/> Dodaj kolejny krok</button>
     </div>
     <div className="field"><span>XP za całą rutynę</span><XpStepper value={xp} onChange={setXp}/></div></div>
-    <div className="modal-bottom">{routine ? <button className="btn btn--danger" onClick={()=>{if(window.confirm('Usunąć rutynę i historię jej wykonań?')) onDelete(routine.id);}}><Trash2 size={15}/> Usuń</button> : <span className="modal-tip"><ArrowLeft size={13}/> Możesz edytować rutynę później</span>}<div className="modal-bottom-right"><button className="btn btn--ghost" onClick={onClose}>Anuluj</button><button className="btn btn--primary" disabled={!title.trim() || !weekdays.length || !steps.some(s=>s.title.trim())} onClick={save}><Check size={16}/> Zapisz rutynę</button></div></div>
+    <div className="modal-bottom routine-editor-footer">
+      {routine
+        ? <button type="button" className="routine-editor-delete" aria-label="Usuń rutynę" title="Usuń rutynę" onClick={()=>{if(window.confirm('Usunąć rutynę i historię jej wykonań?')) onDelete(routine.id);}}><Trash2 size={18}/><span>Usuń</span></button>
+        : <span className="modal-tip routine-editor-tip"><ArrowLeft size={13}/> Możesz edytować rutynę później</span>}
+      <button type="button" className="btn btn--ghost routine-editor-cancel" onClick={onClose}>Anuluj</button>
+      <button type="button" className="btn btn--primary routine-editor-save" disabled={!title.trim() || !weekdays.length || !steps.some(s=>s.title.trim())} onClick={save}><Check size={16}/> Zapisz rutynę</button>
+    </div>
   </div>
     {scheduleStepId && (() => {
       const scheduledStep = steps.find(step => step.id === scheduleStepId);

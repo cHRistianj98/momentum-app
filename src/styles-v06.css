@@ -75,7 +75,7 @@
 @media (max-width: 620px) {
   .main-content { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
   /* Strony z pływającym przyciskiem „+”: ostatni element może przewinąć się nad przycisk. */
-  .app-shell:has(> .momentum-mobile-fab) .main-content:not(:has(.overview-page)) { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important; }
+  .app-shell:has(> .momentum-mobile-fab) .main-content:not(:has(.overview-page)):not(:has(.momentum-month)) { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important; }
   .projects-root { padding: 14px 14px 0; }
   .projects-root .project-toolbar { margin-bottom: 14px; }
   .projects-root .project-create-card { min-height: 0; padding: 26px 18px; }
@@ -595,4 +595,187 @@
 @media (prefers-reduced-motion: reduce) {
   .cal-mbar-thumb, .ins-ring-value, .wrx-ring-value, .ins-bar-stage span { transition: none; }
   .reminder-banner { animation: none; }
+}
+
+/* ==========================================================================
+   v0.6.1 — Focus po prawej stronie kafelka, miesiąc bez przewijania,
+   nowe karty rutyn oraz kompaktowe paski akcji w rutynach.
+   ========================================================================== */
+
+/* ---------- 9. Przycisk Focus po prawej stronie kafelka (telefon) ---------- */
+@media (max-width: 620px) {
+  .calendar-event .event-body,
+  .calendar-event--small .event-body { padding-right: 12px !important; }
+  .calendar-event:has(.event-focus) .event-body { padding-right: 54px !important; }
+  .calendar-event--small:has(.event-focus) .event-body { padding-right: 46px !important; }
+  .calendar-event--overlap:has(.event-focus) .event-body { padding-right: 40px !important; }
+  .calendar-event .event-text,
+  .calendar-event:not(.calendar-event--overlap) .event-text,
+  .calendar-event--small .event-text { flex: 1 1 auto; min-width: 0; max-width: none !important; }
+  .calendar-event .event-focus {
+    display: grid !important; place-items: center; padding: 0;
+    left: auto !important; right: 10px !important; top: 50% !important; bottom: auto !important;
+    transform: translateY(-50%) !important;
+    width: 34px !important; height: 34px !important; border-radius: 50% !important;
+    color: var(--event-color) !important; background: var(--surface) !important;
+    border: 1.5px solid color-mix(in srgb, var(--event-color) 45%, transparent) !important;
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--event-color) 22%, transparent) !important;
+    opacity: 1 !important; pointer-events: auto !important; touch-action: manipulation;
+  }
+  .calendar-event .event-focus svg { width: 13px !important; height: 13px !important; margin-left: 2px; }
+  .calendar-event .event-focus:active { background: var(--event-color) !important; color: #fff !important; }
+  .calendar-event--small .event-focus { right: 8px !important; width: 28px !important; height: 28px !important; }
+  .calendar-event--small .event-focus svg { width: 11px !important; height: 11px !important; }
+  .calendar-event--overlap .event-focus { right: 6px !important; width: 26px !important; height: 26px !important; }
+  .calendar-event--overlap .event-focus svg { width: 10px !important; height: 10px !important; }
+}
+
+/* ---------- 10. Widok miesiąca mieści się na ekranie bez przewijania ---------- */
+@media (max-width: 850px) {
+  html:has(.momentum-month), html:has(.momentum-month) body { overscroll-behavior-y: none; }
+  .app-shell:has(.momentum-month) { min-height: 100dvh; }
+  .main-content:has(.momentum-month) { padding-top: 0 !important; padding-bottom: 0 !important; }
+  .momentum-month {
+    display: flex !important; flex-direction: column; min-height: 430px; padding-bottom: 0 !important;
+    height: calc(100dvh - 64px - env(safe-area-inset-top, 0px) - 66px - env(safe-area-inset-bottom, 0px));
+  }
+  .momentum-month-toolbar, .momentum-month-weekdays, .momentum-month-help { flex: none; }
+  .momentum-month-grid { flex: 1 1 auto; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
+  .momentum-month-cell { min-height: 0 !important; }
+}
+@media (max-width: 620px) {
+  .momentum-month { height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - 66px - env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ---------- 11. Karty rutyn ---------- */
+.routine-card.rcard {
+  position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 12px; min-height: 0;
+  padding: 16px 16px 14px 18px; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; text-align: left;
+  background: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--rc-tint) 90%, transparent) 0, transparent 42%), var(--surface);
+  box-shadow: var(--shadow);
+}
+.routine-card.rcard::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 4px; border-radius: 0 4px 4px 0; background: var(--rc-color); }
+.rcard-head { display: flex; align-items: flex-start; gap: 12px; }
+.rcard .rcard-visual { flex: none; width: 56px; height: 56px; border-radius: 16px; }
+.rcard-title { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.rcard-eyebrow { color: var(--muted); font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.rcard .rcard-title h3 { margin: 0; color: var(--text); font-size: 17px; line-height: 1.2; letter-spacing: -.35px; }
+.rcard .rcard-title p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--subtext); font-size: 12px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.rcard-ring { display: grid; flex: none; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: conic-gradient(var(--primary) var(--rc-progress), var(--surface-3) 0); }
+.rcard-ring > span { display: flex; align-items: baseline; justify-content: center; width: 42px; height: 42px; padding-top: 11px; border-radius: 50%; background: var(--surface); color: var(--text); }
+.rcard-ring strong { font-size: 16px; font-weight: 800; line-height: 1; }
+.rcard-ring small { color: var(--muted); font-size: 10.5px; font-weight: 700; }
+.rcard--done .rcard-ring { background: #17ae76; }
+.rcard--done .rcard-ring > span, .rcard--off .rcard-ring > span { align-items: center; padding-top: 0; }
+.rcard--done .rcard-ring > span { color: #17ae76; }
+.rcard--off .rcard-ring { background: var(--surface-3); }
+.rcard--off .rcard-ring > span { color: var(--muted); }
+.rcard-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rcard-chips > span:not(.financial-badge) { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; background: var(--surface-3); color: var(--subtext); font-size: 11.5px; font-weight: 700; }
+.rcard-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.rcard-days span { display: grid; place-items: center; height: 26px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--muted); font-size: 10.5px; font-weight: 800; }
+.rcard-days span.is-on { border-color: color-mix(in srgb, var(--primary) 26%, transparent); background: var(--primary-pale); color: var(--primary); }
+.rcard-days span.is-today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--primary); }
+.rcard-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.rcard-status { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: var(--subtext); font-size: 12px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.rcard--progress .rcard-status { color: var(--primary); }
+.rcard--done .rcard-status { color: #12935e; }
+.rcard--off .rcard-status { color: var(--muted); }
+.rcard-cta { display: inline-flex; flex: none; align-items: center; gap: 4px; padding: 7px 12px; border-radius: 11px; background: var(--primary-pale); color: var(--primary); font-size: 12px; font-weight: 800; }
+.rcard--done .rcard-cta { background: #e5f8ef; color: #12935e; }
+.rcard--off .rcard-cta { background: var(--surface-3); color: var(--subtext); }
+:root[data-theme='dark'] .rcard--done .rcard-cta { background: #173c31; color: #87e2b8; }
+/* Wysokość wiersza wyznaczają karty rutyn, a nie karta „Stwórz własną rutynę”. */
+.routine-card.routine-card--add { min-height: 0; }
+@media (max-width: 620px) {
+  .main-content:has(.routine-cards) .routine-cards { gap: 12px; padding: 12px 14px 0; }
+  .routine-card.routine-card--add {
+    display: grid; grid-template-columns: 46px minmax(0, 1fr); grid-template-rows: auto auto; align-items: center;
+    column-gap: 12px; row-gap: 2px; min-height: 0; padding: 14px 16px; text-align: left;
+  }
+  .routine-card.routine-card--add > span { grid-row: 1 / span 2; width: 46px; height: 46px; border-radius: 14px; }
+  .routine-card.routine-card--add strong { align-self: end; }
+  .routine-card.routine-card--add p { align-self: start; margin: 0; max-width: none; }
+}
+
+/* ---------- 12. Pasek akcji w rutynie (jeden wiersz, nadal przyklejony do dołu) ---------- */
+.routine-actions { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center; gap: 8px; }
+.routine-actions-icon {
+  display: grid; flex: none; place-items: center; width: 46px; height: 46px; padding: 0;
+  border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface); color: var(--subtext);
+}
+.routine-actions-icon:hover, .routine-actions-icon[aria-expanded='true'] { border-color: color-mix(in srgb, var(--primary) 35%, var(--line)); color: var(--primary); }
+.routine-actions-main { flex: 1 1 auto; gap: 8px !important; min-width: 0; min-height: 46px !important; border-radius: 14px !important; font-size: 13px !important; }
+.routine-actions-badge { padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, .22); font-size: 11px; font-weight: 800; }
+.routine-actions-more-wrap { position: relative; flex: none; }
+.routine-actions-menu {
+  position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 40; display: grid; gap: 2px; min-width: 210px; padding: 6px;
+  border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 18px 44px rgba(25, 20, 70, .2);
+  animation: routine-menu-in .16s ease both;
+}
+.routine-actions-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px;
+  border: 0; border-radius: 11px; background: transparent; color: var(--text); font-size: 13.5px; font-weight: 700; text-align: left;
+}
+.routine-actions-menu button:hover, .routine-actions-menu button:focus-visible { background: var(--surface-3); }
+.routine-actions-menu button svg { color: var(--primary); }
+.routine-actions-menu button.is-danger, .routine-actions-menu button.is-danger svg { color: #d4505d; }
+@keyframes routine-menu-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (max-width: 620px) {
+  .routine-modal > .routine-session-actions.routine-actions { gap: 8px !important; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+
+/* ---------- 13. Stopka edytora rutyny ---------- */
+.routine-editor-footer { display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 8px; }
+.routine-editor-footer .routine-editor-cancel { margin-left: auto; }
+.routine-editor-delete {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px; height: 44px; min-width: 44px; padding: 0 14px;
+  border: 1px solid #f6c9ce; border-radius: 13px; background: #fff3f4; color: #d4505d; font-size: 13px; font-weight: 800;
+}
+.routine-editor-delete:hover { background: #ffe6e9; }
+:root[data-theme='dark'] .routine-editor-delete { border-color: #6b3540; background: #3d2329; color: #ff9aa5; }
+@media (max-width: 620px) {
+  .modal-backdrop > .routine-editor { padding-bottom: 0 !important; }
+  .routine-editor > .routine-editor-footer {
+    position: sticky; bottom: 0; z-index: 6; margin: 8px -17px 0; padding: 10px 17px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line); background: var(--surface); box-shadow: 0 -8px 22px rgba(25, 20, 58, .07);
+  }
+  .routine-editor-tip { display: none !important; }
+  .routine-editor-delete { width: 46px; height: 46px; padding: 0; }
+  .routine-editor-delete span { display: none; }
+  .routine-editor-footer .routine-editor-cancel { margin-left: 0; min-height: 46px; }
+  .routine-editor-footer .routine-editor-save { flex: 1 1 auto; min-height: 46px; border-radius: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .routine-actions-menu { animation: none; }
+}
+
+/* ---------- 14. Stopka edycji zadania: jeden rząd, wszystkie akcje ---------- */
+.task-footer { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 8px !important; }
+.task-footer .task-footer-cancel { margin-left: auto; }
+.task-footer-short { display: none; }
+.task-footer-delete {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px; height: 44px; min-width: 44px; padding: 0 14px;
+  border: 1px solid #f6c9ce; border-radius: 13px; background: #fff3f4; color: #d4505d; font-size: 13px; font-weight: 800;
+}
+.task-footer-delete:hover { background: #ffe6e9; }
+.task-footer-status {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 7px; height: 44px; padding: 0 14px;
+  border: 1px solid #80d5b0; border-radius: 13px; background: #e9f8f0; color: #12734d; font-size: 13px; font-weight: 800; white-space: nowrap;
+}
+.task-footer-status:hover { background: #dff4eb; }
+.task-footer-status.is-done { border-color: var(--line-strong); background: var(--surface-2); color: var(--subtext); }
+.task-footer .task-footer-save { min-height: 44px; border-radius: 13px; }
+:root[data-theme='dark'] .task-footer-delete { border-color: #6b3540; background: #3d2329; color: #ff9aa5; }
+:root[data-theme='dark'] .task-footer-status { border-color: #347e5d; background: #173c31; color: #87e2b8; }
+:root[data-theme='dark'] .task-footer-status.is-done { border-color: var(--line-strong); background: var(--surface-2); color: var(--subtext); }
+@media (max-width: 620px) {
+  .task-modal > .task-modal-footer.task-footer { gap: 8px !important; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
+  .task-footer-long, .task-footer-tip { display: none !important; }
+  .task-footer-short { display: inline; }
+  .task-footer-delete { width: 46px; height: 46px; padding: 0; }
+  .task-footer-status { height: 46px; padding: 0 13px; }
+  .task-footer .task-footer-cancel { min-height: 46px; margin-left: 0; padding: 0 10px; }
+  .task-footer .task-footer-save { flex: 1 1 auto; min-height: 46px; }
 }
