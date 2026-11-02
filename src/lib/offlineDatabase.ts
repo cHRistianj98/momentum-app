@@ -16,8 +16,27 @@ let status: OfflineDatabaseStatus = 'initializing';
 let opening: Promise<IDBDatabase> | null = null;
 let pendingWrites: Promise<void> = Promise.resolve();
 let cachedSnapshot: Record<string, string> | null = null;
+// Optional observers (cloud sync). Without listeners and without a pause nothing changes.
+const writeListeners = new Set<(key: string) => void>();
+let writesPaused = false;
 
 export function getOfflineDatabaseStatus(): OfflineDatabaseStatus { return status; }
+
+/** Called after a momentum.* key was saved or removed. Returns the unsubscribe function. */
+export function subscribeMomentumWrites(listener: (key: string) => void): () => void {
+  writeListeners.add(listener);
+  return () => { writeListeners.delete(listener); };
+}
+
+/** While data from the cloud replaces local storage right before a reload, ignore writes
+ * from the still-mounted UI, so stale React state cannot overwrite the restored snapshot. */
+export function setMomentumWritesPaused(paused: boolean): void { writesPaused = paused; }
+
+function notifyWrite(key: string): void {
+  for (const listener of writeListeners) {
+    try { listener(key); } catch (error) { console.warn('[Momentum] Write listener failed:', error); }
+  }
+}
 
 /** Synchronous read from the database snapshot loaded before React mounts. */
 export function readMomentumKey(key: string): string | null {
@@ -187,6 +206,7 @@ function enqueue(write: () => Promise<void>): Promise<void> {
  * synchronously, while IndexedDB protects it with atomic transactions. */
 export function saveMomentumKey(key: string, value: string): void {
   if (!key.startsWith(PREFIX) || key === REVISION_KEY) throw new Error('Unsupported Momentum key');
+  if (writesPaused) return;
   const next = newRevision();
   if (cachedSnapshot) {
     cachedSnapshot[key] = value;
@@ -203,10 +223,12 @@ export function saveMomentumKey(key: string, value: string): void {
       store.put(next, REVISION_KEY);
     });
   });
+  notifyWrite(key);
 }
 
 export function removeMomentumKey(key: string): void {
   if (!key.startsWith(PREFIX) || key === REVISION_KEY) throw new Error('Unsupported Momentum key');
+  if (writesPaused) return;
   const next = newRevision();
   if (cachedSnapshot) {
     delete cachedSnapshot[key];
@@ -221,6 +243,7 @@ export function removeMomentumKey(key: string): void {
       store.put(next, REVISION_KEY);
     });
   });
+  notifyWrite(key);
 }
 
 /** After importing a validated backup, commit the newly restored local snapshot

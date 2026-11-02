@@ -32,6 +32,44 @@ Zgodę daje się przyciskiem „Włącz” w dzwonku lub w ustawieniach.
 (na komputerze — także w karcie w tle). iOS usypia zamkniętą aplikację, dlatego pewne powiadomienia na zablokowanym iPhonie wymagają
 serwera Web Push. Service worker (`public/sw.js`) obsługuje już zdarzenia `push` i `notificationclick`, więc serwer można dodać bez zmian w widokach.
 
+## Synchronizacja w chmurze (beta, za feature flagiem)
+
+Opcjonalny backend na Cloudflare: **Pages Functions** (`functions/`) + baza **D1** (SQLite). Bez logowania — urządzenie dostaje
+anonimowe konto chronione 24-znakowym **kodem odzyskiwania**. Domyślnie wyłączone: bez flagi aplikacja działa dokładnie jak
+wcześniej i nie wysyła żadnych żądań do `/api`.
+
+### Jednorazowa konfiguracja Cloudflare (darmowy plan)
+
+1. **Workers & Pages → D1 SQL Database → Create** — nazwa np. `momentum`.
+2. Projekt Pages → **Settings → Bindings** (starszy panel: *Settings → Functions → D1 database bindings*) → **Add → D1 database**:
+   nazwa zmiennej **`DB`**, baza `momentum`. Dodaj dla *Production* (opcjonalnie też *Preview*).
+3. Wdróż ponownie (push na `main` albo *Deployments → Retry deployment*) — powiązanie działa od kolejnego wdrożenia.
+4. Test: `https://<adres-aplikacji>/api/health` powinno zwrócić `{"ok":true,"version":1}`. Tabele tworzą się same
+   (schemat poglądowo w `migrations/0001_init.sql`).
+
+### Włączenie flagi
+
+- dla całego wdrożenia: zmienna buildu `VITE_FEATURE_CLOUD_SYNC=true` (*Settings → Variables and Secrets*, np. tylko dla *Preview*),
+- na jednym urządzeniu w przeglądarce: `?ff=cloud-sync` (wyłączenie `?ff=-cloud-sync`, powrót do ustawień buildu `?ff=reset`),
+- w PWA na iPhonie (bez paska adresu): **Ustawienia → stuknij 5× w nagłówek „Ustawienia”** (kolejne 5× ukrywa sekcję).
+
+Następnie **Ustawienia → Synchronizacja w chmurze → Włącz synchronizację** na pierwszym urządzeniu, a na kolejnym
+**Mam kod z innego urządzenia**.
+
+### Jak to działa
+
+- Synchronizowana jest cała przestrzeń `momentum.*` (to samo, co w kopii JSON) jako jedna migawka z numerem rewizji.
+- Zmiany trafiają na serwer ok. 2,5 s po zapisie. Nowsze dane z chmury aplikacja pobiera przy starcie (przed pierwszym
+  renderem), po powrocie do aplikacji i co minutę, gdy jest widoczna. Przeładowanie następuje tylko w bezpiecznym momencie
+  (bez otwartych okien i edycji) — w przeciwnym razie pojawia się pasek „Nowe dane z innego urządzenia”.
+- Gdy dane zmieniły się na dwóch urządzeniach, nic nie jest nadpisywane automatycznie: wybierasz „Zachowaj z tego urządzenia”
+  albo „Wczytaj z chmury”.
+- Serwer przechowuje wyłącznie skrót SHA-256 kodu. Kod działa jak hasło: kto go zna, ma dostęp do danych; bez kodu nie
+  odzyskasz kopii z chmury (dane na urządzeniu zostają). Dane można usunąć z serwera przyciskiem w ustawieniach.
+- Limit migawki: 6 MB (najwięcej zajmują zdjęcia zapisane jako data URI). Darmowe limity Cloudflare (100 tys. żądań dziennie,
+  D1: 500 MB na bazę, 5 mln odczytów i 100 tys. zapisów wierszy dziennie) wystarczają z dużym zapasem.
+- Zabezpieczenie przed nadużyciem: limit 20 nowych kont dziennie na adres IP. Kopia JSON nadal jest zalecanym, niezależnym backupem.
+
 ## Co działa w tej wersji
 
 - Pulpit z kartami progresu, XP, kalendarzem dnia i panelem zadań.
@@ -78,6 +116,7 @@ momentum-app/
       WeeklyReview.tsx        # tygodniowe podsumowanie
       NotificationCenter.tsx  # dzwonek, baner przypomnienia, status zgody
       ReminderPicker.tsx      # wybór wielu przypomnień
+      CloudSyncPanel.tsx      # ustawienia synchronizacji w chmurze i pasek konfliktu (beta)
     lib/
       date.ts                 # czas i daty lokalne
       icons.tsx               # zestaw ikon z lucide-react
@@ -87,6 +126,14 @@ momentum-app/
       notifications.ts        # zgoda, wyświetlanie powiadomień, historia
       useReminders.ts         # harmonogram przypomnień w aplikacji
       progression.ts          # rangi i osiągnięcia
+      featureFlags.ts         # feature flagi (build + nadpisanie na urządzeniu)
+      cloudSync.ts            # silnik synchronizacji (migawka, rewizje, konflikty)
+      useCloudSync.ts         # hook React dla synchronizacji
+  functions/
+    api/[[path]].ts           # Cloudflare Pages Function dla /api/*
+    _lib/sync.ts              # API synchronizacji + zapis w D1
+  migrations/0001_init.sql    # schemat D1 (tworzony też automatycznie)
+  public/_routes.json         # Functions uruchamiane tylko dla /api/*
 ```
 
 **Uwaga:** kody w przykładach są demonstracyjne i przechowywane tylko w przeglądarce. W produkcyjnym backendzie konieczna będzie spójna walidacja operacji i transakcyjne przydzielanie XP.
