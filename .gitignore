@@ -11,3 +11,6 @@ dist/
 *.log
 momentum-backup_*.json
 .idea/
+# Cloudflare Wrangler (lokalne dane)
+.wrangler/
+.dev.vars

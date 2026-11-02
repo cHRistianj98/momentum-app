@@ -1,5 +1,5 @@
 /**
- * Momentum Cloud Sync — backend (Cloudflare Pages Functions + D1), etap 1.
+ * Momentum Cloud Sync — backend (Cloudflare Worker + D1), etap 1. Wywoływany z worker/index.ts.
  *
  * Model: jedno anonimowe konto = jeden losowy kod odzyskiwania (bez logowania).
  * Serwer przechowuje wyłącznie skrót SHA-256 kodu oraz najnowszą migawkę danych
@@ -10,8 +10,6 @@
  * Darmowy plan Workers ma ~10 ms CPU na żądanie, dlatego serwer NIE parsuje dużych
  * migawek (JSON.parse/stringify) — tylko je tnie i skleja jako tekst. Pełną walidację
  * wykonuje aplikacja przed zastosowaniem danych.
- *
- * Plik nie eksportuje onRequest, więc Pages nie tworzy z niego osobnej trasy.
  */
 
 // ---------- Minimalne typy Cloudflare (bez dodatkowej zależności npm) ----------
@@ -34,7 +32,7 @@ export interface D1Database {
 }
 
 export interface SyncEnv {
-  /** Powiązanie D1 ustawiane w panelu Cloudflare: Settings → Bindings → D1 database, nazwa zmiennej „DB”. */
+  /** Baza D1 z wrangler.jsonc („d1_databases”, binding „DB”). Bez niej API odpowiada 503. */
   DB?: D1Database;
 }
 

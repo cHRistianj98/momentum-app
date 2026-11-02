@@ -1,0 +1,19 @@
+// Momentum — Cloudflare Worker: statyczna aplikacja (dist/) + API synchronizacji w chmurze (/api/*).
+// Workers Builds wdraża projekt poleceniem `npx wrangler deploy` po `npm run build`.
+{
+  // MUSI być identyczna z nazwą Workera w panelu Cloudflare (Workers & Pages → nazwa projektu).
+  "name": "momentum-app",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Tylko /api/* uruchamia Workera; pliki aplikacji są serwowane bez niego (darmowo, bez limitu żądań).
+    "run_worker_first": ["/api/*"]
+  },
+  // Synchronizacja w chmurze (beta): utwórz bazę D1 „momentum”, wklej jej Database ID
+  // i usuń „//” z początku linii poniżej. Bez bazy aplikacja działa normalnie, a /api odpowiada 503.
+   "d1_databases": [{ "binding": "DB", "database_name": "momentum", "database_id": "7072b9f5-d921-49df-b4c0-ff83254d5ac1" }],
+  "observability": { "enabled": true }
+}

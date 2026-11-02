@@ -20,7 +20,7 @@ const CONFIG_KEY = 'momentum-sync:config';
 const REVISION_KEY = 'momentum.persistence.revision';
 const SYNC_FORMAT = 'momentum-sync';
 const SYNC_SCHEMA_VERSION = 1;
-/** Musi zgadzać się z MAX_SNAPSHOT_BYTES w functions/_lib/sync.ts. */
+/** Musi zgadzać się z MAX_SNAPSHOT_BYTES w worker/sync.ts. */
 export const MAX_SYNC_BYTES = 6 * 1024 * 1024;
 const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const CODE_BYTES = 15;
@@ -35,8 +35,8 @@ const UPLOAD_TIMEOUT_MS = 60_000;
 /** Przeglądarki przyjmują keepalive tylko dla małych żądań (limit ok. 64 KB). */
 const KEEPALIVE_LIMIT = 60_000;
 
-const SERVER_MISSING = 'Serwer synchronizacji nie odpowiada. Sprawdź, czy wdrożenie Cloudflare zawiera katalog functions/.';
-const DB_MISSING = 'Serwer działa, ale nie ma bazy danych. W Cloudflare dodaj powiązanie D1 o nazwie DB i wdroż ponownie.';
+const SERVER_MISSING = 'Serwer synchronizacji nie odpowiada. Sprawdź, czy wdrożenie zawiera Workera z pliku wrangler.jsonc.';
+const DB_MISSING = 'Serwer działa, ale nie ma bazy danych. Wklej Database ID bazy D1 w wrangler.jsonc (d1_databases) i wdroż ponownie.';
 
 export type CloudSyncPhase = 'off' | 'idle' | 'syncing' | 'offline' | 'conflict' | 'update-ready' | 'error';
 export type CloudSyncErrorCode =
@@ -288,7 +288,7 @@ async function callApi(
       keepalive: options.keepalive ?? false, signal: controller.signal,
     });
     const text = await response.text();
-    // Bez Functions Cloudflare zwróci index.html (fallback SPA) zamiast JSON.
+    // Bez Workera Cloudflare zwróci index.html (fallback SPA) zamiast JSON.
     if (!(response.headers.get('Content-Type') ?? '').includes('application/json')) throw new CloudSyncError('unavailable', SERVER_MISSING);
     let data: unknown;
     try { data = JSON.parse(text); } catch { throw new CloudSyncError('unavailable', SERVER_MISSING); }

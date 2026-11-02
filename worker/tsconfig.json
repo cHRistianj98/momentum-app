@@ -1,5 +1,5 @@
 {
-  "//": "Tylko do lokalnej kontroli typów: npx tsc -p functions/tsconfig.json. Cloudflare kompiluje Functions samodzielnie.",
+  "//": "Tylko do lokalnej kontroli typów: npx tsc -p worker/tsconfig.json. Cloudflare (wrangler) kompiluje Workera samodzielnie.",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",

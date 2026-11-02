@@ -34,22 +34,24 @@ serwera Web Push. Service worker (`public/sw.js`) obsługuje już zdarzenia `pus
 
 ## Synchronizacja w chmurze (beta, za feature flagiem)
 
-Opcjonalny backend na Cloudflare: **Pages Functions** (`functions/`) + baza **D1** (SQLite). Bez logowania — urządzenie dostaje
+Opcjonalny backend na Cloudflare: **Worker** (`worker/`, konfiguracja `wrangler.jsonc`) + baza **D1** (SQLite). Ten sam Worker
+serwuje statyczną aplikację (Workers Static Assets) — kod uruchamia się tylko dla `/api/*`. Bez logowania — urządzenie dostaje
 anonimowe konto chronione 24-znakowym **kodem odzyskiwania**. Domyślnie wyłączone: bez flagi aplikacja działa dokładnie jak
 wcześniej i nie wysyła żadnych żądań do `/api`.
 
 ### Jednorazowa konfiguracja Cloudflare (darmowy plan)
 
-1. **Workers & Pages → D1 SQL Database → Create** — nazwa np. `momentum`.
-2. Projekt Pages → **Settings → Bindings** (starszy panel: *Settings → Functions → D1 database bindings*) → **Add → D1 database**:
-   nazwa zmiennej **`DB`**, baza `momentum`. Dodaj dla *Production* (opcjonalnie też *Preview*).
-3. Wdróż ponownie (push na `main` albo *Deployments → Retry deployment*) — powiązanie działa od kolejnego wdrożenia.
-4. Test: `https://<adres-aplikacji>/api/health` powinno zwrócić `{"ok":true,"version":1}`. Tabele tworzą się same
+1. **Storage & Databases → D1 SQL Database → Create** — nazwa `momentum`. Skopiuj **Database ID** (UUID ze strony bazy).
+2. W `wrangler.jsonc` usuń `//` z początku linii `"d1_databases"` i wklej ID w miejsce `WKLEJ-TUTAJ-DATABASE-ID`.
+3. Sprawdź, czy `"name"` w `wrangler.jsonc` jest identyczne z nazwą Workera w panelu (Workers & Pages).
+4. Commit + push — Workers Builds wykona `npm run build` i `npx wrangler deploy`. Powiązania ustawia plik `wrangler.jsonc`
+   (dodane ręcznie w panelu zostałyby nadpisane przy kolejnym wdrożeniu).
+5. Test: `https://<adres-aplikacji>/api/health` powinno zwrócić `{"ok":true,"version":1}`. Tabele tworzą się same
    (schemat poglądowo w `migrations/0001_init.sql`).
 
 ### Włączenie flagi
 
-- dla całego wdrożenia: zmienna buildu `VITE_FEATURE_CLOUD_SYNC=true` (*Settings → Variables and Secrets*, np. tylko dla *Preview*),
+- dla całego wdrożenia: zmienna **buildu** `VITE_FEATURE_CLOUD_SYNC=true` (Worker → *Settings → Build → Variables and secrets*),
 - na jednym urządzeniu w przeglądarce: `?ff=cloud-sync` (wyłączenie `?ff=-cloud-sync`, powrót do ustawień buildu `?ff=reset`),
 - w PWA na iPhonie (bez paska adresu): **Ustawienia → stuknij 5× w nagłówek „Ustawienia”** (kolejne 5× ukrywa sekcję).
 
@@ -129,11 +131,11 @@ momentum-app/
       featureFlags.ts         # feature flagi (build + nadpisanie na urządzeniu)
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, konflikty)
       useCloudSync.ts         # hook React dla synchronizacji
-  functions/
-    api/[[path]].ts           # Cloudflare Pages Function dla /api/*
-    _lib/sync.ts              # API synchronizacji + zapis w D1
+  worker/
+    index.ts                  # Cloudflare Worker: /api/* → synchronizacja, reszta → statyczne pliki
+    sync.ts                   # API synchronizacji + zapis w D1
+  wrangler.jsonc              # konfiguracja Workera (assets z dist/, baza D1)
   migrations/0001_init.sql    # schemat D1 (tworzony też automatycznie)
-  public/_routes.json         # Functions uruchamiane tylko dla /api/*
 ```
 
 **Uwaga:** kody w przykładach są demonstracyjne i przechowywane tylko w przeglądarce. W produkcyjnym backendzie konieczna będzie spójna walidacja operacji i transakcyjne przydzielanie XP.
