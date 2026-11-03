@@ -1,5 +1,5 @@
 /**
- * Momentum Cloud Sync (beta, za feature flagiem „cloudSync”).
+ * Momentum Cloud Sync — opcjonalna synchronizacja włączana osobno na każdym urządzeniu (Ustawienia).
  *
  * Synchronizuje CAŁĄ lokalną przestrzeń momentum.* jako jedną migawkę z numerem rewizji:
  *  - zmiany z tego urządzenia wysyłamy ok. 2,5 s po zapisie (PUT z rewizją bazową),
@@ -94,7 +94,7 @@ interface RemoteSnapshot extends LocalSnapshot {
 
 type SyncReason = 'startup' | 'start' | 'resume' | 'poll' | 'online' | 'write' | 'flush' | 'manual';
 
-export const CLOUD_SYNC_OFF_STATE: CloudSyncState = Object.freeze({
+const CLOUD_SYNC_OFF_STATE: CloudSyncState = Object.freeze({
   phase: 'off', enabled: false, code: null, lastSyncAt: null, pendingLocal: false,
   error: null, message: null, remote: null, lastSize: null,
 });
@@ -719,7 +719,8 @@ export function getCloudSyncEngine(): CloudSyncEngine {
   return engine;
 }
 
-/** Wywoływane w main.tsx przed renderem (tylko przy włączonej fladze). Nigdy nie blokuje startu dłużej niż ~2 s. */
+/** Wywoływane w main.tsx przed renderem. Bez włączonej synchronizacji kończy się od razu (bez żądań);
+ * z włączoną nigdy nie blokuje startu dłużej niż ~2 s. */
 export async function syncBeforeRender(): Promise<void> {
   try {
     await getCloudSyncEngine().startup();

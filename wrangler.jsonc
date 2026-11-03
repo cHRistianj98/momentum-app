@@ -12,8 +12,8 @@
     // Tylko /api/* uruchamia Workera; pliki aplikacji są serwowane bez niego (darmowo, bez limitu żądań).
     "run_worker_first": ["/api/*"]
   },
-  // Synchronizacja w chmurze (beta): utwórz bazę D1 „momentum”, wklej jej Database ID
-  // i usuń „//” z początku linii poniżej. Bez bazy aplikacja działa normalnie, a /api odpowiada 503.
-   "d1_databases": [{ "binding": "DB", "database_name": "momentum", "database_id": "7072b9f5-d921-49df-b4c0-ff83254d5ac1" }],
+  // Baza D1 synchronizacji w chmurze (Database ID z panelu Cloudflare). Bez niej /api odpowiada 503,
+  // a sama aplikacja działa normalnie.
+  "d1_databases": [{ "binding": "DB", "database_name": "momentum", "database_id": "7072b9f5-d921-49df-b4c0-ff83254d5ac1" }],
   "observability": { "enabled": true }
 }

@@ -32,31 +32,27 @@ Zgodę daje się przyciskiem „Włącz” w dzwonku lub w ustawieniach.
 (na komputerze — także w karcie w tle). iOS usypia zamkniętą aplikację, dlatego pewne powiadomienia na zablokowanym iPhonie wymagają
 serwera Web Push. Service worker (`public/sw.js`) obsługuje już zdarzenia `push` i `notificationclick`, więc serwer można dodać bez zmian w widokach.
 
-## Synchronizacja w chmurze (beta, za feature flagiem)
+## Synchronizacja w chmurze
 
-Opcjonalny backend na Cloudflare: **Worker** (`worker/`, konfiguracja `wrangler.jsonc`) + baza **D1** (SQLite). Ten sam Worker
+Backend na Cloudflare: **Worker** (`worker/`, konfiguracja `wrangler.jsonc`) + baza **D1** (SQLite). Ten sam Worker
 serwuje statyczną aplikację (Workers Static Assets) — kod uruchamia się tylko dla `/api/*`. Bez logowania — urządzenie dostaje
-anonimowe konto chronione 24-znakowym **kodem odzyskiwania**. Domyślnie wyłączone: bez flagi aplikacja działa dokładnie jak
-wcześniej i nie wysyła żadnych żądań do `/api`.
+anonimowe konto chronione 24-znakowym **kodem odzyskiwania**. Synchronizację włącza się osobno na każdym urządzeniu;
+dopóki jej nie włączysz, aplikacja działa wyłącznie lokalnie i nie wysyła danych.
 
 ### Jednorazowa konfiguracja Cloudflare (darmowy plan)
 
 1. **Storage & Databases → D1 SQL Database → Create** — nazwa `momentum`. Skopiuj **Database ID** (UUID ze strony bazy).
-2. W `wrangler.jsonc` usuń `//` z początku linii `"d1_databases"` i wklej ID w miejsce `WKLEJ-TUTAJ-DATABASE-ID`.
+2. Wpisz to ID w `wrangler.jsonc` (`d1_databases` → `database_id`).
 3. Sprawdź, czy `"name"` w `wrangler.jsonc` jest identyczne z nazwą Workera w panelu (Workers & Pages).
 4. Commit + push — Workers Builds wykona `npm run build` i `npx wrangler deploy`. Powiązania ustawia plik `wrangler.jsonc`
    (dodane ręcznie w panelu zostałyby nadpisane przy kolejnym wdrożeniu).
 5. Test: `https://<adres-aplikacji>/api/health` powinno zwrócić `{"ok":true,"version":1}`. Tabele tworzą się same
    (schemat poglądowo w `migrations/0001_init.sql`).
 
-### Włączenie flagi
+### Jak zacząć
 
-- dla całego wdrożenia: zmienna **buildu** `VITE_FEATURE_CLOUD_SYNC=true` (Worker → *Settings → Build → Variables and secrets*),
-- na jednym urządzeniu w przeglądarce: `?ff=cloud-sync` (wyłączenie `?ff=-cloud-sync`, powrót do ustawień buildu `?ff=reset`),
-- w PWA na iPhonie (bez paska adresu): **Ustawienia → stuknij 5× w nagłówek „Ustawienia”** (kolejne 5× ukrywa sekcję).
-
-Następnie **Ustawienia → Synchronizacja w chmurze → Włącz synchronizację** na pierwszym urządzeniu, a na kolejnym
-**Mam kod z innego urządzenia**.
+**Ustawienia → Synchronizacja w chmurze → Włącz synchronizację** na pierwszym urządzeniu (zapisz kod odzyskiwania),
+a na kolejnym **Mam kod z innego urządzenia**.
 
 ### Jak to działa
 
@@ -118,7 +114,7 @@ momentum-app/
       WeeklyReview.tsx        # tygodniowe podsumowanie
       NotificationCenter.tsx  # dzwonek, baner przypomnienia, status zgody
       ReminderPicker.tsx      # wybór wielu przypomnień
-      CloudSyncPanel.tsx      # ustawienia synchronizacji w chmurze i pasek konfliktu (beta)
+      CloudSyncPanel.tsx      # ustawienia synchronizacji w chmurze i pasek konfliktu
     lib/
       date.ts                 # czas i daty lokalne
       icons.tsx               # zestaw ikon z lucide-react
@@ -128,7 +124,6 @@ momentum-app/
       notifications.ts        # zgoda, wyświetlanie powiadomień, historia
       useReminders.ts         # harmonogram przypomnień w aplikacji
       progression.ts          # rangi i osiągnięcia
-      featureFlags.ts         # feature flagi (build + nadpisanie na urządzeniu)
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, konflikty)
       useCloudSync.ts         # hook React dla synchronizacji
   worker/

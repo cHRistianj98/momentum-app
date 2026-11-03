@@ -57,7 +57,7 @@ function describeStatus(state: CloudSyncState, now: number): StatusView {
   }
 }
 
-/** Ustawienia → „Synchronizacja w chmurze (beta)”. Renderowane tylko przy włączonym feature flagu. */
+/** Ustawienia → „Synchronizacja w chmurze”. */
 export function CloudSyncPanel({ api, data }: { api: CloudSyncApi; data: AppData }) {
   const { state, engine } = api;
   const [view, setView] = useState<'main' | 'link'>('main');
@@ -78,14 +78,13 @@ export function CloudSyncPanel({ api, data }: { api: CloudSyncApi; data: AppData
   useEffect(() => { setNow(Date.now()); }, [state.lastSyncAt]);
   // Przed włączeniem sprawdzamy, czy backend (Functions + D1) jest gotowy — pomaga przy konfiguracji.
   useEffect(() => {
-    if (!engine || state.enabled) return undefined;
+    if (state.enabled) return undefined;
     let cancelled = false;
     setServer(null);
     void engine.checkServer().then(result => { if (!cancelled) setServer(result); });
     return () => { cancelled = true; };
   }, [engine, state.enabled]);
 
-  if (!engine) return null;
   const busy = working !== null || state.phase === 'syncing';
 
   async function run(name: string, action: () => Promise<void>, success?: string) {
@@ -136,7 +135,7 @@ export function CloudSyncPanel({ api, data }: { api: CloudSyncApi; data: AppData
   const heading = <div className="cloud-sync-head">
     <span className="cloud-sync-symbol"><Cloud size={19}/></span>
     <div>
-      <strong id="cloud-sync-title">Synchronizacja w chmurze <em>beta</em></strong>
+      <strong id="cloud-sync-title">Synchronizacja w chmurze</strong>
       <small>Automatyczna kopia w chmurze i ten sam plan na kilku urządzeniach — bez zakładania konta.</small>
     </div>
   </div>;
@@ -286,7 +285,7 @@ export function CloudSyncPanel({ api, data }: { api: CloudSyncApi; data: AppData
 export function CloudSyncBanner({ api, onResolve }: { api: CloudSyncApi; onResolve: () => void }) {
   const { state, engine } = api;
   const [working, setWorking] = useState(false);
-  if (!engine || !state.enabled || (state.phase !== 'conflict' && state.phase !== 'update-ready')) return null;
+  if (!state.enabled || (state.phase !== 'conflict' && state.phase !== 'update-ready')) return null;
   const conflict = state.phase === 'conflict';
   return <div className={`cloud-banner${conflict ? ' is-conflict' : ''}`} role="status">
     <span className="cloud-banner-icon">{conflict ? <CloudAlert size={19}/> : <CloudDownload size={19}/>}</span>

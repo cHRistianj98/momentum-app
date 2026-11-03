@@ -1,25 +1,20 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { CLOUD_SYNC_OFF_STATE, getCloudSyncEngine, type CloudSyncEngine, type CloudSyncState } from './cloudSync';
+import { useEffect, useSyncExternalStore } from 'react';
+import { getCloudSyncEngine, type CloudSyncEngine, type CloudSyncState } from './cloudSync';
 
 export interface CloudSyncApi {
-  /** Feature flag „cloudSync” jest włączony na tym urządzeniu. */
-  available: boolean;
   state: CloudSyncState;
-  engine: CloudSyncEngine | null;
+  engine: CloudSyncEngine;
 }
 
-const subscribeNothing = () => () => undefined;
-const offState = () => CLOUD_SYNC_OFF_STATE;
-
-/** Przy wyłączonej fladze nie tworzy silnika, nie dodaje nasłuchów i nie wykonuje żadnych żądań. */
-export function useCloudSync(available: boolean): CloudSyncApi {
-  const engine = available ? getCloudSyncEngine() : null;
-  const state = useSyncExternalStore(engine ? engine.subscribe : subscribeNothing, engine ? engine.getState : offState);
+/** Stan synchronizacji dla UI. Nasłuchy i odpytywanie serwera działają tylko po włączeniu synchronizacji na urządzeniu. */
+export function useCloudSync(): CloudSyncApi {
+  const engine = getCloudSyncEngine();
+  const state = useSyncExternalStore(engine.subscribe, engine.getState);
   const enabled = state.enabled;
   useEffect(() => {
-    if (!engine || !enabled) return undefined;
+    if (!enabled) return undefined;
     engine.start();
     return () => engine.stop();
   }, [engine, enabled]);
-  return useMemo(() => ({ available, state, engine }), [available, state, engine]);
+  return { state, engine };
 }
