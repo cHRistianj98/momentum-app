@@ -872,8 +872,6 @@
   .cloud-sync-footer { flex-direction: column; align-items: flex-start; }
   .cloud-sync-text-btn { min-height: 40px; font-size: 13px; }
   .cloud-banner { top: calc(62px + env(safe-area-inset-top, 0px)); }
-  /* Arkusz ustawień zaczyna się pod górnym paskiem aplikacji. */
-  .cloud-sync { scroll-margin-top: 64px; }
 }
 
 :root[data-theme='dark'] .cloud-sync-status.is-ok .cloud-sync-status-icon { background: #173c31; color: #87e2b8; }
@@ -885,9 +883,25 @@
 :root[data-theme='dark'] .cloud-sync-choice.is-info { border-color: color-mix(in srgb, var(--primary) 30%, var(--line)); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
 :root[data-theme='dark'] .cloud-sync-server.is-down { color: #fbbf24; }
 :root[data-theme='dark'] .cloud-sync-text-btn.is-danger { color: #ff9aa5; }
-/* Poprawka istniejącej sekcji kopii: tytuł karty był niewidoczny w ciemnym motywie. */
-:root[data-theme='dark'] .backup-health-label strong { color: var(--text); }
 
 @media (prefers-reduced-motion: reduce) {
   .cloud-spin, .cloud-banner { animation: none; }
+}
+
+/* ---------- 16. Ciemny motyw: czytelny tekst; okna na iPhonie nad górnym paskiem ---------- */
+/* :root ustawia kolor tekstu na sztywno (#202038), a ciemny motyw go nie nadpisywał, więc każdy
+   tekst bez własnego koloru (np. nagłówki sekcji, tytuły okien) był ciemny na ciemnym tle. */
+:root[data-theme='dark'] { color: var(--text); }
+/* Miesiąc na iPhonie: jasne odcienie kategorii z motywu jasnego zlewały się z jasnym tekstem. */
+:root[data-theme='dark'] .momentum-month-event { background: color-mix(in srgb, var(--mini-color) 24%, var(--surface)); }
+:root[data-theme='dark'] .nav-item.active .nav-count { background: color-mix(in srgb, var(--primary) 24%, var(--surface)); color: var(--text); }
+:root[data-theme='dark'] .routine-actions-badge { background: rgba(17, 12, 44, .3); }
+
+@media (max-width: 620px) {
+  /* Zwykłe okna (Ustawienia, projekt, potwierdzenia) przykrywają także górny pasek (z-index 110),
+     jak arkusz w iOS — wcześniej pasek zasłaniał ich górę z przyciskiem zamknięcia. Okna zadań
+     i rutyn celowo zaczynają się pod paskiem i zostają bez zmian. */
+  .modal-backdrop:not(.task-modal-backdrop):not(:has(> .routine-modal, > .routine-editor)) { z-index: 130; }
+  /* Komunikaty (toast) nadal ponad oknami. */
+  .toast { z-index: 140; }
 }
