@@ -6,6 +6,7 @@ import {
   requestNotificationPermission, saveDeliveredReminders, saveLastReminderCheck, saveNotificationFeed,
   showSystemNotification, updateAppBadge, type NotificationFeedItem, type NotificationSupport,
 } from './notifications';
+import { canSubscribeNow, isPushActive, subscribeFromGesture } from './push';
 
 /** Po powrocie do aplikacji pokazujemy w dzwonku przypomnienia z ostatnich 12 godzin. */
 const CATCH_UP_MS = 12 * 60 * 60_000;
@@ -77,7 +78,8 @@ export function useReminders({ data, setData, onInApp, onOpen }: Options) {
         pushFeed([...items].reverse());
         const foreground = document.visibilityState === 'visible' && document.hasFocus();
         if (foreground) callbacks.current.onInApp(items[items.length - 1]);
-        else if (settings.enabled) {
+        // Gdy działa push z serwera, powiadomienie systemowe przyjdzie stamtąd (bez duplikatu).
+        else if (settings.enabled && !isPushActive()) {
           fresh.forEach((reminder, index) => {
             if (now - reminder.fireAt > ON_TIME_MS) return;
             const item = items[index];
@@ -104,6 +106,34 @@ export function useReminders({ data, setData, onInApp, onOpen }: Options) {
   const unread = feed.filter(item => !item.read).length;
   useEffect(() => { updateAppBadge(unread); }, [unread]);
 
+  // Push z serwera dotarł, gdy aplikacja była otwarta: zapisz w dzwonku i nie powtarzaj lokalnie.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return undefined;
+    const onMessage = (event: MessageEvent) => {
+      const message = event.data as { type?: unknown; payload?: Record<string, unknown> } | null;
+      const payload = message?.type === 'MOMENTUM_PUSH' ? message.payload : null;
+      if (!payload || typeof payload.tag !== 'string' || typeof payload.title !== 'string') return;
+      const now = Date.now();
+      const delivered = loadDeliveredReminders();
+      if (delivered[payload.tag]) return;
+      delivered[payload.tag] = now;
+      saveDeliveredReminders(delivered, now);
+      pushFeed([{
+        id: `${payload.tag}@${now}`,
+        kind: payload.kind === 'task' || payload.kind === 'routine' ? payload.kind : 'system',
+        sourceId: typeof payload.sourceId === 'string' ? payload.sourceId : undefined,
+        occurrenceDate: typeof payload.occurrenceDate === 'string' ? payload.occurrenceDate : undefined,
+        title: payload.title,
+        body: typeof payload.body === 'string' ? payload.body : '',
+        createdAt: now,
+        startAt: typeof payload.startAt === 'number' ? payload.startAt : undefined,
+        read: false,
+      }]);
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [pushFeed]);
+
   const setEnabled = useCallback((enabled: boolean) => {
     setData(previous => ({ ...previous, notifications: { ...resolveNotificationSettings(previous.notifications), enabled } }));
   }, [setData]);
@@ -115,7 +145,15 @@ export function useReminders({ data, setData, onInApp, onOpen }: Options) {
       setSupport(current);
       return current;
     }
-    const result = current === 'granted' ? current : await requestNotificationPermission();
+    let result: NotificationSupport;
+    if (canSubscribeNow()) {
+      // iOS: subskrypcja push musi być pierwszym wywołaniem po stuknięciu — sama poprosi o zgodę.
+      // Jeśli serwer jest niedostępny, zostają zwykłe (lokalne) powiadomienia.
+      try { await subscribeFromGesture(); } catch { /* zgoda odrzucona albo brak serwera */ }
+      result = getNotificationSupport();
+    } else {
+      result = current === 'granted' ? current : await requestNotificationPermission();
+    }
     setSupport(result);
     if (result === 'granted') {
       setEnabled(true);

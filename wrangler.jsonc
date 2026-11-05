@@ -15,5 +15,7 @@
   // Baza D1 synchronizacji w chmurze (Database ID z panelu Cloudflare). Bez niej /api odpowiada 503,
   // a sama aplikacja działa normalnie.
   "d1_databases": [{ "binding": "DB", "database_name": "momentum", "database_id": "7072b9f5-d921-49df-b4c0-ff83254d5ac1" }],
+  // Co minutę: wysyłka przypomnień push (działa także przy zamkniętej aplikacji).
+  "triggers": { "crons": ["* * * * *"] },
   "observability": { "enabled": true }
 }

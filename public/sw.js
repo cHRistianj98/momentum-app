@@ -109,20 +109,27 @@ self.addEventListener('notificationclick', event => {
   })());
 });
 
-/* Gotowość na serwer Web Push: każda wiadomość musi wyświetlić powiadomienie (wymóg iOS). */
+/* Web Push z serwera Momentum: każda wiadomość musi wyświetlić powiadomienie (wymóg iOS).
+ * Otwarte okna aplikacji dostają też treść, żeby zapisać ją w dzwonku i nie powtarzać lokalnie. */
 self.addEventListener('push', event => {
   let payload = {};
   try { payload = event.data ? event.data.json() : {}; }
   catch { payload = { body: event.data ? event.data.text() : '' }; }
   const title = typeof payload.title === 'string' && payload.title ? payload.title : 'Momentum';
-  event.waitUntil(self.registration.showNotification(title, {
-    body: typeof payload.body === 'string' ? payload.body : '',
-    tag: typeof payload.tag === 'string' ? payload.tag : undefined,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
-    lang: 'pl',
-    data: { url: sameOriginUrl(payload.url).pathname + sameOriginUrl(payload.url).search },
-  }));
+  event.waitUntil((async () => {
+    await self.registration.showNotification(title, {
+      body: typeof payload.body === 'string' ? payload.body : '',
+      tag: typeof payload.tag === 'string' ? payload.tag : undefined,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      lang: 'pl',
+      data: { url: sameOriginUrl(payload.url).pathname + sameOriginUrl(payload.url).search },
+    });
+    try {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of windows) client.postMessage({ type: 'MOMENTUM_PUSH', payload: { ...payload, title } });
+    } catch { /* brak otwartych okien */ }
+  })());
 });
 
 self.addEventListener('fetch', event => {

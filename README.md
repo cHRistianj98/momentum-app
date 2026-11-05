@@ -28,9 +28,19 @@ Do kompilacji produkcyjnej użyj `npm run build`, a do podglądu `npm run previe
 (Safari → Udostępnij → Do ekranu początkowego), uruchomionej z wersji produkcyjnej (`npm run build`) serwowanej przez **HTTPS**.
 Zgodę daje się przyciskiem „Włącz” w dzwonku lub w ustawieniach.
 
-**Ograniczenie bez serwera push:** przypomnienia są liczone i wysyłane przez samą aplikację, więc działają, gdy Momentum jest uruchomione
-(na komputerze — także w karcie w tle). iOS usypia zamkniętą aplikację, dlatego pewne powiadomienia na zablokowanym iPhonie wymagają
-serwera Web Push. Service worker (`public/sw.js`) obsługuje już zdarzenia `push` i `notificationclick`, więc serwer można dodać bez zmian w widokach.
+### Także przy zamkniętej aplikacji (Web Push z serwera)
+
+**Ustawienia → Powiadomienia → „Także przy zamkniętej aplikacji” → Włącz.** Na iPhonie: aplikacja z ekranu początkowego, iOS 16.4+.
+
+- Aplikacja wylicza przypomnienia na najbliższe 7 dni (tą samą logiką co lokalnie) i wysyła listę do Workera; **Cron Trigger**
+  (co minutę, `wrangler.jsonc` → `triggers`) wysyła te, których czas nadszedł. Dokładność ok. ±1 min.
+- Szyfrowanie treści według RFC 8291 (aes128gcm) i uwierzytelnienie VAPID (RFC 8292) na WebCrypto, bez dodatkowych bibliotek
+  (`worker/webpush.ts`). Klucze VAPID serwer tworzy sam przy pierwszym użyciu i trzyma w D1 — nic nie trzeba konfigurować.
+- Z włączoną synchronizacją lista jest wspólna dla konta: zadanie dodane na laptopie powiadomi telefon, nawet gdy aplikacja
+  na nim jest zamknięta. Gdy aplikacja jest otwarta, push trafia też do dzwonka (bez duplikatu lokalnego powiadomienia).
+- Lista odświeża się po każdej zmianie i co 6 godzin. Przypomnienia spóźnione o ponad 30 min (np. po awarii) są pomijane.
+- Prywatność: na serwerze leży treść przypomnień z najbliższych 7 dni (tytuł i godzina), usuwana po wysłaniu (najpóźniej po 3 dniach).
+- Koszt: cron to ok. 1440 wywołań dziennie — w darmowym limicie Cloudflare (100 tys.).
 
 ## Synchronizacja w chmurze
 
@@ -126,9 +136,12 @@ momentum-app/
       progression.ts          # rangi i osiągnięcia
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, konflikty)
       useCloudSync.ts         # hook React dla synchronizacji
+      push.ts                 # subskrypcja Web Push i lista przypomnień dla serwera
   worker/
-    index.ts                  # Cloudflare Worker: /api/* → synchronizacja, reszta → statyczne pliki
+    index.ts                  # Cloudflare Worker: /api/* → API, reszta → statyczne pliki; cron co minutę
     sync.ts                   # API synchronizacji + zapis w D1
+    push.ts                   # API powiadomień push + kolejka wysyłki (cron)
+    webpush.ts                # szyfrowanie Web Push (RFC 8291) i VAPID na WebCrypto
   wrangler.jsonc              # konfiguracja Workera (assets z dist/, baza D1)
   migrations/0001_init.sql    # schemat D1 (tworzony też automatycznie)
 ```

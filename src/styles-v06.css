@@ -905,3 +905,24 @@
   /* Komunikaty (toast) nadal ponad oknami. */
   .toast { z-index: 140; }
 }
+
+/* ---------- 17. Powiadomienia w tle (Web Push z serwera) ---------- */
+.notify-push { display: grid; gap: 12px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.notify-push.is-active { border-color: color-mix(in srgb, #22c55e 35%, var(--line)); background: color-mix(in srgb, #22c55e 5%, var(--surface)); }
+.notify-push-head { display: flex; align-items: center; gap: 12px; }
+.notify-push-head > div { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.notify-push-head strong { color: var(--text); font-size: 13px; }
+.notify-push-head small { color: var(--subtext); font-size: 11.5px; line-height: 1.45; }
+.notify-push-icon { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: linear-gradient(135deg, #38bdf8, #7061ee); color: #fff; }
+.notify-push.is-active .notify-push-icon { background: linear-gradient(135deg, #34d399, #16a66a); }
+.notify-push-enable { flex: none; min-height: 38px; }
+.notify-push-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.notify-push-actions .btn { min-height: 40px; }
+.notify-push-note { margin: 0; color: #12865a; font-size: 11.5px; line-height: 1.45; }
+.notify-push-note.is-error { color: #c2410c; }
+:root[data-theme='dark'] .notify-push-note { color: #87e2b8; }
+:root[data-theme='dark'] .notify-push-note.is-error { color: #fdba74; }
+@media (max-width: 620px) {
+  .notify-push-head strong { font-size: 14px; }
+  .notify-push-actions .btn { flex: 1 1 0; min-height: 44px; }
+}

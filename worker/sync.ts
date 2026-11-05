@@ -96,7 +96,7 @@ const JSON_HEADERS: Record<string, string> = {
 // Tabele powstają same przy pierwszym zapytaniu w danej instancji (bez ręcznych migracji).
 const schemaReady = new WeakMap<D1Database, Promise<void>>();
 
-function ensureSchema(db: D1Database): Promise<void> {
+export function ensureSchema(db: D1Database): Promise<void> {
   let ready = schemaReady.get(db);
   if (!ready) {
     ready = db.batch(SCHEMA.map(sql => db.prepare(sql))).then(() => undefined);
@@ -106,7 +106,7 @@ function ensureSchema(db: D1Database): Promise<void> {
   return ready;
 }
 
-function respond(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
+export function respond(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...headers } });
 }
 
@@ -114,23 +114,35 @@ function respondRaw(body: string, status = 200): Response {
   return new Response(body, { status, headers: JSON_HEADERS });
 }
 
-function fail(status: number, error: string, extra: Record<string, unknown> = {}, headers: Record<string, string> = {}): Response {
+export function fail(status: number, error: string, extra: Record<string, unknown> = {}, headers: Record<string, string> = {}): Response {
   return respond({ error, ...extra }, status, headers);
 }
 
-function methodNotAllowed(allowed: string): Response {
+export function methodNotAllowed(allowed: string): Response {
   return fail(405, 'method-not-allowed', {}, { Allow: allowed });
 }
 
 /** Kod odzyskiwania: Crockford Base32 (wielkie litery i cyfry), znormalizowany przez aplikację. */
-function readSecret(request: Request): string | null {
+export function readSecret(request: Request): string | null {
   const match = /^Bearer\s+([0-9A-Z]{20,64})$/.exec((request.headers.get('Authorization') ?? '').trim());
   return match ? match[1] : null;
 }
 
-async function sha256Hex(value: string): Promise<string> {
+export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/** Dzienny limit na adres IP (np. zakładanie kont). Przechowujemy tylko skrót IP i dnia, nie sam adres. */
+export async function consumeDailyQuota(db: D1Database, kind: string, request: Request, limit: number): Promise<boolean> {
+  const now = Date.now();
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const bucket = `${kind}:${(await sha256Hex(`${ip}|${new Date(now).toISOString().slice(0, 10)}`)).slice(0, 32)}`;
+  const counter = await db.prepare(
+    `INSERT INTO sync_rate_limits (bucket, hits, expires_at) VALUES (?1, 1, ?2)
+     ON CONFLICT(bucket) DO UPDATE SET hits = hits + 1 RETURNING hits`,
+  ).bind(bucket, now + 2 * DAY_MS).first<{ hits: number }>();
+  return (counter?.hits ?? 0) <= limit;
 }
 
 function parseRevision(value: string | null): number | null {
@@ -166,16 +178,9 @@ async function createAccount(db: D1Database, keyHash: string, request: Request):
   const existing = await findAccount(db, keyHash);
   if (existing) return respond({ userId: existing.user_id, revision: existing.revision, createdAt: existing.created_at, created: false });
 
-  const now = Date.now();
-  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-  // Przechowujemy tylko skrót adresu IP i dnia, nie sam adres.
-  const bucket = `create:${(await sha256Hex(`${ip}|${new Date(now).toISOString().slice(0, 10)}`)).slice(0, 32)}`;
-  const counter = await db.prepare(
-    `INSERT INTO sync_rate_limits (bucket, hits, expires_at) VALUES (?1, 1, ?2)
-     ON CONFLICT(bucket) DO UPDATE SET hits = hits + 1 RETURNING hits`,
-  ).bind(bucket, now + 2 * DAY_MS).first<{ hits: number }>();
-  if ((counter?.hits ?? 0) > ACCOUNTS_PER_IP_PER_DAY) return fail(429, 'rate-limited', {}, { 'Retry-After': '86400' });
+  if (!await consumeDailyQuota(db, 'create', request, ACCOUNTS_PER_IP_PER_DAY)) return fail(429, 'rate-limited', {}, { 'Retry-After': '86400' });
 
+  const now = Date.now();
   const timestamp = new Date(now).toISOString();
   await db.batch([
     db.prepare('DELETE FROM sync_rate_limits WHERE expires_at < ?1').bind(now),

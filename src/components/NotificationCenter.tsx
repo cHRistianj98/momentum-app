@@ -3,6 +3,7 @@ import { Bell, BellOff, BellRing, CalendarClock, CheckCheck, ChevronRight, Repea
 import { TaskIcon } from '../lib/icons';
 import { collectReminders, reminderChipLabel } from '../lib/reminders';
 import { isIOSDevice, type NotificationFeedItem } from '../lib/notifications';
+import { primePush, usePushState } from '../lib/push';
 import type { RemindersApi } from '../lib/useReminders';
 import type { AppData } from '../types';
 
@@ -37,6 +38,9 @@ function compactLead(time: number, now: number): string {
 export function NotificationStatusCard({ api, compact = false }: { api: RemindersApi; compact?: boolean }) {
   const [busy, setBusy] = useState(false);
   const { support, settings } = api;
+  const push = usePushState();
+  // Klucz serwera i rejestrację SW pobieramy zawczasu: na iPhonie subskrypcja musi ruszyć od razu po stuknięciu „Włącz”.
+  useEffect(() => { if (support === 'default' || support === 'granted') void primePush(); }, [support]);
   if (support === 'insecure') return <div className="notify-status notify-status--warn">
     <span className="notify-status-icon"><ShieldAlert size={18}/></span>
     <div><strong>Powiadomienia wymagają HTTPS</strong>
@@ -65,7 +69,9 @@ export function NotificationStatusCard({ api, compact = false }: { api: Reminder
   </div>;
   if (support === 'granted' && settings.enabled) return <div className="notify-status notify-status--ok">
     <span className="notify-status-icon"><BellRing size={18}/></span>
-    <div><strong>Powiadomienia są włączone</strong>{!compact && <small>Przypomnienia trafią na ekran blokady, gdy Momentum działa. Pełne działanie w tle wymaga serwera push.</small>}</div>
+    <div><strong>Powiadomienia są włączone</strong>{!compact && <small>{push.status === 'active'
+      ? 'Przypomnienia przyjdą także wtedy, gdy Momentum jest zamknięte.'
+      : 'Przypomnienia trafią na ekran blokady, gdy Momentum działa. Poniżej włączysz je także przy zamkniętej aplikacji.'}</small>}</div>
     <button type="button" className="notify-status-action" onClick={() => { void api.sendTest(); }}>Test</button>
   </div>;
   return <div className="notify-status notify-status--cta">
