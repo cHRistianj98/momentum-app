@@ -46,6 +46,19 @@ export interface RoutineStep {
   timerSeconds?: number;
 }
 
+export type RepeatUnit = 'day' | 'week' | 'month';
+
+/** Reguła powtarzania serii. Bez niej rutyna powtarza się co tydzień w dni z `weekdays` (jak dotąd). */
+export interface RepeatRule {
+  every: RepeatUnit;
+  /** Co ile jednostek, np. 2 = co 2 tygodnie. */
+  interval: number;
+  /** Pierwszy dzień serii (YYYY-MM-DD); wcześniej nie ma wystąpień. */
+  start: string;
+  /** Ostatni dzień serii (włącznie) po jej zakończeniu. */
+  until?: string;
+}
+
 export interface Routine {
   id: string;
   title: string;
@@ -61,6 +74,9 @@ export interface Routine {
   active: boolean;
   /** Przypomnienia dla każdego wystąpienia, w minutach przed godziną rutyny. */
   reminders?: number[];
+  /** 'task' = zadanie cykliczne: bez kroków, odhaczane jednym kliknięciem. Brak = klasyczna rutyna. */
+  kind?: 'routine' | 'task';
+  repeat?: RepeatRule;
 }
 
 export interface RoutineLog {
@@ -74,6 +90,8 @@ export interface RoutineLog {
   timeOverride?: string;
   /** Nadpisanie dnia: wpis logu zostaje pod pierwotną datą, wraz z krokami i XP. */
   dateOverride?: string;
+  /** Wystąpienie usunięte z serii (tylko ten jeden dzień). */
+  skipped?: boolean;
 }
 
 export interface ProjectSubtask {

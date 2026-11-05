@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Play, Plus } from 'lucide-react';
+import { CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Check, GripVertical, GripHorizontal, Play, Plus, Repeat2 } from 'lucide-react';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { layoutOverlappingEvents } from '../lib/calendarOverlap';
 import { MiniMonthPicker } from './MiniMonthPicker';
@@ -20,6 +20,8 @@ export interface CalendarBlock {
   time: string;
   duration: number;
   done: boolean;
+  /** Wystąpienie zadania cyklicznego: odhaczane jednym dotknięciem, bez kroków rutyny. */
+  series?: boolean;
 }
 
 const START = 0;
@@ -665,7 +667,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                       >
                         <div className="event-body">
                           <TaskVisual icon={block.icon} image={block.image} category={block.category} categories={categories} className="event-visual" size="small" />
-                          <div className="event-text"><strong>{block.title}</strong><small>{block.time} · {displayDuration} min</small></div>
+                          <div className="event-text"><strong>{block.title}</strong><small>{block.time} · {displayDuration} min{block.series && <Repeat2 className="event-repeat" size={11} aria-label="Zadanie cykliczne"/>}</small></div>
                           {block.kind === 'task' && !block.done && <button
                             type="button"
                             className="event-focus"
@@ -677,7 +679,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                           <button
                             className={`event-check ${block.done ? 'checked' : ''}`}
                             aria-label={block.done ? 'Oznacz jako niewykonane' : 'Oznacz jako wykonane'}
-                            title={block.kind === 'routine' ? 'Otwórz kroki rutyny' : 'Zmień status'}
+                            title={block.kind === 'routine' && !block.series ? 'Otwórz kroki rutyny' : 'Zmień status'}
                             onPointerDown={e => e.stopPropagation()}
                             onClick={e => { e.stopPropagation(); onToggleBlock(block); }}
                           ><Check size={13} strokeWidth={3} /></button>

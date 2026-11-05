@@ -1,5 +1,6 @@
 import { mondayOf, parseDate, shiftDate, todayKey } from './date';
 import { buildDailyReality, summarizeReality, type ActualOverrides, type DayReality } from './planReality';
+import { isTaskSeries } from './recurrence';
 import type { FocusRecord } from './focus';
 import type { AppData, CategoryKey } from '../types';
 
@@ -18,6 +19,8 @@ export type RoutineWeeklyResult = {
   image?: string;
   planned: number;
   completed: number;
+  /** Zadanie cykliczne (bez kroków), a nie rutyna. */
+  series?: boolean;
 };
 export type WeekAdvice = { id: string; title: string; detail: string };
 
@@ -57,8 +60,10 @@ export function buildWeeklyReport(data: AppData, history: FocusRecord[], overrid
   const days = buildDailyReality(data, history, overrides, weekDates(start));
   const period = summarizeReality(days);
   const items = days.flatMap(day => day.items);
-  const taskItems = items.filter(item => item.kind === 'task');
-  const routineItems = items.filter(item => item.kind === 'routine');
+  // Zadania cykliczne liczą się jako zadania, ale w sekcji systematyczności pokazujemy je obok rutyn.
+  const taskItems = items.filter(item => item.kind === 'task' || item.series);
+  const routineItems = items.filter(item => item.kind === 'routine' && !item.series);
+  const seriesAndRoutineItems = items.filter(item => item.kind === 'routine');
   const categoryKeys: CategoryKey[] = ['unpaid', 'potential', 'income'];
   const categories = categoryKeys.map(category => {
     const matching = items.filter(item => item.category === category);
@@ -72,9 +77,10 @@ export function buildWeeklyReport(data: AppData, history: FocusRecord[], overrid
     };
   });
   const routines: RoutineWeeklyResult[] = data.routines.map(routine => {
-    const occurrences = routineItems.filter(item => item.sourceId === routine.id);
+    const occurrences = seriesAndRoutineItems.filter(item => item.sourceId === routine.id);
     return { id: routine.id, title: routine.title, icon: routine.icon, image: routine.image,
-      planned: occurrences.length, completed: occurrences.filter(item => item.done).length };
+      planned: occurrences.length, completed: occurrences.filter(item => item.done).length,
+      ...(isTaskSeries(routine) ? { series: true } : {}) };
   }).filter(item => item.planned > 0 || item.completed > 0)
     .sort((a, b) => b.planned - a.planned || a.title.localeCompare(b.title, 'pl'));
   const eligibleDays = days.filter(day => day.plannedCount > 0 || day.completedCount > 0 || day.actualMinutes > 0);

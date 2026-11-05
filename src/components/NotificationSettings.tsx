@@ -3,6 +3,7 @@ import { BellRing, CloudLightning, Send, Sparkles } from 'lucide-react';
 import { NotificationStatusCard } from './NotificationCenter';
 import { ReminderPicker } from './ReminderPicker';
 import type { PushApi } from '../lib/push';
+import { isTaskSeries } from '../lib/recurrence';
 import type { RemindersApi } from '../lib/useReminders';
 import type { AppData, NotificationSettings } from '../types';
 
@@ -68,8 +69,10 @@ function PushBackgroundCard({ push }: { push: PushApi }) {
 export function NotificationSettingsPanel({ api, push, data, onChange, onApplyDefaults }: Props) {
   const { settings, support } = api;
   const granted = support === 'granted';
-  const missingTasks = data.tasks.filter(task => !task.done && task.date && task.time && !task.reminders?.length).length;
-  const missingRoutines = data.routines.filter(routine => routine.active && !routine.reminders?.length).length;
+  // Zadania cykliczne dostają domyślne przypomnienia zadań, rutyny — domyślne rutyn.
+  const missingTasks = data.tasks.filter(task => !task.done && task.date && task.time && !task.reminders?.length).length
+    + data.routines.filter(routine => routine.active && isTaskSeries(routine) && !routine.reminders?.length).length;
+  const missingRoutines = data.routines.filter(routine => routine.active && !isTaskSeries(routine) && !routine.reminders?.length).length;
   const missingLabel = [missingTasks > 0 ? tasksGenitive(missingTasks) : '', missingRoutines > 0 ? routinesGenitive(missingRoutines) : ''].filter(Boolean).join(' i ');
   const pushActive = push.state.status === 'active';
   return <section className="notify-settings" aria-label="Powiadomienia">

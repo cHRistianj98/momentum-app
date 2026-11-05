@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { createSeed } from './seed';
 import { readMomentumKey, removeMomentumKey, saveMomentumKey, syncOfflineSnapshot } from './offlineDatabase';
 import { normalizeReminders, resolveNotificationSettings } from './reminders';
+import { normalizeRepeatRule } from './recurrence';
+import { parseDate } from './date';
 import type { AppData, CategoryConfig, CategoryKey, Routine, Task, Project } from '../types';
 
 const STORAGE_KEY = 'momentum.v1';
@@ -75,7 +77,7 @@ export function migrateStoredData(value: unknown): AppData | null {
       .map(project => ({...project, milestones: Array.isArray(project.milestones) ? project.milestones.map(milestone => ({...milestone, subtasks: Array.isArray(milestone.subtasks) ? milestone.subtasks : []})) : []})) : [],
     routines: data.routines
       .filter((routine): routine is Routine => Boolean(routine && typeof routine === 'object'))
-      .map(routine => withReminders({ ...routine, category: normalizeCategory(routine.category) })),
+      .map(routine => withRepeat(withReminders({ ...routine, category: normalizeCategory(routine.category) }))),
     routineLogs: data.routineLogs && typeof data.routineLogs === 'object' && !Array.isArray(data.routineLogs)
       ? data.routineLogs : {},
     categories: resolveCategories(data.categories),
@@ -90,6 +92,18 @@ function withReminders<T extends { reminders?: number[] }>(item: T): T {
   const next = { ...item };
   if (reminders?.length) next.reminders = reminders;
   else delete next.reminders;
+  return next;
+}
+
+/** Zadanie cykliczne i reguła powtarzania: nieznane wartości usuwamy, rutyna działa wtedy jak dotąd. */
+function withRepeat(routine: Routine): Routine {
+  const next = { ...routine };
+  const repeat = normalizeRepeatRule(routine.repeat);
+  if (repeat) next.repeat = repeat;
+  else delete next.repeat;
+  if (next.kind !== 'task') delete next.kind;
+  if (!Array.isArray(next.steps)) next.steps = [];
+  if (!Array.isArray(next.weekdays)) next.weekdays = repeat ? [parseDate(repeat.start).getDay()] : [];
   return next;
 }
 

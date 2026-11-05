@@ -1,4 +1,5 @@
 import { dateKey, parseDate, shiftDate } from './date';
+import { isTaskSeries, occursOn } from './recurrence';
 import type { AppData, NotificationSettings, Routine } from '../types';
 
 /** Gotowe przypomnienia (minuty przed startem) proponowane w formularzach. */
@@ -91,6 +92,8 @@ export interface ScheduledReminder {
   offset: number;
   startAt: number;
   fireAt: number;
+  /** Wystąpienie zadania cyklicznego (rutyna bez kroków) — bez dopisku „rutyna”. */
+  series?: boolean;
 }
 
 export function localTimestamp(date: string, time: string): number {
@@ -98,10 +101,6 @@ export function localTimestamp(date: string, time: string): number {
   const [hours, minutes] = time.split(':').map(Number);
   day.setHours(hours || 0, minutes || 0, 0, 0);
   return day.getTime();
-}
-
-function routineScheduledOn(routine: Routine, date: string): boolean {
-  return routine.active && routine.weekdays.includes(parseDate(date).getDay());
 }
 
 /**
@@ -138,7 +137,7 @@ export function collectReminders(data: AppData, fromMs: number, toMs: number): S
       seen.add(logKey);
       const log = data.routineLogs[logKey];
       if (log?.completed) return;
-      if (!routineScheduledOn(routine, sourceDate) && !log?.dateOverride) return;
+      if (log?.skipped || (!occursOn(routine, sourceDate) && !log?.dateOverride)) return;
       const date = log?.dateOverride ?? sourceDate;
       const time = log?.timeOverride ?? routine.time;
       const startAt = localTimestamp(date, time);
@@ -149,6 +148,7 @@ export function collectReminders(data: AppData, fromMs: number, toMs: number): S
           id: `routine:${routine.id}:${sourceDate}:${date}T${time}:${offset}`, kind: 'routine', sourceId: routine.id,
           occurrenceDate: sourceDate, date, time, title: routine.title, icon: routine.icon,
           duration: log?.durationOverride ?? routine.duration, offset, startAt, fireAt,
+          ...(isTaskSeries(routine) ? { series: true } : {}),
         });
       }
     };

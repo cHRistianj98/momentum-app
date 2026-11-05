@@ -78,6 +78,24 @@ a na kolejnym **Mam kod z innego urządzenia**.
   D1: 500 MB na bazę, 5 mln odczytów i 100 tys. zapisów wierszy dziennie) wystarczają z dużym zapasem.
 - Zabezpieczenie przed nadużyciem: limit 20 nowych kont dziennie na adres IP. Kopia JSON nadal jest zalecanym, niezależnym backupem.
 
+## Zadania cykliczne
+
+Zadanie, które się powtarza, ale nie ma listy kroków (np. siłownia w pn, śr i pt o 18:00). W formularzu zadania wybierz
+**Powtarzanie**: *Codziennie*, *Co tydzień* (z wyborem dni), *Co 2 tygodnie* albo *Co miesiąc*. Seria zaczyna się od wybranej daty.
+
+- Każde wystąpienie odhaczasz osobno — w kalendarzu, na liście „Moje zadania” (sekcja *Dzisiaj*) albo w panelu „Do zrobienia”.
+  XP przyznawane jest za każde ukończone wystąpienie.
+- Lista „Moje zadania” ma sekcję **Cykliczne**: harmonogram i najbliższy termin każdej serii.
+- Przeciągnięcie lub zmiana długości bloku w kalendarzu pyta, czy zmienić tylko to wystąpienie, czy całą serię.
+- Usuwanie: *Tylko to wystąpienie*, *Zakończ serię* (kolejne terminy znikają, historia i XP zostają) albo *Usuń całą serię*.
+- Przypomnienia, powiadomienia w tle, synchronizacja, statystyki i Weekly Review działają tak jak dla rutyn.
+  W przeglądzie tygodnia seria liczy się jako zadanie, a jej regularność widać w sekcji systematyczności.
+- Zwykłe zadanie można zamienić na cykliczne, wybierając powtarzanie w jego edycji.
+
+Technicznie seria to wpis w `routines` z `kind: 'task'`, bez kroków, z regułą `repeat` (`every`: dzień/tydzień/miesiąc,
+`interval`, `start`, opcjonalnie `until`). Dzięki temu korzysta z tych samych wirtualnych wystąpień i logów co rutyny.
+Rutyny bez `repeat` działają jak dotąd (dni tygodnia, bez daty startu).
+
 ## Co działa w tej wersji
 
 - Pulpit z kartami progresu, XP, kalendarzem dnia i panelem zadań.
@@ -100,8 +118,8 @@ Nie ma jeszcze resize drag krawędzi bloku ani przenoszenia pojedynczego wystąp
 ## Jak działa model danych
 
 - `Task` — zadanie wraz z dziennym statusem i opcjonalnym blokiem czasowym (dla MVP jedna instancja).
-- `Routine` — szablon rutyny z listą kroków, porą i dniami tygodnia.
-- `RoutineLog` — dzienne wykonanie rutyny, stan kroków i ukończenia.
+- `Routine` — szablon rutyny z listą kroków, porą i dniami tygodnia. Z `kind: 'task'` i regułą `repeat` — zadanie cykliczne.
+- `RoutineLog` — dzienne wykonanie rutyny lub zadania cyklicznego: stan kroków, ukończenie, wyjątki terminu, `skipped` (usunięte wystąpienie).
 - XP jest **wyliczane z ukończonych zadań i rutyn**, a nie dodawane inkrementalnie — dzięki temu ponowne kliknięcie nie powoduje naliczenia XP po raz drugi.
 - Kategorie określają charakter aktywności finansowo-czasowej, nie karzą za odpoczynek.
 
@@ -118,7 +136,7 @@ momentum-app/
     types.ts                  # typy domenowe
     components/
       CalendarView.tsx        # kalendarz i natywny drag & drop
-      TaskModal.tsx           # edytor zadania
+      TaskModal.tsx           # edytor zadania (także powtarzanie i edycja serii)
       RoutineModal.tsx        # wykonywanie/edycja rutyn
       InsightsView.tsx        # statystyki, mapa regularności, odznaki
       WeeklyReview.tsx        # tygodniowe podsumowanie
@@ -130,6 +148,7 @@ momentum-app/
       icons.tsx               # zestaw ikon z lucide-react
       seed.ts                 # dane demonstracyjne, kategorie, presety
       storage.ts              # zapis lokalny
+      recurrence.ts           # powtarzanie: wystąpienia serii, opisy, przesuwanie całej serii
       reminders.ts            # wyliczanie terminów przypomnień
       notifications.ts        # zgoda, wyświetlanie powiadomień, historia
       useReminders.ts         # harmonogram przypomnień w aplikacji

@@ -247,7 +247,7 @@ function buildJobs(data: AppData, now: number): PushJob[] {
     tag: reminder.id,
     at: reminder.fireAt,
     title: reminder.title,
-    body: `${reminderLeadText(reminder.startAt, reminder.fireAt)} · ${reminder.time}${reminder.kind === 'routine' ? ' · rutyna' : ''}`,
+    body: `${reminderLeadText(reminder.startAt, reminder.fireAt)} · ${reminder.time}${reminder.kind === 'routine' && !reminder.series ? ' · rutyna' : ''}`,
     url: reminderOpenUrl(reminder.kind, reminder.sourceId, reminder.occurrenceDate),
     kind: reminder.kind, sourceId: reminder.sourceId, occurrenceDate: reminder.occurrenceDate, startAt: reminder.startAt,
   }));

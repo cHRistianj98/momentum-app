@@ -7,12 +7,16 @@ interface Props {
   time: string;
   previousDuration: number;
   nextDuration: number;
+  /** Nagłówek okna: rutyna albo zadanie cykliczne. */
+  eyebrow?: string;
+  /** Opis opcji „Wszystkie wystąpienia”. */
+  allHint?: string;
   onOnlyThis: () => void;
   onAll: () => void;
   onCancel: () => void;
 }
 
-export function ResizeConfirmModal({ title, date, time, previousDuration, nextDuration, onOnlyThis, onAll, onCancel }: Props) {
+export function ResizeConfirmModal({ title, date, time, previousDuration, nextDuration, eyebrow = 'RUTYNA CYKLICZNA', allHint = 'Zaktualizuj szablon rutyny oraz usuń wcześniejsze wyjątki długości.', onOnlyThis, onAll, onCancel }: Props) {
   const previousEnd = timeFromMinutes(minuteOfDay(time) + previousDuration);
   const nextEnd = timeFromMinutes(minuteOfDay(time) + nextDuration);
 
@@ -20,7 +24,7 @@ export function ResizeConfirmModal({ title, date, time, previousDuration, nextDu
     <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onCancel(); }}>
       <div className="modal resize-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="resize-modal-heading">
         <div className="modal-heading">
-          <div><span className="eyebrow"><Repeat2 size={13} /> ZADANIE CYKLICZNE</span><h2 id="resize-modal-heading">Zmienić czas całej serii?</h2></div>
+          <div><span className="eyebrow"><Repeat2 size={13} /> {eyebrow}</span><h2 id="resize-modal-heading">Zmienić czas całej serii?</h2></div>
           <button type="button" className="icon-btn" aria-label="Anuluj zmianę" onClick={onCancel}><X size={20}/></button>
         </div>
         <p className="resize-confirm-intro">Zmieniasz długość bloku <strong>„{title}”</strong>. Wybierz, których wystąpień ma dotyczyć zmiana.</p>
@@ -40,7 +44,7 @@ export function ResizeConfirmModal({ title, date, time, previousDuration, nextDu
           </button>
           <button type="button" className="resize-confirm-choice" onClick={onAll}>
             <span className="resize-confirm-choice-icon"><Repeat2 size={20}/></span>
-            <span><strong>Wszystkie wystąpienia</strong><small>Zaktualizuj szablon rutyny oraz usuń wcześniejsze wyjątki długości.</small></span>
+            <span><strong>Wszystkie wystąpienia</strong><small>{allHint}</small></span>
             <Check size={17}/>
           </button>
         </div>

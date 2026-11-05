@@ -8,15 +8,19 @@ interface Props {
   targetDate: string;
   targetTime: string;
   shiftsWeekdays: boolean;
+  /** Nagłówek okna, np. „ZADANIE CYKLICZNE” dla zadań cyklicznych. */
+  eyebrow?: string;
+  /** Opis opcji „Wszystkie wystąpienia”, gdy domyślny tekst o dniach tygodnia nie pasuje. */
+  allHint?: string;
   onOnlyThis: () => void;
   onAll: () => void;
   onCancel: () => void;
 }
 
-export function RoutineMoveConfirmModal({ title, previousDate, previousTime, targetDate, targetTime, shiftsWeekdays, onOnlyThis, onAll, onCancel }: Props) {
+export function RoutineMoveConfirmModal({ title, previousDate, previousTime, targetDate, targetTime, shiftsWeekdays, eyebrow = 'RUTYNA CYKLICZNA', allHint, onOnlyThis, onAll, onCancel }: Props) {
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}>
     <div className="modal resize-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="routine-move-title">
-      <div className="modal-heading"><div><span className="eyebrow"><Repeat2 size={14}/> RUTYNA CYKLICZNA</span><h2 id="routine-move-title">Przenieść całą serię?</h2></div>
+      <div className="modal-heading"><div><span className="eyebrow"><Repeat2 size={14}/> {eyebrow}</span><h2 id="routine-move-title">Przenieść całą serię?</h2></div>
         <button type="button" className="icon-btn" aria-label="Zamknij" onClick={onCancel}><X size={20}/></button></div>
       <p className="resize-confirm-intro">Przesuwasz <strong>„{title}”</strong>. Zdecyduj, czy przenieść jedno wystąpienie, czy zmienić harmonogram wszystkich.</p>
       <div className="routine-move-summary">
@@ -31,7 +35,7 @@ export function RoutineMoveConfirmModal({ title, previousDate, previousTime, tar
         </button>
         <button type="button" className="resize-confirm-choice" onClick={onAll}>
           <span className="resize-confirm-choice-icon"><Repeat2 size={20}/></span>
-          <span><strong>Wszystkie wystąpienia</strong><small>{shiftsWeekdays ? 'Zmień godzinę i przesuń dni tygodnia całej serii. ' : 'Zmień godzinę całej serii. '}Wcześniejsze wyjątki terminu zostaną zastąpione.</small></span><Check size={17}/>
+          <span><strong>Wszystkie wystąpienia</strong><small>{allHint ?? (shiftsWeekdays ? 'Zmień godzinę i przesuń dni tygodnia całej serii. ' : 'Zmień godzinę całej serii. ')}Wcześniejsze wyjątki terminu zostaną zastąpione.</small></span><Check size={17}/>
         </button>
       </div>
       <div className="modal-bottom"><span className="modal-tip">Zapis nastąpi dopiero po Twoim wyborze.</span>

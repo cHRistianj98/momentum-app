@@ -1,5 +1,6 @@
 import { Award, CalendarDays, CheckCircle2, Clock3, Crown, Flame, Focus, Gem, Moon, Rocket, ShieldCheck, Sparkles, Star, Sun, Target, Trophy, Wallet, Zap } from 'lucide-react';
 import type { AppData, CategoryKey } from '../types';
+import { isTaskSeries } from './recurrence';
 
 /** Rangi, poziomy i osiągnięcia liczone wyłącznie z ukończonych zadań i rutyn. */
 export type AchievementView = {
@@ -44,20 +45,29 @@ export function resolveNextRank(totalXp: number) {
 }
 
 export function buildAchievements(data: AppData, totalXp: number, streak: number): AchievementView[] {
-  const completedTasks = data.tasks.filter(task => task.done).length;
-  const completedRoutineSessions = Object.values(data.routineLogs).filter(log => log.completed).length;
+  // Ukończone wystąpienia zadań cyklicznych liczą się jak zadania, a nie jak rutyny.
+  const routineById = new Map(data.routines.map(routine => [routine.id, routine]));
+  const routineOf = (key: string) => routineById.get(key.slice(0, key.lastIndexOf(':')));
+  const completedSeriesLogs = Object.entries(data.routineLogs).filter(([key, log]) => log.completed && isTaskSeries(routineOf(key)));
+  const completedTasks = data.tasks.filter(task => task.done).length + completedSeriesLogs.length;
+  const completedRoutineSessions = Object.entries(data.routineLogs).filter(([key, log]) => log.completed && !isTaskSeries(routineOf(key))).length;
   const completedMinutes = data.tasks.filter(task => task.done).reduce((sum, task) => sum + task.duration, 0) + Object.entries(data.routineLogs).reduce((sum, [key, log]) => {
     if (!log.completed) return sum;
     const routineId = key.split(':')[0];
     const routine = data.routines.find(item => item.id === routineId);
     return sum + (log.durationOverride ?? routine?.duration ?? 0);
   }, 0);
-  const scheduledTasks = data.tasks.filter(task => !!task.time).length;
+  const scheduledTasks = data.tasks.filter(task => !!task.time).length + data.routines.filter(routine => isTaskSeries(routine)).length;
   const activeDays = new Set([
     ...data.tasks.filter(task => task.done && task.date).map(task => task.date!),
     ...Object.entries(data.routineLogs).filter(([, log]) => log.completed).map(([key]) => key.split(':').slice(1).join(':')),
   ]).size;
   const completedTaskList = data.tasks.filter(task => task.done);
+  // Wystąpienia zadań cyklicznych w kształcie zadania: kategoria i faktyczna godzina wystąpienia.
+  const completedSeriesList = completedSeriesLogs.map(([key, log]) => {
+    const routine = routineOf(key)!;
+    return { category: routine.category, time: log.timeOverride ?? routine.time };
+  });
   const completedRoutineLogs = Object.entries(data.routineLogs).filter(([, log]) => log.completed);
   const categoryTaskList = (category: CategoryKey) => completedTaskList.filter(task => task.category === category);
   const incomeMinutes = categoryTaskList('income').reduce((sum, task) => sum + task.duration, 0) + completedRoutineLogs.reduce((sum, [key, log]) => {
@@ -69,9 +79,10 @@ export function buildAchievements(data: AppData, totalXp: number, streak: number
     return sum + (routine?.category === 'potential' ? (log.durationOverride ?? routine.duration) : 0);
   }, 0);
   const completedCount = completedTasks + completedRoutineSessions;
-  const morningCount = completedTaskList.filter(task => task.time && Number(task.time.slice(0, 2)) < 9).length;
-  const eveningCount = completedTaskList.filter(task => task.time && Number(task.time.slice(0, 2)) >= 20).length;
-  const incomeCount = categoryTaskList('income').length;
+  const timedCompletions = [...completedTaskList, ...completedSeriesList];
+  const morningCount = timedCompletions.filter(task => task.time && Number(task.time.slice(0, 2)) < 9).length;
+  const eveningCount = timedCompletions.filter(task => task.time && Number(task.time.slice(0, 2)) >= 20).length;
+  const incomeCount = categoryTaskList('income').length + completedSeriesList.filter(item => item.category === 'income').length;
   const usedCategories = new Set([
     ...completedTaskList.map(task => task.category),
     ...completedRoutineLogs.map(([key]) => data.routines.find(r => key.startsWith(`${r.id}:`))?.category).filter((key): key is CategoryKey => !!key),

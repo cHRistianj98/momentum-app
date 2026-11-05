@@ -11,6 +11,7 @@ import { formatDuration, fullDate, todayKey } from '../lib/date';
 import { orderRoutineSteps, placeRoutineStep, unnestRoutineStep } from '../lib/routineHierarchy';
 import { useRoutineStepDrag } from '../lib/useRoutineStepDrag';
 import { normalizeStepWeekdays, routineStepsOnDate, stepWeekdaysLabel } from '../lib/routineStepSchedule';
+import { occursOn } from '../lib/recurrence';
 import type { CategoryConfig, CategoryKey, IconKey, Routine, RoutineLog, RoutineStep } from '../types';
 
 interface SessionProps {
@@ -272,5 +273,5 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
 }
 
 export function emptyLog(id: string): RoutineLog { return { id, checkedStepIds: [], completed: false }; }
-export function routineOccurs(routine: Routine, date: string) { return routine.active && routine.weekdays.includes(new Date(`${date}T12:00:00`).getDay()); }
+export function routineOccurs(routine: Routine, date: string) { return occursOn(routine, date); }
 export function isRoutineForToday(routine: Routine) { return routineOccurs(routine, todayKey()); }

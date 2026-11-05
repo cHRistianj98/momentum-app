@@ -92,7 +92,7 @@ interface CenterProps {
 }
 
 /** Baner przypomnienia, gdy Momentum jest otwarte — zamiast systemowego powiadomienia. */
-export function ReminderBanner({ item, onOpen, onClose }: { item: NotificationFeedItem; onOpen: () => void; onClose: () => void }) {
+export function ReminderBanner({ item, series = false, onOpen, onClose }: { item: NotificationFeedItem; series?: boolean; onOpen: () => void; onClose: () => void }) {
   useEffect(() => {
     const timer = window.setTimeout(onClose, 9000);
     return () => window.clearTimeout(timer);
@@ -100,7 +100,7 @@ export function ReminderBanner({ item, onOpen, onClose }: { item: NotificationFe
   return <div className="reminder-banner" role="alert">
     <span className="reminder-banner-icon"><BellRing size={19}/></span>
     <button type="button" className="reminder-banner-main" onClick={onOpen}>
-      <small>{item.kind === 'routine' ? 'PRZYPOMNIENIE · RUTYNA' : 'PRZYPOMNIENIE'}</small>
+      <small>{item.kind === 'routine' ? (series ? 'PRZYPOMNIENIE · ZADANIE CYKLICZNE' : 'PRZYPOMNIENIE · RUTYNA') : 'PRZYPOMNIENIE'}</small>
       <strong>{item.title}</strong>
       <span>{item.body}</span>
     </button>

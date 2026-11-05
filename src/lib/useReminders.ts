@@ -21,7 +21,7 @@ function feedItemFor(reminder: ScheduledReminder, now: number): NotificationFeed
     sourceId: reminder.sourceId,
     occurrenceDate: reminder.occurrenceDate,
     title: reminder.title,
-    body: `${reminderLeadText(reminder.startAt, now)} · ${reminder.time}${reminder.kind === 'routine' ? ' · rutyna' : ''}`,
+    body: `${reminderLeadText(reminder.startAt, now)} · ${reminder.time}${reminder.kind === 'routine' && !reminder.series ? ' · rutyna' : ''}`,
     createdAt: now,
     startAt: reminder.startAt,
     read: false,

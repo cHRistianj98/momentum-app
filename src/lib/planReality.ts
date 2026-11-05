@@ -1,4 +1,5 @@
-import { dateKey, parseDate } from './date';
+import { dateKey } from './date';
+import { isTaskSeries, occurrenceExists } from './recurrence';
 import type { AppData, CategoryKey } from '../types';
 import type { FocusRecord } from './focus';
 
@@ -19,6 +20,8 @@ export interface RealityItem {
   done: boolean;
   actualMinutes: number | null;
   source: ActualSource;
+  /** Wystąpienie zadania cyklicznego (w danych to rutyna bez kroków). */
+  series?: boolean;
 }
 export interface DayReality {
   date: string;
@@ -99,6 +102,7 @@ export function buildDailyReality(data: AppData, records: FocusRecord[], overrid
     const routine = routineById.get(routineId);
     if (!routine) return;
     const log = data.routineLogs[`${routineId}:${sourceDate}`];
+    if (log?.skipped) return;
     const date = log?.dateOverride || sourceDate;
     if (!dateSet.has(date)) return;
     const key = `routine:${routineId}:${sourceDate}`;
@@ -108,14 +112,13 @@ export function buildDailyReality(data: AppData, records: FocusRecord[], overrid
     itemsByDay.get(date)!.push({ key, date, kind: 'routine', sourceId: routineId,
       title: routine.title, category: routine.category, time: log?.timeOverride ?? routine.time,
       plannedMinutes: positiveMinutes(log?.durationOverride ?? routine.duration), done: Boolean(log?.completed),
-      source: manuallyMeasured ? 'manual' : 'none', actualMinutes: manuallyMeasured ? overrides[key] : null });
+      source: manuallyMeasured ? 'manual' : 'none', actualMinutes: manuallyMeasured ? overrides[key] : null,
+      ...(isTaskSeries(routine) ? { series: true } : {}) });
   };
 
   for (const sourceDate of dates) {
-    const weekday = parseDate(sourceDate).getDay();
     for (const routine of data.routines) {
-      const log = data.routineLogs[`${routine.id}:${sourceDate}`];
-      if ((routine.active && routine.weekdays.includes(weekday)) || log?.completed || (log?.checkedStepIds?.length ?? 0) > 0 || log?.dateOverride) {
+      if (occurrenceExists(routine, sourceDate, data.routineLogs[`${routine.id}:${sourceDate}`])) {
         addOccurrence(routine.id, sourceDate);
       }
     }

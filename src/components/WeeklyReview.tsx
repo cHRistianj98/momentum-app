@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { readMomentumKey, saveMomentumKey } from '../lib/offlineDatabase';
-import { ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, Crown, Flame, Info, Lightbulb, ListChecks, Minus, PencilLine, ShieldCheck, Sparkles, TrendingDown, TrendingUp, Trophy, Wallet, Zap } from 'lucide-react';
+import { ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, Crown, Flame, Info, Lightbulb, ListChecks, Minus, PencilLine, Repeat2, ShieldCheck, Sparkles, TrendingDown, TrendingUp, Trophy, Wallet, Zap } from 'lucide-react';
 import { fullDate, mondayOf, parseDate, shiftDate, shortWeekday, todayKey } from '../lib/date';
 import { REALITY_STORAGE_KEY, parseActualOverrides } from '../lib/planReality';
 import { buildWeeklyReport, compactWeekMinutes, mostRecentReviewMonday, percentageChange } from '../lib/weeklyReview';
@@ -192,7 +192,7 @@ export function WeeklyReview({ data, focusHistory, onOpenNextWeek }: {data: AppD
       <div className="wrx-wins-list">{wins.map(({ item, xp, icon, image }, index) => <div className="wrx-win" key={item.key}>
         <span className="wrx-win-rank">{index + 1}</span>
         <TaskVisual icon={icon} image={image} category={item.category} categories={categories} size="small"/>
-        <span className="wrx-win-main"><strong>{item.title}</strong><small>{capitalize(shortWeekday(item.date))}, {displayDate(item.date)}{item.time ? ` · ${item.time}` : ''}{item.kind === 'routine' ? ' · rutyna' : ''}</small></span>
+        <span className="wrx-win-main"><strong>{item.title}</strong><small>{capitalize(shortWeekday(item.date))}, {displayDate(item.date)}{item.time ? ` · ${item.time}` : ''}{item.kind === 'routine' ? (item.series ? ' · cykliczne' : ' · rutyna') : ''}</small></span>
         <span className="wrx-win-xp">+{xp} XP</span>
       </div>)}</div>
     </section>}
@@ -213,14 +213,16 @@ export function WeeklyReview({ data, focusHistory, onOpenNextWeek }: {data: AppD
     </section>
 
     <section className="wr-card wr-routine-section">
-      <div className="wr-section-heading"><div><span className="eyebrow">SYSTEMATYCZNOŚĆ</span><h3>Które rutyny udało się utrzymać?</h3><p>Każda rutyna ma własną liczbę zaplanowanych wystąpień.</p></div><Flame size={19}/></div>
+      <div className="wr-section-heading"><div><span className="eyebrow">SYSTEMATYCZNOŚĆ</span>{report.routines.some(routine => routine.series)
+        ? <><h3>Co udało się utrzymać?</h3><p>Rutyny i zadania cykliczne — każde ma własną liczbę zaplanowanych wystąpień.</p></>
+        : <><h3>Które rutyny udało się utrzymać?</h3><p>Każda rutyna ma własną liczbę zaplanowanych wystąpień.</p></>}</div><Flame size={19}/></div>
       {report.routines.length > 0 ? <div className="wr-routine-grid">{report.routines.map(routine => {
         const template = data.routines.find(item => item.id === routine.id);
         const category: CategoryKey = template?.category ?? 'unpaid';
         const percent = Math.round(routine.completed / Math.max(1, routine.planned) * 100);
         return <div className="wr-routine" key={routine.id}>
           <TaskVisual icon={routine.icon} image={routine.image} category={category} categories={categories} size="small"/>
-          <div className="wr-routine-main"><div><strong>{routine.title}</strong><span>{routine.completed} / {routine.planned} · {percent}%</span></div><div className="wr-routine-track"><span style={{width:`${percent}%`,background:categories[category]?.color ?? '#7461e8'}}/></div></div>
+          <div className="wr-routine-main"><div><strong>{routine.title}{routine.series && <Repeat2 className="wr-series-mark" size={12} aria-label="Zadanie cykliczne"/>}</strong><span>{routine.completed} / {routine.planned} · {percent}%</span></div><div className="wr-routine-track"><span style={{width:`${percent}%`,background:categories[category]?.color ?? '#7461e8'}}/></div></div>
         </div>;
       })}</div> : <div className="wr-empty">W wybranym tygodniu nie było zaplanowanych rutyn.</div>}
     </section>
