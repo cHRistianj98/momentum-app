@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Activity, Award, CalendarRange, CheckCircle2, Clock3, Flame, Lock, Sparkles, Target, TrendingDown, TrendingUp, Trophy, Zap } from 'lucide-react';
+import { Activity, Award, CalendarRange, CheckCircle2, ChevronDown, ChevronUp, Clock3, Flame, Lock, Sparkles, Target, TrendingDown, TrendingUp, Trophy, Zap } from 'lucide-react';
 import { PlanReality } from './PlanReality';
 import { formatDuration, monthTitle, mondayOf, parseDate, shiftDate, todayKey } from '../lib/date';
 import { formatFocusClock, type FocusRecord } from '../lib/focus';
 import { buildDailyReality, summarizeReality } from '../lib/planReality';
 import { resolveCategories } from '../lib/storage';
-import { RANKS, type AchievementView, type RankView } from '../lib/progression';
+import { ACHIEVEMENT_GROUPS, RANKS, type AchievementGroup, type AchievementView, type RankView } from '../lib/progression';
 import type { AppData, CategoryKey } from '../types';
 
 const CATEGORY_KEYS: CategoryKey[] = ['unpaid', 'potential', 'income'];
@@ -112,6 +112,7 @@ function Delta({ current, previous }: { current: number; previous: number }) {
 export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, achievements, rank, nextRank, focusHistory }: Props) {
   const [chartView, setChartView] = useState<'week' | 'month'>('week');
   const [achievementFilter, setAchievementFilter] = useState<'all' | 'earned' | 'locked'>('all');
+  const [expandedGroups, setExpandedGroups] = useState<AchievementGroup[]>([]);
   const categories = resolveCategories(data.categories);
   const today = todayKey();
   const stats = useDailyStats(data);
@@ -165,6 +166,12 @@ export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, ach
   const closest = achievements.filter(item => !item.unlocked)
     .sort((a, b) => b.progress / b.target - a.progress / a.target || a.target - b.target).slice(0, 3);
   const visibleAchievements = achievementFilter === 'all' ? achievements : achievements.filter(item => achievementFilter === 'earned' ? item.unlocked : !item.unlocked);
+  // Kolekcja w grupach; zwinięta grupa pokazuje jeden rząd odznak (liczbę kolumn ustala CSS).
+  const badgeGroups = ACHIEVEMENT_GROUPS.map(group => {
+    const all = achievements.filter(item => item.group === group.id);
+    return { ...group, total: all.length, earned: all.filter(item => item.unlocked).length, items: visibleAchievements.filter(item => item.group === group.id) };
+  }).filter(group => group.items.length > 0);
+  const toggleGroup = (id: AchievementGroup) => setExpandedGroups(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
   const focusSeconds = focusHistory.reduce((sum, record) => sum + record.focusSeconds, 0);
   const rankProgress = nextRank ? Math.max(0, Math.min(1, (totalXp - rank.minXp) / Math.max(1, nextRank.minXp - rank.minXp))) : 1;
   const RankIcon = rank.icon;
@@ -333,15 +340,29 @@ export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, ach
         {([['all', `Wszystkie ${achievements.length}`], ['earned', `Zdobyte ${earned}`], ['locked', `Do zdobycia ${achievements.length - earned}`]] as const).map(([id, label]) =>
           <button type="button" key={id} role="tab" aria-selected={achievementFilter === id} className={achievementFilter === id ? 'is-active' : ''} onClick={() => setAchievementFilter(id)}>{label}</button>)}
       </div>
-      <div className="ins-badges">{visibleAchievements.map(item => {
-        const percent = Math.min(100, Math.round(item.progress / item.target * 100));
-        return <article key={item.id} className={`ins-badge ${item.unlocked ? 'is-unlocked' : 'is-locked'}`} style={{ '--achievement-accent': item.accent, '--achievement-tint': item.tint } as React.CSSProperties}>
-          <span className="ins-badge-art"><img src={item.art} alt="" loading="lazy"/>{!item.unlocked && <i><Lock size={12}/></i>}</span>
-          <strong>{item.title}</strong>
-          <small>{item.description}</small>
-          {item.unlocked ? <span className="ins-badge-reward">{item.reward}</span> : <span className="ins-badge-progress"><span style={{ width: `${Math.max(4, percent)}%` }}/></span>}
-        </article>;
+      <div className="ins-badge-groups">{badgeGroups.map(group => {
+        const expanded = expandedGroups.includes(group.id);
+        return <section key={group.id} className={`ins-badge-group ${expanded ? 'is-expanded' : ''}`} data-count={group.items.length} aria-label={group.label}>
+          <div className="ins-badge-group-head">
+            <h4>{group.label}</h4>
+            <span className="ins-badge-group-count">{group.earned}/{group.total}</span>
+            <span className="ins-badge-group-track" aria-hidden="true"><span style={{ width: `${group.earned / Math.max(1, group.total) * 100}%` }}/></span>
+          </div>
+          <div className="ins-badges">{group.items.map(item => {
+            const percent = Math.min(100, Math.round(item.progress / item.target * 100));
+            return <article key={item.id} className={`ins-badge ${item.unlocked ? 'is-unlocked' : 'is-locked'}`} title={item.description} style={{ '--achievement-accent': item.accent, '--achievement-tint': item.tint } as React.CSSProperties}>
+              <span className="ins-badge-art"><img src={item.art} alt="" loading="lazy"/>{!item.unlocked && <i><Lock size={12}/></i>}</span>
+              <strong>{item.title}</strong>
+              <small>{item.description}</small>
+              {item.unlocked ? <span className="ins-badge-reward">{item.reward}</span> : <span className="ins-badge-progress"><span style={{ width: `${Math.max(4, percent)}%` }}/></span>}
+            </article>;
+          })}</div>
+          {group.items.length > 2 && <button type="button" className="ins-badge-more" aria-expanded={expanded} onClick={() => toggleGroup(group.id)}>
+            {expanded ? <>Pokaż mniej <ChevronUp size={14}/></> : <>Pokaż wszystkie ({group.items.length}) <ChevronDown size={14}/></>}
+          </button>}
+        </section>;
       })}</div>
+      {!badgeGroups.length && <p className="ins-empty"><Sparkles size={16}/> {achievementFilter === 'earned' ? 'Pierwsza odznaka czeka — ukończ dowolne zadanie albo rutynę.' : 'Wszystkie odznaki zdobyte. Niesamowite!'}</p>}
     </section>
   </div>;
 }

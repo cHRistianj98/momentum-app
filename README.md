@@ -104,6 +104,15 @@ Technicznie seria to wpis w `routines` z `kind: 'task'`, bez kroków, z regułą
 `interval`, `start`, opcjonalnie `until`). Dzięki temu korzysta z tych samych wirtualnych wystąpień i logów co rutyny.
 Rutyny bez `repeat` działają jak dotąd (dni tygodnia, bez daty startu).
 
+## Odznaki (100)
+
+- **Statystyki → Osiągnięcia i odznaki**: 100 odznak w 9 grupach (Zadania, Regularność, Czas działania, Planowanie,
+  Rutyny i serie, Przychód i rozwój, Projekty, Focus Mode, Doświadczenie). Zwinięta grupa pokazuje jeden rząd,
+  „Pokaż wszystkie” rozwija resztę; filtry: wszystkie / zdobyte / do zdobycia.
+- Zdobyta odznaka zostaje zdobyta, nawet gdy wynik później spadnie (np. po przerwanej serii).
+- Po aktualizacji odznaki spełnione już wcześniej trafiają do kolekcji po cichu — jeden komunikat zamiast serii okienek.
+- Katalog i zasady liczenia: `src/lib/progression.ts` (`ACHIEVEMENT_DEFINITIONS`), grafiki: `public/assets/progression/ach-<id>.svg`.
+
 ## Co działa w tej wersji
 
 - Pulpit z kartami progresu, XP, kalendarzem dnia i panelem zadań.
@@ -113,7 +122,7 @@ Rutyny bez `repeat` działają jak dotąd (dni tygodnia, bez daty startu).
 - Inbox dla zadań bez terminu, zadania zaplanowane i ukończone, filtrowanie, wyszukiwanie.
 - Szybkie dodawanie popularnych zadań, przeciąganie z panelu po prawej na kalendarz; skróty `N` (nowe zadanie) i `Ctrl/Cmd + K` (wyszukiwarka).
 - Rutyny: tworzenie szablonów, edytowanie kroków i dni tygodnia, wykonanie krok po kroku, jeden przycisk zamyka rutynę; jej blok w kalendarzu zostaje automatycznie oznaczony jako ukończony.
-- XP, poziomy, seria aktywności, statystyki, wykres ostatnich 7 dni i udział kategorii.
+- XP, poziomy, seria aktywności, 100 odznak, statystyki, wykres ostatnich 7 dni i udział kategorii.
 - Konfigurowalne kolory pięciu kategorii, jasny/ciemny motyw, responsywny interfejs.
 - Automatyczny zapis w `localStorage`, działające przykładowe dane. W ustawieniach można je zresetować.
 
@@ -160,7 +169,7 @@ momentum-app/
       reminders.ts            # wyliczanie terminów przypomnień
       notifications.ts        # zgoda, wyświetlanie powiadomień, historia
       useReminders.ts         # harmonogram przypomnień w aplikacji
-      progression.ts          # rangi i osiągnięcia
+      progression.ts          # rangi i katalog 100 odznak (grupy, metryki postępu)
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, scalanie, historia wersji)
       syncMerge.ts            # scalanie trójstronne zmian z dwóch urządzeń (czyste funkcje)
       syncBase.ts             # ostatnia wspólna wersja (baza scalania) w IndexedDB

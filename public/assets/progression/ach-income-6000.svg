@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180" role="img" aria-label="Odznaka income-6000">
+ <defs>
+ <linearGradient id="g" x1="11" y1="17" x2="212" y2="176" gradientUnits="userSpaceOnUse"><stop stop-color="#20d770"/><stop offset=".55" stop-color="#148f5e"/><stop offset="1" stop-color="#166f5d"/></linearGradient>
+ <radialGradient id="light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(45 26) rotate(45) scale(183)"><stop stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+ <filter id="shade" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+ </defs>
+ <rect x="9" y="9" width="222" height="162" rx="35" fill="url(#g)"/>
+ <rect x="9" y="9" width="222" height="162" rx="35" fill="url(#light)"/>
+ <ellipse cx="113" cy="122" rx="78" ry="43" fill="#fff" opacity=".14" filter="url(#shade)"/>
+ <circle cx="120" cy="106" r="63" fill="#fff" opacity=".085"/>
+ <path d="M20 149c42-35 79-6 122-24s64-27 81-53" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".13"/>
+ <g><circle cx="120" cy="108" r="56" fill="#fff"/><circle cx="120" cy="108" r="46" fill="none" stroke="#148f5e" stroke-width="3" opacity=".3"/><circle cx="120" cy="108" r="34" fill="#148f5e" opacity=".1"/><g transform="translate(96.6 84.6) scale(1.95)" fill="none" stroke="#0f6c4d" stroke-width="2.45" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"></line><line x1="6" x2="6" y1="18" y2="11"></line><line x1="10" x2="10" y1="18" y2="11"></line><line x1="14" x2="14" y1="18" y2="11"></line><line x1="18" x2="18" y1="18" y2="11"></line><polygon points="12 2 20 7 4 7"></polygon></g></g>
+ <g fill="#fff" opacity=".74"><circle cx="52" cy="37" r="3.2"/><circle cx="196" cy="42" r="3.6"/><circle cx="205" cy="116" r="2.8"/></g>
+ <path d="M23 75l6-9 6 9-6 9zM204 146l5-7 5 7-5 7z" fill="#fff" opacity=".44"/>
+ </svg>

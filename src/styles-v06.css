@@ -1044,3 +1044,62 @@
   .cloud-history-list strong { font-size: 13.5px; }
   .cloud-history-list small { font-size: 12px; }
 }
+
+/* ---------- 20. Boczne menu (☰) na telefonie: ponad paskami, w całości widoczne ---------- */
+@media (max-width: 850px) {
+  /* Szuflada miała z-index 20, więc górny pasek (110), przyklejone paski kalendarza i zadań (90–95),
+     dolna nawigacja (75) i przycisk „+” (35) przykrywały logo u góry i Ustawienia na dole.
+     Teraz leży nad nimi; okna (130), komunikaty (140) i banery (150–160) nadal są wyżej. */
+  .sidebar {
+    z-index: 125;
+    height: auto; /* 100vh z reguły bazowej na iPhonie bywa wyższe niż ekran — wysokość wyznaczają top/bottom */
+    padding-top: calc(22px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+    /* Zamknięta szuflada znika całkiem (bez cienia przy krawędzi i bez fokusu klawiatury). */
+    visibility: hidden;
+    transition: transform .2s ease, visibility 0s linear .2s;
+  }
+  .sidebar--open { visibility: visible; transition: transform .2s ease, visibility 0s linear 0s; }
+  .sidebar-scrim { z-index: 124; }
+  .sidebar .brand { padding-bottom: 26px; }
+  /* „MAKE EVERY DAY COUNT” w jednym wierszu obok przycisku zamknięcia. */
+  .sidebar .brand-subtitle { white-space: nowrap; }
+  .sidebar .mobile-close { flex: none; margin-right: -4px; }
+  .toast { z-index: 140; }
+}
+
+/* ---------- 21. Statystyki: kolekcja 100 odznak w grupach ---------- */
+.ins-badge-groups { display: grid; gap: 20px; }
+.ins-badge-group { display: grid; gap: 10px; }
+.ins-badge-group-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ins-badge-group-head h4 { margin: 0; color: var(--text); font-size: 13.5px; font-weight: 800; letter-spacing: -.1px; }
+.ins-badge-group-count { flex: none; color: var(--subtext); font-size: 11.5px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.ins-badge-group-track { flex: 1; max-width: 180px; height: 5px; margin-left: auto; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+.ins-badge-group-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8a7bf4, var(--primary)); }
+.ins-badge-more {
+  display: inline-flex; justify-self: center; align-items: center; gap: 5px; min-height: 36px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--primary); font-size: 12px; font-weight: 750;
+}
+@media (hover: hover) {
+  .ins-badge-more:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--line)); background: var(--primary-pale); }
+}
+/* Zwinięta grupa: jeden rząd (4 kolumny; 3 do 1180 px; 2 na telefonie). Przycisk tylko, gdy coś jest ukryte. */
+.ins-badge-group:not(.is-expanded) .ins-badges > :nth-child(n+5) { display: none; }
+.ins-badge-group[data-count="3"] .ins-badge-more, .ins-badge-group[data-count="4"] .ins-badge-more { display: none; }
+@media (max-width: 1180px) {
+  .ins-badge-group:not(.is-expanded) .ins-badges > :nth-child(n+4) { display: none; }
+  .ins-badge-group[data-count="4"] .ins-badge-more { display: inline-flex; }
+}
+@media (max-width: 620px) {
+  .ins-badge-groups { gap: 18px; }
+  .ins-badge-group:not(.is-expanded) .ins-badges > :nth-child(n+3) { display: none; }
+  .ins-badge-group[data-count="3"] .ins-badge-more { display: inline-flex; }
+  .ins-badge-group-head h4 { font-size: 14px; }
+  .ins-badge-group-track { max-width: 120px; }
+  .ins-badge-more { min-height: 40px; padding: 0 16px; font-size: 12.5px; }
+}
+/* Ciemny motyw: jasne tło odznaki (tint) dawało szarą poświatę u góry karty — zamiast niego kolor odznaki. */
+:root[data-theme='dark'] .ins-badge { background: linear-gradient(180deg, color-mix(in srgb, var(--achievement-accent) 16%, var(--surface)), var(--surface) 70%); }
+:root[data-theme='dark'] .ins-badge.is-locked { background: linear-gradient(180deg, color-mix(in srgb, var(--achievement-accent) 7%, var(--surface)), var(--surface) 70%); }
+:root[data-theme='dark'] .ins-next { background: linear-gradient(120deg, color-mix(in srgb, var(--achievement-accent) 13%, var(--surface)), var(--surface)); }

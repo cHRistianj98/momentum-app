@@ -136,5 +136,6 @@ export async function eraseStoredData(): Promise<void> {
   removeMomentumKey('momentum.earned-achievements');
   removeMomentumKey('momentum.seen-achievements');
   removeMomentumKey('momentum.achievements.catalog.v042');
+  removeMomentumKey('momentum.achievements.catalog.v100');
   await syncOfflineSnapshot();
 }

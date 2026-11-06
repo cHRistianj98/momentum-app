@@ -271,7 +271,7 @@ function App() {
     while (dates.has(cursor) && streak<365) {streak++;cursor=shiftDate(cursor,-1);}
     return streak;
   },[data,today]);
-  const computedAchievements = useMemo(() => buildAchievements(data, totalXp, daysStreak), [data, totalXp, daysStreak]);
+  const computedAchievements = useMemo(() => buildAchievements(data, totalXp, daysStreak, { focusHistory: focus.history, today }), [data, totalXp, daysStreak, focus.history, today]);
   const achievements = useMemo(() => computedAchievements.map(achievement => {
     const preserved = earnedAchievementIds.includes(achievement.id);
     return {...achievement, unlocked: achievement.unlocked || preserved, progress: preserved ? Math.max(achievement.progress, achievement.target) : achievement.progress};
@@ -298,6 +298,7 @@ function App() {
     if (typeof window === 'undefined') return;
     const storageKey = 'momentum.seen-achievements';
     const migrationKey = 'momentum.achievements.catalog.v042';
+    const catalogKey = 'momentum.achievements.catalog.v100';
     let seenIds: string[] = [];
     try {
       const parsed: unknown = JSON.parse(readMomentumKey(storageKey) ?? '[]');
@@ -309,6 +310,17 @@ function App() {
       achievements.filter(a => a.unlocked).forEach(a => seen.add(a.id));
       saveMomentumKey(storageKey, JSON.stringify([...seen]));
       saveMomentumKey(migrationKey, '1');
+      saveMomentumKey(catalogKey, '1');
+      return;
+    }
+    if (readMomentumKey(catalogKey) !== '1') {
+      // Katalog urósł z 28 do 100 odznak: nowe, które już są spełnione, trafiają do kolekcji
+      // po cichu — jeden komunikat zamiast serii okienek.
+      const covered = achievements.filter(achievement => achievement.unlocked && !seen.has(achievement.id));
+      covered.forEach(achievement => seen.add(achievement.id));
+      saveMomentumKey(storageKey, JSON.stringify([...seen]));
+      saveMomentumKey(catalogKey, '1');
+      if (covered.length) setToast(current => current || `100 odznak w kolekcji! ${covered.length} nowych już masz — zajrzyj do Statystyk.`);
       return;
     }
     const fresh = achievements.filter(achievement => achievement.unlocked && !seen.has(achievement.id));
@@ -711,6 +723,11 @@ function App() {
     }
     window.scrollTo(0, 0);
   }
+  // Z bocznego menu: na telefonie najpierw zamykamy szufladę, żeby nie została pod oknem ustawień.
+  function openSettingsFromNav(){
+    setMobileNav(false);
+    setSettingsOpen(true);
+  }
   function addPreset(title:string,category:CategoryKey,icon:IconKey,duration:number,_xp:number){
     saveTask({id:crypto.randomUUID(),title,description:'',category,icon,date:null,time:null,duration,xp:automaticXp(duration,category),done:false,createdAt:new Date().toISOString()});
   }
@@ -721,13 +738,14 @@ function App() {
       <div className="sidebar-section-label">WORKSPACE</div>
       <nav className="main-nav" aria-label="Nawigacja">
         {NAV.map(n=><button key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={()=>goPage(n.id)}><n.icon size={19} strokeWidth={1.9}/><span>{n.label}</span>{n.id==='tasks'&&openTaskCount>0&&<span className="nav-count">{openTaskCount}</span>}</button>)}
+        {/* Ustawienia tuż pod Weekly Review — na telefonie zawsze widoczne bez przewijania menu. */}
+        <button type="button" className="nav-item nav-item--settings" aria-haspopup="dialog" onClick={openSettingsFromNav}><Settings2 size={19} strokeWidth={1.9}/><span>Ustawienia</span></button>
       </nav>
       <div className="sidebar-divider"/>
-      <div className="sidebar-label-row"><span className="sidebar-section-label">TWOJE KATEGORIE</span><button className="tiny-icon-btn" aria-label="Dostosuj kategorie" onClick={()=>setSettingsOpen(true)}><Settings2 size={15}/></button></div>
+      <div className="sidebar-label-row"><span className="sidebar-section-label">TWOJE KATEGORIE</span><button className="tiny-icon-btn" aria-label="Dostosuj kategorie" onClick={openSettingsFromNav}><Settings2 size={15}/></button></div>
       <div className="category-sidebar">{CATEGORY_KEYS.map(c=><div key={c} className="sidebar-category"><span className="category-dot" style={{background:categories[c].color}}/>{categories[c].label}</div>)}</div>
       <div className="sidebar-spacer"/>
       <div className="sidebar-level-card"><div className="level-card-top"><div className="level-orb"><Trophy size={20}/></div><div><span>TWÓJ POZIOM</span><strong>Level {currentLevel}</strong></div><Sparkles size={17} className="level-twinkle"/></div><div className="level-progress"><div style={{width:`${xpIntoLevel/LEVEL_XP*100}%`}} /></div><div className="level-card-sub"><span>{xpIntoLevel} / {LEVEL_XP} XP</span><span>Do awansu <ArrowUpRight size={13}/></span></div></div>
-      <button className="sidebar-settings" onClick={()=>setSettingsOpen(true)}><Settings2 size={18}/> Ustawienia <ChevronRight size={15}/></button>
       <div className="sidebar-foot">Momentum v0.5.2 <span>✦</span> Made for progress</div>
     </aside>
     {mobileNav && <button className="sidebar-scrim" aria-label="Zamknij menu" onClick={()=>setMobileNav(false)}/>}

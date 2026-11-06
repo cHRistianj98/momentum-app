@@ -90,9 +90,6 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .level-progress>div,.progress-track>div { height: 100%; background: linear-gradient(90deg,#7e71ee,#a28dfc); border-radius: inherit; transition: width .4s ease; }
 .level-card-sub { display: flex; justify-content: space-between; color: #8073b0; font-size: 9.5px; font-weight: 800; margin-top: 9px; }
 .level-card-sub>span:last-child { display: inline-flex; align-items: center; gap: 3px; }
-.sidebar-settings { display: flex; align-items: center; gap: 11px; padding: 12px 13px; color: var(--subtext); border: 0; background: transparent; width: 100%; font-weight: 700; font-size: 12px; border-radius: 10px; }
-.sidebar-settings:hover { background: var(--surface-3); }
-.sidebar-settings svg:last-child { margin-left: auto; }
 .sidebar-foot { padding: 13px 8px 0; color: #adaebe; font-size: 10px; }
 .sidebar-foot span { margin: 0 5px; color: #a59af0; }
 .app-workspace { flex: 1; min-width: 0; }

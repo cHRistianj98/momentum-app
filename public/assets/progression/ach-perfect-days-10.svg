@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180" role="img" aria-label="Odznaka perfect-days-10">
+ <defs>
+ <linearGradient id="g" x1="11" y1="17" x2="212" y2="176" gradientUnits="userSpaceOnUse"><stop stop-color="#9c9dec"/><stop offset=".55" stop-color="#5941dd"/><stop offset="1" stop-color="#602dbd"/></linearGradient>
+ <radialGradient id="light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(45 26) rotate(45) scale(183)"><stop stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+ <filter id="shade" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+ </defs>
+ <rect x="9" y="9" width="222" height="162" rx="35" fill="url(#g)"/>
+ <rect x="9" y="9" width="222" height="162" rx="35" fill="url(#light)"/>
+ <ellipse cx="113" cy="122" rx="78" ry="43" fill="#fff" opacity=".14" filter="url(#shade)"/>
+ <circle cx="120" cy="106" r="63" fill="#fff" opacity=".085"/>
+ <path d="M20 149c42-35 79-6 122-24s64-27 81-53" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".13"/>
+ <g><rect x="66" y="57" width="108" height="106" rx="27" fill="#fff"/><rect x="90" y="45" width="9" height="24" rx="4.5" fill="#fff"/><rect x="141" y="45" width="9" height="24" rx="4.5" fill="#fff"/><circle cx="120" cy="112" r="34" fill="#5941dd" opacity=".1"/><g transform="translate(94.2 86.2) scale(2.15)" fill="none" stroke="#401fb2" stroke-width="2.45" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13V2l8 4-8 4"></path><path d="M20.561 10.222a9 9 0 1 1-12.55-5.29"></path><path d="M8.002 9.997a5 5 0 1 0 8.9 2.02"></path></g></g>
+ <g fill="#fff" opacity=".74"><circle cx="52" cy="37" r="3.2"/><circle cx="196" cy="42" r="3.6"/><circle cx="205" cy="116" r="2.8"/></g>
+ <path d="M23 75l6-9 6 9-6 9zM204 146l5-7 5 7-5 7z" fill="#fff" opacity=".44"/>
+ </svg>
