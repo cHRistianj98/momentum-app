@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { readMomentumKey, saveMomentumKey } from '../lib/offlineDatabase';
-import { ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Compass, Crown, Flame, Info, Lightbulb, ListChecks, Minus, PencilLine, Repeat2, ShieldCheck, Sparkles, TrendingDown, TrendingUp, Trophy, Wallet, Zap } from 'lucide-react';
+import { ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock3, Compass, Crown, Flame, Info, Lightbulb, ListChecks, Minus, PencilLine, Repeat2, ShieldCheck, Sparkles, TrendingDown, TrendingUp, Trophy, Wallet, Zap } from 'lucide-react';
 import { fullDate, mondayOf, parseDate, shiftDate, shortWeekday, todayKey } from '../lib/date';
 import { REALITY_STORAGE_KEY, parseActualOverrides } from '../lib/planReality';
 import { buildWeeklyReport, compactWeekMinutes, mostRecentReviewMonday, percentageChange } from '../lib/weeklyReview';
 import { resolveCategories } from '../lib/storage';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
+import { DayExportDialog } from './DayExport';
 import type { AppData, CategoryKey } from '../types';
 import type { FocusRecord } from '../lib/focus';
 
@@ -72,6 +73,7 @@ function ScoreRing({ value }: { value: number | null }) {
 export function WeeklyReview({ data, focusHistory, onOpenNextWeek }: {data: AppData; focusHistory: FocusRecord[]; onOpenNextWeek: (nextMonday: string) => void}) {
   const [weekStart, setWeekStart] = useState(() => mostRecentReviewMonday());
   const [plan, setPlan] = useState<PlanningState>(loadPlanning);
+  const [exportOpen, setExportOpen] = useState(false);
   const [overrides] = useState(() => {
     try { return parseActualOverrides(readMomentumKey(REALITY_STORAGE_KEY)); }
     catch { return {}; }
@@ -134,8 +136,12 @@ export function WeeklyReview({ data, focusHistory, onOpenNextWeek }: {data: AppD
         <span><Zap size={14}/> +{weekXp} XP</span>
         <span><ShieldCheck size={14}/> {report.activeDays}/7 dni z postępem</span>
       </div>
-      {weekStart !== maxStart && <button type="button" className="wrx-hero-latest" onClick={() => setWeekStart(maxStart)}>Wróć do najnowszego raportu <ArrowRight size={14}/></button>}
+      <div className="wrx-hero-actions">
+        <button type="button" className="wrx-hero-export" onClick={() => setExportOpen(true)}><ClipboardList size={15}/> Eksport dni do tekstu</button>
+        {weekStart !== maxStart && <button type="button" className="wrx-hero-latest" onClick={() => setWeekStart(maxStart)}>Wróć do najnowszego raportu <ArrowRight size={14}/></button>}
+      </div>
     </section>
+    {exportOpen && <DayExportDialog data={data} focusHistory={focusHistory} overrides={overrides} initialWeek={weekStart} onClose={() => setExportOpen(false)}/>}
 
     <div className="wrx-tiles">
       <article className="wrx-tile wrx-tile--green">

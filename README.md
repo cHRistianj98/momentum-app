@@ -113,6 +113,28 @@ Rutyny bez `repeat` działają jak dotąd (dni tygodnia, bez daty startu).
 - Po aktualizacji odznaki spełnione już wcześniej trafiają do kolekcji po cichu — jeden komunikat zamiast serii okienek.
 - Katalog i zasady liczenia: `src/lib/progression.ts` (`ACHIEVEMENT_DEFINITIONS`), grafiki: `public/assets/progression/ach-<id>.svg`.
 
+## Eksport dni do tekstu (np. do oceny przez AI)
+
+**Weekly Review → „Eksport dni do tekstu”.** Wybierasz tydzień i zaznaczasz dni (przyszłych nie da się wybrać). Aplikacja
+składa z nich zwykły tekst do skopiowania, udostępnienia (na iPhonie arkusz „Udostępnij”, np. do aplikacji ChatGPT)
+albo pobrania jako `.txt`:
+
+```text
+Piątek 06.11.2026
+07:00–07:45 🔴 Poranna rutyna (rutyna) — ukończona · kroki 2/2
+    ✓ Szklanka wody
+    ✓ Prysznic
+09:00–11:00 🟢 Praca dla klienta — ukończone
+bez godziny 🟡 Kurs React — ukończone · 45 min
+Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h · 🟡 45 min · 🔴 45 min)
+```
+
+- Kolor to kategoria (🟢 przychód, 🟡 możliwy przyszły przychód, 🔴 bez przychodu), z legendą na początku tekstu.
+  Przy własnych kolorach kategorii znacznik dopasowuje się do wybranej barwy.
+- Opcje (zapamiętywane): niewykonane pozycje, kroki rutyn i podzadania, notatki, krótka prośba o ocenę dla AI.
+- Dane i liczby są te same co w Weekly Review (`src/lib/dayExport.ts`). Tekst nie jest nigdzie wysyłany, dopóki go nie wkleisz
+  albo nie udostępnisz.
+
 ## Co działa w tej wersji
 
 - Pulpit z kartami progresu, XP, kalendarzem dnia i panelem zadań.
@@ -157,6 +179,7 @@ momentum-app/
       RoutineModal.tsx        # wykonywanie/edycja rutyn
       InsightsView.tsx        # statystyki, mapa regularności, odznaki
       WeeklyReview.tsx        # tygodniowe podsumowanie
+      DayExport.tsx           # okno „Eksport dni do tekstu” (wybór dni, kopiowanie, udostępnianie, .txt)
       NotificationCenter.tsx  # dzwonek, baner przypomnienia, status zgody
       ReminderPicker.tsx      # wybór wielu przypomnień
       CloudSyncPanel.tsx      # ustawienia synchronizacji w chmurze i pasek konfliktu
@@ -170,6 +193,7 @@ momentum-app/
       notifications.ts        # zgoda, wyświetlanie powiadomień, historia
       useReminders.ts         # harmonogram przypomnień w aplikacji
       progression.ts          # rangi i katalog 100 odznak (grupy, metryki postępu)
+      dayExport.ts            # tekstowy eksport wybranych dni (plan, wykonanie, kroki, kolory kategorii)
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, scalanie, historia wersji)
       syncMerge.ts            # scalanie trójstronne zmian z dwóch urządzeń (czyste funkcje)
       syncBase.ts             # ostatnia wspólna wersja (baza scalania) w IndexedDB
