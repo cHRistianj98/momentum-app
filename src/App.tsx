@@ -135,6 +135,11 @@ function App() {
   const reminders = useReminders({ data, setData, onInApp: setReminderBanner, onOpen: openNotificationItem });
   // Synchronizacja w chmurze — dopóki nie zostanie włączona na urządzeniu, nie wykonuje żadnych żądań.
   const cloudSync = useCloudSync();
+  // Komunikat po scaleniu zmian z innego urządzenia albo po przywróceniu wersji z historii.
+  useEffect(() => {
+    const notice = cloudSync.engine.takeNotice();
+    if (notice) setToast(notice);
+  }, [cloudSync.engine]);
   // Powiadomienia z serwera (także przy zamkniętej aplikacji); lista wspólna dla konta synchronizacji.
   const push = usePushNotifications(data, cloudSync.state.enabled ? cloudSync.state.code : null);
   const openCloudSyncSettings = () => {

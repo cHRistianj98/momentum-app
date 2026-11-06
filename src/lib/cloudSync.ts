@@ -5,18 +5,26 @@
  *  - zmiany z tego urządzenia wysyłamy ok. 2,5 s po zapisie (PUT z rewizją bazową),
  *  - nowsze dane z chmury pobieramy przy starcie (jeszcze przed renderem, bez przeładowania),
  *    po powrocie do aplikacji i co minutę, gdy jest widoczna,
- *  - gdy zmieniły się obie strony, nic nie jest nadpisywane automatycznie: użytkownik wybiera wersję.
+ *  - gdy zmieniły się obie strony, łączymy zmiany (scalanie trójstronne względem ostatniej
+ *    wspólnej wersji, zapisanej lokalnie w syncBase.ts). Wybór wersji zostaje tylko wtedy,
+ *    gdy wspólnej wersji brak (np. pierwsza synchronizacja po aktualizacji aplikacji).
+ *  - serwer prowadzi historię wersji (30 dni); dowolną z nich można przywrócić.
  *
  * Konto jest anonimowe: losowy 24-znakowy kod odzyskiwania (Crockford Base32, 120 bitów).
  * Ustawienia synchronizacji („momentum-sync:config”) są lokalne dla urządzenia i leżą poza
  * przestrzenią „momentum.”, więc nie trafiają ani do kopii JSON, ani na serwer.
  */
 import { BACKUP_FORMAT, BACKUP_VERSION, parseMomentumBackup, restoreMomentumBackup, type BackupPreview } from './backup';
+import { todayKey } from './date';
 import {
   getMomentumSnapshot, initializeOfflineDatabase, setMomentumWritesPaused, subscribeMomentumWrites, syncOfflineSnapshot,
 } from './offlineDatabase';
+import { clearSyncBase, readSyncBase, writeSyncBase } from './syncBase';
+import { mergeStorage } from './syncMerge';
 
 const CONFIG_KEY = 'momentum-sync:config';
+/** Komunikat po przeładowaniu (np. „Połączono zmiany…”), pokazywany raz jako toast. */
+const NOTICE_KEY = 'momentum-sync:notice';
 const REVISION_KEY = 'momentum.persistence.revision';
 const SYNC_FORMAT = 'momentum-sync';
 const SYNC_SCHEMA_VERSION = 1;
@@ -65,6 +73,15 @@ export interface CloudSyncState {
 export interface CloudLinkPreview {
   code: string;
   remote: CloudRemoteSummary;
+}
+
+/** Wersja w historii serwera: dzienna, przed dużym usunięciem danych albo przed przywróceniem/wyborem wersji. */
+export type CloudHistoryReason = 'daily' | 'shrink' | 'manual';
+export interface CloudHistoryEntry {
+  revision: number;
+  savedAt: string;
+  reason: CloudHistoryReason;
+  size: number;
 }
 
 interface CloudSyncConfig {
@@ -208,18 +225,41 @@ function summarize(remote: RemoteSnapshot): CloudRemoteSummary {
   return { revision: remote.revision, updatedAt: remote.updatedAt, preview: remote.preview };
 }
 
-/** Zastępuje lokalne dane migawką z chmury (atomowo, jak import kopii JSON). */
-async function writeRemoteToDevice(remote: RemoteSnapshot, beforeReload: boolean): Promise<void> {
+/** Zastępuje lokalne dane podaną migawką (atomowo, jak import kopii JSON). */
+async function writeStorageToDevice(storage: Record<string, string>, createdAt: string, beforeReload: boolean): Promise<void> {
   if (beforeReload) setMomentumWritesPaused(true);
   try {
-    restoreMomentumBackup(window.localStorage, {
-      format: BACKUP_FORMAT, schemaVersion: BACKUP_VERSION, createdAt: remote.createdAt, storage: remote.storage,
-    });
+    restoreMomentumBackup(window.localStorage, { format: BACKUP_FORMAT, schemaVersion: BACKUP_VERSION, createdAt, storage });
     await syncOfflineSnapshot();
   } catch (error) {
     setMomentumWritesPaused(false);
     throw new CloudSyncError('invalid', error instanceof Error ? error.message : 'Nie udało się zapisać danych z chmury na tym urządzeniu.');
   }
+}
+
+/**
+ * Scalanie trójstronne: zmiany z tego urządzenia i z chmury względem ostatniej wspólnej wersji.
+ * Gdy obie strony zmieniły to samo pole, wygrywa nowsza zmiana. Null = nie da się scalić bezpiecznie.
+ */
+function mergeSnapshots(base: LocalSnapshot, local: LocalSnapshot, remote: RemoteSnapshot): LocalSnapshot | null {
+  try {
+    const localTime = Number(getMomentumSnapshot()[REVISION_KEY] ?? 0);
+    const remoteTime = Date.parse(remote.createdAt);
+    const preferLocal = Number.isFinite(localTime) && localTime > 0 && (!Number.isFinite(remoteTime) || localTime >= remoteTime);
+    const storage = mergeStorage(base.storage, local.storage, remote.storage, preferLocal);
+    // Ten sam walidator co import kopii JSON — do urządzenia trafiają tylko poprawne dane.
+    parseMomentumBackup(JSON.stringify({ format: BACKUP_FORMAT, schemaVersion: BACKUP_VERSION, createdAt: nowIso(), storage }));
+    return canonicalize(storage);
+  } catch (error) {
+    console.warn('[Momentum] Cloud sync merge failed:', error);
+    return null;
+  }
+}
+
+function formatSavedAt(iso: string | null): string {
+  const time = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(time)) return 'wybranego dnia';
+  return new Date(time).toLocaleString('pl-PL', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 }
 
 /** Przeładowanie (potrzebne, by pokazać nowe dane) tylko wtedy, gdy niczego nie przerwie. */
@@ -274,13 +314,13 @@ interface SnapshotResponse {
 
 async function callApi(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, code: string | null,
-  options: { body?: string; timeoutMs?: number; keepalive?: boolean } = {},
+  options: { body?: string; timeoutMs?: number; keepalive?: boolean; headers?: Record<string, string> } = {},
 ): Promise<ApiResponse> {
   // Celowo bez navigator.onLine: bywa fałszywie „offline”; nieudane żądanie i tak kończy się szybko.
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), options.timeoutMs ?? REQUEST_TIMEOUT_MS);
   try {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...options.headers };
     if (code) headers.Authorization = `Bearer ${code}`;
     if (options.body !== undefined) headers['Content-Type'] = 'application/json';
     const response = await fetch(path, {
@@ -346,6 +386,10 @@ export class CloudSyncEngine {
   private lastInteractionAt = 0;
   private remote: RemoteSnapshot | null = null;
   private linkCandidate: (RemoteSnapshot & { code: string }) | null = null;
+  private historyCandidate: RemoteSnapshot | null = null;
+  /** Odcisk zapisanej bazy scalania; undefined = jeszcze nie sprawdzono magazynu. */
+  private baseHash: string | null | undefined = undefined;
+  private pendingNotice: string | null = null;
 
   constructor() {
     this.state = {
@@ -363,6 +407,49 @@ export class CloudSyncEngine {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
   };
+
+  /** Jednorazowy komunikat dla użytkownika (np. po scaleniu zmian albo przywróceniu wersji). */
+  takeNotice(): string | null {
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(NOTICE_KEY);
+      sessionStorage.removeItem(NOTICE_KEY);
+    } catch { /* sessionStorage niedostępny */ }
+    const notice = this.pendingNotice ?? stored;
+    this.pendingNotice = null;
+    return notice;
+  }
+
+  private setNotice(text: string, afterReload: boolean): void {
+    this.pendingNotice = text;
+    if (afterReload) try { sessionStorage.setItem(NOTICE_KEY, text); } catch { /* bez komunikatu po przeładowaniu */ }
+  }
+
+  // ----- baza scalania: ostatnia wersja uzgodniona z serwerem -----
+  private async rememberBase(snapshot: Pick<LocalSnapshot, 'hash' | 'canonical'>, revision: number): Promise<void> {
+    this.baseHash = snapshot.hash;
+    await writeSyncBase({ hash: snapshot.hash, revision, canonical: snapshot.canonical });
+  }
+
+  private async loadBase(config: CloudSyncConfig): Promise<LocalSnapshot | null> {
+    const record = await readSyncBase();
+    if (!record || record.hash !== config.hash) return null;
+    try {
+      const parsed: unknown = JSON.parse(record.canonical);
+      if (!isRecord(parsed) || !Object.values(parsed).every(value => typeof value === 'string')) return null;
+      const snapshot = canonicalize(parsed as Record<string, string>);
+      return snapshot.hash === config.hash ? snapshot : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Dane bez lokalnych zmian są dokładnie ostatnią wspólną wersją — zapamiętujemy je, jeśli trzeba (np. po aktualizacji aplikacji). */
+  private async ensureBase(local: LocalSnapshot, config: CloudSyncConfig): Promise<void> {
+    if (local.hash !== config.hash) return;
+    if (this.baseHash === undefined) this.baseHash = (await readSyncBase())?.hash ?? null;
+    if (this.baseHash !== local.hash) await this.rememberBase(local, config.revision);
+  }
 
   private update(patch: Partial<CloudSyncState>): void {
     const config = this.config;
@@ -463,8 +550,14 @@ export class CloudSyncEngine {
   private fail(error: unknown): void {
     const failure = error instanceof CloudSyncError
       ? error : new CloudSyncError('server', error instanceof Error ? error.message : 'Nieznany błąd synchronizacji.');
-    if (failure.code !== 'offline') console.warn('[Momentum] Cloud sync:', failure.message);
     const config = this.config;
+    if (failure.code === 'conflict' && config?.enabled) {
+      // Chmura zmieniła się tuż przed naszym zapisem: spokojnie ponawiamy (pobranie + scalenie), bez komunikatu o błędzie.
+      this.update({ phase: 'idle', error: null, message: null, pendingLocal: true });
+      this.schedulePush();
+      return;
+    }
+    if (failure.code !== 'offline') console.warn('[Momentum] Cloud sync:', failure.message);
     this.update({
       phase: failure.code === 'offline' ? 'offline' : 'error',
       error: failure.code, message: failure.message,
@@ -479,89 +572,128 @@ export class CloudSyncEngine {
     const local = readLocal();
     const pendingLocal = local.hash !== config.hash;
     const writeOnly = reason === 'write' || reason === 'flush';
+    if (writeOnly && this.state.phase === 'update-ready' && this.remote) {
+      // Czekają nowsze dane z chmury: zamiast zapisu, który skończyłby się 409, łączymy z nimi zmiany
+      // (po cichu, jeśli to bezpieczny moment, np. aplikacja schodzi do tła).
+      try { await this.handleRemote(this.remote, local, reason); } catch (error) { this.fail(error); }
+      return;
+    }
     const throttled = (reason === 'start' || reason === 'resume') && this.state.phase !== 'update-ready'
       && Date.now() - this.lastCheckAt < RECHECK_MS;
     const checkRemote = !writeOnly && !throttled;
     if (!checkRemote && !pendingLocal) return;
     this.update({ phase: 'syncing', pendingLocal });
     try {
+      if (!pendingLocal) await this.ensureBase(local, config);
       if (checkRemote) {
         const result = await fetchSnapshot(config.code, config.revision);
         this.lastCheckAt = Date.now();
         if (!result.unchanged) {
           if (result.remote) await this.handleRemote(result.remote, local, reason);
-          else await this.push(local, result.revision, false); // pusty serwer: wysyłamy dane od nowa
+          else await this.push(local, result.revision); // pusty serwer: wysyłamy dane od nowa
           return;
         }
       }
-      if (pendingLocal) await this.push(local, config.revision, reason === 'flush');
+      if (pendingLocal) await this.push(local, config.revision, { keepalive: reason === 'flush' });
       else this.settle();
     } catch (error) {
       this.fail(error);
     }
   }
 
-  private async handleRemote(remote: RemoteSnapshot, local: LocalSnapshot, reason: SyncReason): Promise<void> {
+  /**
+   * Nowsza wersja w chmurze. Bez lokalnych zmian — wczytujemy ją. Ze zmianami po obu stronach —
+   * scalamy je; gdy to wymaga odświeżenia widoku, robimy to w bezpiecznym momencie (albo od razu
+   * przy starcie lub na prośbę użytkownika: `force`). Wybór wersji tylko bez wspólnej bazy.
+   */
+  private async handleRemote(remote: RemoteSnapshot, local: LocalSnapshot, reason: SyncReason, force = false): Promise<void> {
     const config = this.config;
     if (!config) return;
     if (remote.hash === local.hash) {
       // Te same dane (np. nie dotarła odpowiedź na nasz własny zapis).
       this.remote = null;
       this.patchConfig({ revision: remote.revision, hash: local.hash, lastSyncAt: nowIso() });
+      await this.rememberBase(local, remote.revision);
       this.settle();
       return;
     }
     this.remote = remote;
-    if (local.hash !== config.hash) {
+    const startup = reason === 'startup';
+    const applyNow = startup || force || isSafeMomentToReload(this.lastInteractionAt);
+    const localChanged = local.hash !== config.hash;
+    if (!localChanged) {
+      if (applyNow) { await this.apply(remote, !startup); return; }
+      this.update({ phase: 'update-ready', remote: summarize(remote), error: null, message: null });
+      return;
+    }
+    const base = await this.loadBase(config);
+    const merged = base ? mergeSnapshots(base, local, remote) : null;
+    if (!merged) {
       this.update({ phase: 'conflict', remote: summarize(remote), pendingLocal: true, error: null, message: null });
       return;
     }
-    if (reason === 'startup') {
-      await this.apply(remote, false);
+    if (merged.hash === local.hash) {
+      // Zmiany z chmury już tu są: wysyłamy dane z tego urządzenia na nowej bazie, bez przeładowania.
+      this.remote = null;
+      this.patchConfig({ revision: remote.revision, hash: remote.hash });
+      await this.rememberBase(remote, remote.revision);
+      await this.push(local, remote.revision, { attempt: 1 });
       return;
     }
-    if (isSafeMomentToReload(this.lastInteractionAt)) {
-      await this.apply(remote, true);
+    if (!applyNow) {
+      this.update({ phase: 'update-ready', remote: summarize(remote), pendingLocal: true, error: null, message: null });
       return;
     }
-    this.update({ phase: 'update-ready', remote: summarize(remote), error: null, message: null });
+    if (merged.hash === remote.hash) await this.apply(remote, !startup); // lokalne zmiany są już w chmurze
+    else await this.applyMerged(remote, merged, !startup);
   }
 
-  private async push(local: LocalSnapshot, base: number, keepalive: boolean, attempt = 0): Promise<void> {
+  private async upload(snapshot: Pick<LocalSnapshot, 'canonical'>, base: number, options: { keepalive?: boolean; archive?: boolean } = {}): Promise<{ response: ApiResponse; size: number }> {
     const config = this.config;
-    if (!config) return;
-    const body = `{"format":"${SYNC_FORMAT}","schemaVersion":${SYNC_SCHEMA_VERSION},"createdAt":"${nowIso()}","storage":${local.canonical}}`;
+    if (!config) throw new CloudSyncError('invalid', 'Synchronizacja jest wyłączona.');
+    const body = `{"format":"${SYNC_FORMAT}","schemaVersion":${SYNC_SCHEMA_VERSION},"createdAt":"${nowIso()}","storage":${snapshot.canonical}}`;
     const size = new Blob([body]).size;
     if (size > MAX_SYNC_BYTES) {
       throw new CloudSyncError('too-large', `Dane zajmują ${formatSize(size)}, a limit synchronizacji to ${formatSize(MAX_SYNC_BYTES)}. Usuń część zdjęć z zadań lub rutyn.`);
     }
-    const response = await callApi('PUT', `/api/snapshot?base=${base}`, config.code, {
-      body, keepalive: keepalive && size <= KEEPALIVE_LIMIT, timeoutMs: UPLOAD_TIMEOUT_MS,
+    // Dzień według kalendarza użytkownika: serwer archiwizuje wersję przy pierwszym zapisie dnia.
+    const response = await callApi('PUT', `/api/snapshot?base=${base}${options.archive ? '&archive=1' : ''}`, config.code, {
+      body, keepalive: !!options.keepalive && size <= KEEPALIVE_LIMIT, timeoutMs: UPLOAD_TIMEOUT_MS,
+      headers: { 'X-Momentum-Day': todayKey() },
     });
+    return { response, size };
+  }
+
+  private async push(local: LocalSnapshot, base: number, options: { keepalive?: boolean; archive?: boolean; attempt?: number } = {}): Promise<void> {
+    const config = this.config;
+    if (!config) return;
+    const { response, size } = await this.upload(local, base, options);
     if (response.status === 200) {
       const revision = toRevision(response.data.revision);
       if (revision === null) throw new CloudSyncError('server', 'Serwer zwrócił nieprawidłową odpowiedź.');
       this.remote = null;
       this.patchConfig({ revision, hash: local.hash, lastSyncAt: nowIso() });
+      await this.rememberBase(local, revision);
       this.update({ lastSize: size });
       this.settle();
       return;
     }
-    if (response.status === 409 && attempt === 0) {
+    if (response.status === 409 && (options.attempt ?? 0) === 0) {
       const latest = await fetchSnapshot(config.code);
       if (latest.remote) await this.handleRemote(latest.remote, local, 'write');
-      else await this.push(local, latest.revision, keepalive, attempt + 1);
+      else await this.push(local, latest.revision, { ...options, attempt: 1 });
       return;
     }
     throw apiError(response);
   }
 
   private async apply(remote: RemoteSnapshot, reload: boolean, patch: Partial<CloudSyncConfig> = {}): Promise<void> {
-    await writeRemoteToDevice(remote, reload);
+    await writeStorageToDevice(remote.storage, remote.createdAt, reload);
     this.remote = null;
     const base: CloudSyncConfig = this.config
       ?? { version: 1, enabled: false, code: patch.code ?? '', userId: null, revision: 0, hash: null, lastSyncAt: null };
     this.saveConfig({ ...base, ...patch, revision: remote.revision, hash: remote.hash, lastSyncAt: nowIso() });
+    await this.rememberBase(remote, remote.revision);
     if (reload) {
       this.reloading = true;
       this.stop();
@@ -571,6 +703,23 @@ export class CloudSyncEngine {
     // Przed pierwszym renderem: odśwież pamięć podręczną magazynu offline zamiast przeładowania.
     await initializeOfflineDatabase();
     this.settle();
+  }
+
+  /** Zapisuje scalone dane. Bazą staje się wersja z chmury, więc scalony wynik wyjdzie na serwer jako zwykła zmiana. */
+  private async applyMerged(remote: RemoteSnapshot, merged: LocalSnapshot, reload: boolean): Promise<void> {
+    await writeStorageToDevice(merged.storage, nowIso(), reload);
+    this.remote = null;
+    this.patchConfig({ revision: remote.revision, hash: remote.hash, lastSyncAt: nowIso() });
+    await this.rememberBase(remote, remote.revision);
+    this.setNotice('Połączono zmiany z innego urządzenia.', reload);
+    if (reload) {
+      this.reloading = true;
+      this.stop();
+      window.location.reload();
+      return;
+    }
+    await initializeOfflineDatabase();
+    this.update({ phase: 'idle', pendingLocal: true, error: null, message: null, remote: null });
   }
 
   // ----- akcje publiczne -----
@@ -583,8 +732,10 @@ export class CloudSyncEngine {
       try {
         const result = await fetchSnapshot(config.code, config.revision, STARTUP_TIMEOUT_MS);
         this.lastCheckAt = Date.now();
-        if (result.unchanged) this.update({ pendingLocal: local.hash !== config.hash });
-        else if (result.remote) await this.handleRemote(result.remote, local, 'startup');
+        if (result.unchanged) {
+          this.update({ pendingLocal: local.hash !== config.hash });
+          await this.ensureBase(local, config);
+        } else if (result.remote) await this.handleRemote(result.remote, local, 'startup');
       } catch (error) {
         this.fail(error); // offline lub wolna sieć: startujemy na danych lokalnych
       }
@@ -643,7 +794,7 @@ export class CloudSyncEngine {
     await this.exclusive(() => this.syncOnce('manual'));
   }
 
-  /** Konflikt: zachowaj dane z tego urządzenia (nadpisują wersję w chmurze). */
+  /** Konflikt bez wspólnej wersji: zachowaj dane z tego urządzenia. Wersja z chmury trafia do historii (?archive=1). */
   async keepLocal(): Promise<void> {
     await this.exclusive(async () => {
       const config = this.config;
@@ -651,14 +802,14 @@ export class CloudSyncEngine {
       this.update({ phase: 'syncing' });
       try {
         const base = this.remote?.revision ?? (await fetchSnapshot(config.code)).revision;
-        await this.push(readLocal(), base, false);
+        await this.push(readLocal(), base, { archive: true });
       } catch (error) {
         this.fail(error);
       }
     });
   }
 
-  /** Konflikt lub nowsze dane: wczytaj najnowszą wersję z chmury (zastępuje dane lokalne) i przeładuj. */
+  /** Konflikt bez wspólnej wersji: wczytaj najnowszą wersję z chmury (zastępuje dane lokalne) i przeładuj. */
   async takeRemote(): Promise<void> {
     await this.exclusive(async () => {
       const config = this.config;
@@ -667,9 +818,95 @@ export class CloudSyncEngine {
       try {
         const latest = await fetchSnapshot(config.code);
         if (latest.remote) await this.apply(latest.remote, true);
-        else await this.push(readLocal(), latest.revision, false);
+        else await this.push(readLocal(), latest.revision);
       } catch (error) {
         this.fail(error);
+      }
+    });
+  }
+
+  /** „Wczytaj”: najnowsza wersja z chmury; zmiany z tego urządzenia zostają do niej dołączone (scalanie). */
+  async loadUpdate(): Promise<void> {
+    await this.exclusive(async () => {
+      const config = this.config;
+      if (!config?.enabled) return;
+      this.update({ phase: 'syncing' });
+      try {
+        const latest = await fetchSnapshot(config.code);
+        const local = readLocal();
+        if (latest.remote) await this.handleRemote(latest.remote, local, 'manual', true);
+        else await this.push(local, latest.revision);
+      } catch (error) {
+        this.fail(error);
+      }
+    });
+  }
+
+  // ----- historia wersji (serwer: 30 dni) -----
+  async listHistory(): Promise<CloudHistoryEntry[]> {
+    const config = this.config;
+    if (!config?.enabled) throw new CloudSyncError('invalid', 'Włącz synchronizację, aby zobaczyć historię wersji.');
+    const response = await callApi('GET', '/api/history', config.code);
+    if (response.status === 404 && response.data.error === 'not-found') {
+      throw new CloudSyncError('unavailable', 'Historia wersji będzie dostępna po wdrożeniu nowej wersji serwera.');
+    }
+    if (response.status !== 200) throw apiError(response);
+    const entries = Array.isArray(response.data.entries) ? response.data.entries : [];
+    return entries.flatMap(entry => {
+      if (!isRecord(entry)) return [];
+      const revision = toRevision(entry.revision);
+      const savedAt = typeof entry.savedAt === 'string' && Number.isFinite(Date.parse(entry.savedAt)) ? entry.savedAt : null;
+      if (revision === null || !savedAt) return [];
+      const reason: CloudHistoryReason = entry.reason === 'shrink' || entry.reason === 'manual' ? entry.reason : 'daily';
+      return [{ revision, savedAt, reason, size: typeof entry.size === 'number' && entry.size > 0 ? entry.size : 0 }];
+    });
+  }
+
+  /** Pobiera i sprawdza wersję z historii (bez zmian lokalnych); zwraca podgląd do potwierdzenia. */
+  async previewHistory(revision: number): Promise<CloudRemoteSummary> {
+    const config = this.config;
+    if (!config?.enabled) throw new CloudSyncError('invalid', 'Włącz synchronizację, aby przywrócić wersję.');
+    const response = await callApi('GET', `/api/history/${revision}`, config.code, { timeoutMs: UPLOAD_TIMEOUT_MS });
+    if (response.status === 404 && response.data.error === 'version-not-found') {
+      throw new CloudSyncError('not-found', 'Tej wersji nie ma już w historii. Odśwież listę.');
+    }
+    if (response.status !== 200) throw apiError(response);
+    const savedAt = typeof response.data.updatedAt === 'string' ? response.data.updatedAt : null;
+    const candidate = parseRemote(revision, savedAt, response.data.snapshot);
+    this.historyCandidate = candidate;
+    return summarize(candidate);
+  }
+
+  /**
+   * Przywraca wersję z historii na wszystkich urządzeniach: wysyła ją jako najnowszą (bieżąca wersja
+   * z chmury trafia przy tym do historii, więc można to cofnąć), zapisuje lokalnie i przeładowuje.
+   */
+  async restoreHistory(revision: number): Promise<void> {
+    const candidate = this.historyCandidate;
+    if (!candidate || candidate.revision !== revision) throw new CloudSyncError('invalid', 'Najpierw otwórz podgląd tej wersji.');
+    await this.exclusive(async () => {
+      const config = this.config;
+      if (!config?.enabled) return;
+      this.update({ phase: 'syncing', error: null, message: null });
+      try {
+        let { response } = await this.upload(candidate, config.revision, { archive: true });
+        const current = response.status === 409 ? toRevision(response.data.revision) : null;
+        if (current !== null) ({ response } = await this.upload(candidate, current, { archive: true }));
+        if (response.status !== 200) throw apiError(response);
+        const pushed = toRevision(response.data.revision);
+        if (pushed === null) throw new CloudSyncError('server', 'Serwer zwrócił nieprawidłową odpowiedź.');
+        await writeStorageToDevice(candidate.storage, nowIso(), true);
+        this.historyCandidate = null;
+        this.remote = null;
+        this.patchConfig({ revision: pushed, hash: candidate.hash, lastSyncAt: nowIso() });
+        await this.rememberBase(candidate, pushed);
+        this.setNotice(`Przywrócono wersję z ${formatSavedAt(candidate.updatedAt)}. Poprzednia jest w historii wersji.`, true);
+        this.reloading = true;
+        this.stop();
+        window.location.reload();
+      } catch (error) {
+        this.fail(error);
+        throw error;
       }
     });
   }
@@ -686,7 +923,10 @@ export class CloudSyncEngine {
   forget(): void {
     this.stop();
     this.remote = null;
+    this.historyCandidate = null;
     this.saveConfig(null);
+    this.baseHash = null;
+    void clearSyncBase();
     this.update({ phase: 'off', pendingLocal: false, error: null, message: null, remote: null, lastSize: null });
   }
 

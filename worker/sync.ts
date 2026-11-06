@@ -1,15 +1,19 @@
 /**
- * Momentum Cloud Sync — backend (Cloudflare Worker + D1), etap 1. Wywoływany z worker/index.ts.
+ * Momentum Cloud Sync — backend (Cloudflare Worker + D1). Wywoływany z worker/index.ts.
  *
  * Model: jedno anonimowe konto = jeden losowy kod odzyskiwania (bez logowania).
  * Serwer przechowuje wyłącznie skrót SHA-256 kodu oraz najnowszą migawkę danych
  * urządzenia (cały namespace momentum.*), podzieloną na fragmenty, bo D1 ogranicza
  * pojedynczą wartość do 2 MB. Optymistyczna współbieżność: PUT wskazuje rewizję,
- * na której bazuje klient; nieaktualna baza => 409 i decyzja po stronie aplikacji.
+ * na której bazuje klient; nieaktualna baza => 409 i scalanie zmian po stronie aplikacji.
+ *
+ * Historia wersji: przy zapisie poprzednia migawka trafia do archiwum, gdy to pierwszy
+ * zapis danego dnia, gdy nowa migawka jest dużo mniejsza (np. reset danych) albo na prośbę
+ * aplikacji (przed przywróceniem wersji). Archiwum obejmuje 30 dni, maks. 60 wersji.
  *
  * Darmowy plan Workers ma ~10 ms CPU na żądanie, dlatego serwer NIE parsuje dużych
- * migawek (JSON.parse/stringify) — tylko je tnie i skleja jako tekst. Pełną walidację
- * wykonuje aplikacja przed zastosowaniem danych.
+ * migawek (JSON.parse/stringify) — tylko je tnie i skleja jako tekst, a archiwum kopiuje
+ * w SQL. Pełną walidację wykonuje aplikacja przed zastosowaniem danych.
  */
 
 // ---------- Minimalne typy Cloudflare (bez dodatkowej zależności npm) ----------
@@ -51,6 +55,12 @@ const BODY_PREFIX = `{"format":"${SYNC_FORMAT}","schemaVersion":${SYNC_SCHEMA_VE
 const FULL_VALIDATION_CHARS = 256 * 1024;
 const ACCOUNTS_PER_IP_PER_DAY = 20;
 const DAY_MS = 86_400_000;
+/** Historia wersji: wiek i liczba zachowanych migawek oraz limity archiwizacji „poza kolejnością”. */
+const HISTORY_KEEP_DAYS = 30;
+const HISTORY_MAX_ENTRIES = 60;
+const SHRINK_MIN_BYTES = 2048;
+const SHRINK_ARCHIVES_PER_DAY = 3;
+const MANUAL_ARCHIVES_PER_DAY = 10;
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS sync_accounts (
@@ -76,15 +86,42 @@ const SCHEMA = [
     hits INTEGER NOT NULL,
     expires_at INTEGER NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS sync_history (
+    user_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    saved_at TEXT NOT NULL,
+    archived_at TEXT NOT NULL,
+    day TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    chunk_count INTEGER NOT NULL,
+    PRIMARY KEY (user_id, revision)
+  )`,
+  `CREATE TABLE IF NOT EXISTS sync_history_chunks (
+    user_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    idx INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    PRIMARY KEY (user_id, revision, idx)
+  )`,
 ];
 
 interface AccountRow {
   user_id: string;
   revision: number;
+  snapshot_size: number;
   chunk_count: number;
   created_at: string;
   updated_at: string;
   last_seen_at: string;
+}
+
+interface HistoryRow {
+  revision: number;
+  saved_at: string;
+  reason: string;
+  size: number;
+  chunk_count: number;
 }
 
 const JSON_HEADERS: Record<string, string> = {
@@ -165,7 +202,7 @@ function looksLikeSnapshot(body: string): boolean {
 
 function findAccount(db: D1Database, keyHash: string): Promise<AccountRow | null> {
   return db.prepare(
-    'SELECT user_id, revision, chunk_count, created_at, updated_at, last_seen_at FROM sync_accounts WHERE key_hash = ?1',
+    'SELECT user_id, revision, snapshot_size, chunk_count, created_at, updated_at, last_seen_at FROM sync_accounts WHERE key_hash = ?1',
   ).bind(keyHash).first<AccountRow>();
 }
 
@@ -199,6 +236,8 @@ async function deleteAccount(db: D1Database, keyHash: string): Promise<Response>
   if (!account) return fail(404, 'account-not-found');
   await db.batch([
     db.prepare('DELETE FROM sync_snapshot_chunks WHERE user_id = ?1').bind(account.user_id),
+    db.prepare('DELETE FROM sync_history_chunks WHERE user_id = ?1').bind(account.user_id),
+    db.prepare('DELETE FROM sync_history WHERE user_id = ?1').bind(account.user_id),
     db.prepare('DELETE FROM sync_accounts WHERE user_id = ?1').bind(account.user_id),
   ]);
   return respond({ deleted: true });
@@ -247,9 +286,16 @@ async function getSnapshot(db: D1Database, keyHash: string, url: URL, context: S
   return respondRaw(`${head}${chunks.map(chunk => chunk.data).join('')}}`);
 }
 
+/** Dzień archiwizacji wg kalendarza użytkownika (nagłówek aplikacji), a bez niego wg UTC. */
+function archiveDay(request: Request, now: number): string {
+  const day = (request.headers.get('X-Momentum-Day') ?? '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : new Date(now).toISOString().slice(0, 10);
+}
+
 async function putSnapshot(db: D1Database, keyHash: string, url: URL, request: Request): Promise<Response> {
   const base = parseRevision(url.searchParams.get('base'));
   if (base === null) return fail(400, 'invalid-revision');
+  const forceArchive = url.searchParams.get('archive') === '1';
   const declaredLength = Number(request.headers.get('Content-Length') ?? '0');
   if (declaredLength > MAX_SNAPSHOT_BYTES) return fail(413, 'too-large', { limit: MAX_SNAPSHOT_BYTES });
 
@@ -264,10 +310,17 @@ async function putSnapshot(db: D1Database, keyHash: string, url: URL, request: R
   for (let offset = 0; offset < body.length; offset += CHUNK_CHARS) chunks.push(body.slice(offset, offset + CHUNK_CHARS));
   const revision = base + 1;
   const writeId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  // Wstawienie fragmentów i sprzątanie starych wykonuje się tylko wtedy, gdy TEN zapis
+  const nowMs = Date.now();
+  const now = new Date(nowMs).toISOString();
+  const day = archiveDay(request, nowMs);
+  const cutoff = new Date(nowMs - HISTORY_KEEP_DAYS * DAY_MS).toISOString();
+  // Wstawienie fragmentów, archiwum i sprzątanie wykonują się tylko wtedy, gdy TEN zapis
   // podbił rewizję (write_id). Cały batch D1 jest jedną transakcją: wszystko albo nic.
   const ownsRevision = 'EXISTS (SELECT 1 FROM sync_accounts WHERE user_id = ?1 AND write_id = ?2)';
+  const archivedNow = 'EXISTS (SELECT 1 FROM sync_history WHERE user_id = ?1 AND archived_at = ?3)';
+  const manualToday = `(SELECT COUNT(*) FROM sync_history WHERE user_id = ?1 AND day = ?6 AND reason = 'manual') < ${MANUAL_ARCHIVES_PER_DAY}`;
+  const noneToday = 'NOT EXISTS (SELECT 1 FROM sync_history WHERE user_id = ?1 AND day = ?6)';
+  const stale = `(archived_at < ?4 OR revision NOT IN (SELECT revision FROM sync_history WHERE user_id = ?1 ORDER BY revision DESC LIMIT ${HISTORY_MAX_ENTRIES}))`;
   const results = await db.batch([
     db.prepare(
       `UPDATE sync_accounts SET revision = ?1, write_id = ?2, snapshot_size = ?3, chunk_count = ?4,
@@ -277,6 +330,31 @@ async function putSnapshot(db: D1Database, keyHash: string, url: URL, request: R
       `INSERT OR REPLACE INTO sync_snapshot_chunks (user_id, revision, idx, data)
        SELECT ?1, ?3, ?4, ?5 WHERE ${ownsRevision}`,
     ).bind(account.user_id, writeId, revision, index, data)),
+    // Historia: poprzednia migawka trafia do archiwum, zanim usuniemy jej fragmenty.
+    // Pierwszy zapis dnia, wyraźnie mniejsze dane (np. reset) albo prośba aplikacji (?archive=1).
+    db.prepare(
+      `INSERT OR IGNORE INTO sync_history (user_id, revision, saved_at, archived_at, day, reason, size, chunk_count)
+       SELECT ?1, ?3, ?4, ?5, ?6,
+         CASE WHEN ?7 = 1 AND ${manualToday} THEN 'manual' WHEN ${noneToday} THEN 'daily' ELSE 'shrink' END,
+         ?8, ?9
+       WHERE ${ownsRevision} AND ?3 > 0 AND ?9 > 0 AND ((?7 = 1 AND ${manualToday}) OR ${noneToday}
+         OR (?10 * 2 < ?8 AND ?8 >= ${SHRINK_MIN_BYTES}
+           AND (SELECT COUNT(*) FROM sync_history WHERE user_id = ?1 AND day = ?6 AND reason = 'shrink') < ${SHRINK_ARCHIVES_PER_DAY}))`,
+    ).bind(account.user_id, writeId, base, account.updated_at, now, day, forceArchive ? 1 : 0, account.snapshot_size, account.chunk_count, body.length),
+    db.prepare(
+      `INSERT OR IGNORE INTO sync_history_chunks (user_id, revision, idx, data)
+       SELECT user_id, revision, idx, data FROM sync_snapshot_chunks
+       WHERE user_id = ?1 AND revision = ?3 AND ${ownsRevision}
+         AND EXISTS (SELECT 1 FROM sync_history WHERE user_id = ?1 AND revision = ?3 AND archived_at = ?4)`,
+    ).bind(account.user_id, writeId, base, now),
+    // Sprzątanie archiwum (starsze niż 30 dni, ponad limit wersji) tylko przy nowym wpisie.
+    db.prepare(
+      `DELETE FROM sync_history_chunks WHERE user_id = ?1 AND ${ownsRevision} AND ${archivedNow}
+       AND revision IN (SELECT revision FROM sync_history WHERE user_id = ?1 AND ${stale})`,
+    ).bind(account.user_id, writeId, now, cutoff),
+    db.prepare(
+      `DELETE FROM sync_history WHERE user_id = ?1 AND ${ownsRevision} AND ${archivedNow} AND ${stale}`,
+    ).bind(account.user_id, writeId, now, cutoff),
     db.prepare(
       `DELETE FROM sync_snapshot_chunks WHERE user_id = ?1 AND revision <> ?3 AND ${ownsRevision}`,
     ).bind(account.user_id, writeId, revision),
@@ -285,10 +363,45 @@ async function putSnapshot(db: D1Database, keyHash: string, url: URL, request: R
     const latest = await findAccount(db, keyHash);
     return latest ? conflict(latest) : fail(404, 'account-not-found');
   }
-  return respond({ revision, updatedAt: now, size: body.length });
+  const archived = (results[1 + chunks.length]?.meta?.changes ?? 0) === 1;
+  return respond({ revision, updatedAt: now, size: body.length, archived });
 }
 
-/** Jedyny punkt wejścia API: /api/health, /api/account (POST, DELETE), /api/snapshot (GET, PUT). */
+/** Lista wersji w historii (najnowsze najpierw) i bieżąca rewizja konta. */
+async function getHistory(db: D1Database, keyHash: string, context: SyncContext): Promise<Response> {
+  const account = await findAccount(db, keyHash);
+  if (!account) return fail(404, 'account-not-found');
+  touchAccount(db, account, context);
+  const rows = await db.prepare(
+    `SELECT revision, saved_at, reason, size, chunk_count FROM sync_history WHERE user_id = ?1
+     ORDER BY revision DESC LIMIT ${HISTORY_MAX_ENTRIES}`,
+  ).bind(account.user_id).all<HistoryRow>();
+  return respond({
+    revision: account.revision,
+    updatedAt: account.revision > 0 ? account.updated_at : null,
+    entries: (rows.results ?? []).map(row => ({ revision: row.revision, savedAt: row.saved_at, reason: row.reason, size: row.size })),
+  });
+}
+
+/** Jedna wersja z historii w tym samym formacie co GET /api/snapshot (bez parsowania na serwerze). */
+async function getHistorySnapshot(db: D1Database, keyHash: string, revision: number): Promise<Response> {
+  const account = await findAccount(db, keyHash);
+  if (!account) return fail(404, 'account-not-found');
+  const [metaResult, chunkResult] = await db.batch([
+    db.prepare('SELECT revision, saved_at, reason, size, chunk_count FROM sync_history WHERE user_id = ?1 AND revision = ?2')
+      .bind(account.user_id, revision),
+    db.prepare('SELECT data FROM sync_history_chunks WHERE user_id = ?1 AND revision = ?2 ORDER BY idx')
+      .bind(account.user_id, revision),
+  ]);
+  const meta = metaResult?.results?.[0] as HistoryRow | undefined;
+  if (!meta) return fail(404, 'version-not-found');
+  const chunks = (chunkResult?.results ?? []) as { data: string }[];
+  if (chunks.length === 0 || chunks.length !== meta.chunk_count) return fail(500, 'snapshot-incomplete');
+  const head = `{"revision":${meta.revision},"updatedAt":${JSON.stringify(meta.saved_at)},"snapshot":`;
+  return respondRaw(`${head}${chunks.map(chunk => chunk.data).join('')}}`);
+}
+
+/** Jedyny punkt wejścia API: /api/health, /api/account (POST, DELETE), /api/snapshot (GET, PUT), /api/history[/:rewizja] (GET). */
 export async function handleSyncRequest(request: Request, env: SyncEnv, context: SyncContext = {}): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '');
@@ -306,8 +419,9 @@ export async function handleSyncRequest(request: Request, env: SyncEnv, context:
       return fail(503, 'database-unavailable');
     }
   }
-  if (path !== '/api/account' && path !== '/api/snapshot') return fail(404, 'not-found');
-  const allowed = path === '/api/account' ? ['POST', 'DELETE'] : ['GET', 'PUT'];
+  const history = /^\/api\/history(?:\/(\d{1,15}))?$/.exec(path);
+  if (path !== '/api/account' && path !== '/api/snapshot' && !history) return fail(404, 'not-found');
+  const allowed = path === '/api/account' ? ['POST', 'DELETE'] : history ? ['GET'] : ['GET', 'PUT'];
   if (!allowed.includes(method)) return methodNotAllowed(allowed.join(', '));
   if (!db) return fail(503, 'database-not-configured');
   const secret = readSecret(request);
@@ -319,6 +433,7 @@ export async function handleSyncRequest(request: Request, env: SyncEnv, context:
     if (path === '/api/account') {
       return method === 'POST' ? await createAccount(db, keyHash, request) : await deleteAccount(db, keyHash);
     }
+    if (history) return history[1] ? await getHistorySnapshot(db, keyHash, Number(history[1])) : await getHistory(db, keyHash, context);
     return method === 'GET' ? await getSnapshot(db, keyHash, url, context) : await putSnapshot(db, keyHash, url, request);
   } catch (error) {
     console.error('[momentum-sync]', error);

@@ -1009,3 +1009,38 @@
 @media (prefers-reduced-motion: reduce) {
   .series-delete-menu { animation: none; }
 }
+
+/* ---------- 19. Synchronizacja: historia wersji (30 dni) ---------- */
+.cloud-history { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.cloud-history-head { display: flex; align-items: flex-start; gap: 11px; }
+.cloud-history-head > div { display: grid; gap: 3px; min-width: 0; }
+.cloud-history-head strong { color: var(--text); font-size: 13px; }
+.cloud-history-head small { color: var(--subtext); font-size: 11.5px; line-height: 1.45; }
+.cloud-history-icon { display: grid; flex: none; place-items: center; width: 32px; height: 32px; border-radius: 11px; background: var(--primary-pale); color: var(--primary); }
+.cloud-history-open { justify-self: start; min-height: 40px; }
+.cloud-history-empty { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--subtext); font-size: 12px; line-height: 1.5; }
+.cloud-history-list { display: grid; gap: 6px; max-height: 320px; margin: 0; padding: 0; overflow-y: auto; list-style: none; overscroll-behavior: contain; }
+.cloud-history-list li { display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.cloud-history-list li.is-selected { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
+.cloud-history-list li > div { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.cloud-history-list strong { color: var(--text); font-size: 12.5px; }
+.cloud-history-list small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.cloud-history-list button {
+  flex: none; min-height: 34px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 10px;
+  background: var(--surface); color: var(--primary); font-size: 12px; font-weight: 750;
+}
+.cloud-history-list button:disabled { opacity: .55; }
+@media (hover: hover) {
+  .cloud-history-list button:not(:disabled):hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); }
+}
+.cloud-history-preview .backup-import-title strong { font-size: 12.5px; }
+.cloud-history-refresh { justify-self: start; }
+:root[data-theme='dark'] .cloud-history-list li.is-selected { background: color-mix(in srgb, var(--primary) 14%, var(--surface)); }
+@media (max-width: 620px) {
+  .cloud-history { padding: 13px; }
+  .cloud-history-open { justify-self: stretch; justify-content: center; min-height: 44px; }
+  .cloud-history-list li { padding: 10px 10px 10px 12px; }
+  .cloud-history-list button { min-height: 40px; padding: 0 14px; }
+  .cloud-history-list strong { font-size: 13.5px; }
+  .cloud-history-list small { font-size: 12px; }
+}

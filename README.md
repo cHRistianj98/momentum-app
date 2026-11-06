@@ -70,8 +70,16 @@ a na kolejnym **Mam kod z innego urządzenia**.
 - Zmiany trafiają na serwer ok. 2,5 s po zapisie. Nowsze dane z chmury aplikacja pobiera przy starcie (przed pierwszym
   renderem), po powrocie do aplikacji i co minutę, gdy jest widoczna. Przeładowanie następuje tylko w bezpiecznym momencie
   (bez otwartych okien i edycji) — w przeciwnym razie pojawia się pasek „Nowe dane z innego urządzenia”.
-- Gdy dane zmieniły się na dwóch urządzeniach, nic nie jest nadpisywane automatycznie: wybierasz „Zachowaj z tego urządzenia”
-  albo „Wczytaj z chmury”.
+- Gdy dane zmieniły się na dwóch urządzeniach, aplikacja **łączy zmiany** (scalanie trójstronne względem ostatniej wspólnej
+  wersji, zapisanej lokalnie poza `momentum.*`). Łączą się osobno zadania, projekty, rutyny, kroki, logi rutyn i pola
+  w nich. Gdy obie strony zmieniły to samo pole, wygrywa nowsza zmiana; usunięcie przegrywa z edycją. Jeśli połączenie
+  wymaga odświeżenia widoku, dzieje się to w bezpiecznym momencie albo po dotknięciu „Wczytaj”.
+- Wybór „Zachowaj z tego urządzenia” / „Wczytaj z chmury” zostaje tylko wtedy, gdy brak wspólnej wersji (np. pierwsza
+  synchronizacja po aktualizacji aplikacji). Zastąpiona wersja z chmury trafia wtedy do historii.
+- **Historia wersji** (Ustawienia → Synchronizacja → Historia wersji): serwer zachowuje kopię przy pierwszej zmianie
+  każdego dnia, przed usunięciem dużej części danych (np. reset) i przed przywróceniem wersji — przez 30 dni, maks. 60
+  wersji. Przywrócenie działa na wszystkich urządzeniach i można je cofnąć (obecna wersja też trafia do historii).
+  Schemat poglądowo w `migrations/0002_history.sql`.
 - Serwer przechowuje wyłącznie skrót SHA-256 kodu. Kod działa jak hasło: kto go zna, ma dostęp do danych; bez kodu nie
   odzyskasz kopii z chmury (dane na urządzeniu zostają). Dane można usunąć z serwera przyciskiem w ustawieniach.
 - Limit migawki: 6 MB (najwięcej zajmują zdjęcia zapisane jako data URI). Darmowe limity Cloudflare (100 tys. żądań dziennie,
@@ -153,16 +161,18 @@ momentum-app/
       notifications.ts        # zgoda, wyświetlanie powiadomień, historia
       useReminders.ts         # harmonogram przypomnień w aplikacji
       progression.ts          # rangi i osiągnięcia
-      cloudSync.ts            # silnik synchronizacji (migawka, rewizje, konflikty)
+      cloudSync.ts            # silnik synchronizacji (migawka, rewizje, scalanie, historia wersji)
+      syncMerge.ts            # scalanie trójstronne zmian z dwóch urządzeń (czyste funkcje)
+      syncBase.ts             # ostatnia wspólna wersja (baza scalania) w IndexedDB
       useCloudSync.ts         # hook React dla synchronizacji
       push.ts                 # subskrypcja Web Push i lista przypomnień dla serwera
   worker/
     index.ts                  # Cloudflare Worker: /api/* → API, reszta → statyczne pliki; cron co minutę
-    sync.ts                   # API synchronizacji + zapis w D1
+    sync.ts                   # API synchronizacji, historia wersji + zapis w D1
     push.ts                   # API powiadomień push + kolejka wysyłki (cron)
     webpush.ts                # szyfrowanie Web Push (RFC 8291) i VAPID na WebCrypto
   wrangler.jsonc              # konfiguracja Workera (assets z dist/, baza D1)
-  migrations/0001_init.sql    # schemat D1 (tworzony też automatycznie)
+  migrations/                 # schemat D1 (tworzony też automatycznie): 0001 konta i migawki, 0002 historia wersji
 ```
 
 **Uwaga:** kody w przykładach są demonstracyjne i przechowywane tylko w przeglądarce. W produkcyjnym backendzie konieczna będzie spójna walidacja operacji i transakcyjne przydzielanie XP.
