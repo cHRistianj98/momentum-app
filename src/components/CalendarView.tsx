@@ -562,7 +562,8 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           </div>
           <div className="calendar-grid" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
             <div className="time-gutter" style={{ height: GRID_HEIGHT }}>
-              {HOURS.map((h, i) => <span className="time-label" style={{ top: i * HOUR_HEIGHT }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
+              {/* Jak w Kalendarzu Google: bez etykiety 00:00 — chowała się pod przyklejonym nagłówkiem; północ to górna krawędź siatki. */}
+              {HOURS.slice(1).map(h => <span className="time-label" style={{ top: h * HOUR_HEIGHT }} key={h}>{String(h).padStart(2, '0')}:00</span>)}
             </div>
             {dates.map(d => {
               const todaysBlocks = blocks.filter(b => b.date === d && minuteOfDay(b.time) >= START && minuteOfDay(b.time) < END);

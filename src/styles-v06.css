@@ -1168,7 +1168,7 @@
 :root[data-theme='dark'] .dx-day.is-active small, :root[data-theme='dark'] .dx-day.is-active span { color: rgba(23, 19, 46, .72); }
 :root[data-theme='dark'] .dx-status.is-warn { color: #fdba74; }
 @media (max-width: 620px) {
-  .dx-modal { height: calc(100dvh - 18px - env(safe-area-inset-bottom, 0px)); gap: 10px; padding-top: 16px; }
+  .dx-modal { height: calc(100dvh - 18px); gap: 10px; padding-top: 16px; }
   .dx-intro { font-size: 12px; }
   .dx-days { gap: 5px; }
   .dx-day { padding: 7px 1px 6px; border-radius: 12px; }
@@ -1198,7 +1198,7 @@
 }
 .routine-modal .occurrence-bar { margin: 14px 0 18px; }
 .occurrence-bar-main strong span { white-space: nowrap; }
-.move-modal { display: flex; flex-direction: column; width: min(520px, 100%); max-height: min(880px, calc(100vh - 40px)); padding-bottom: 18px; overflow: hidden; }
+.move-modal { display: flex; flex-direction: column; width: min(520px, 100%); max-height: min(880px, calc(100vh - 40px)); padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); overflow: hidden; }
 .move-modal:focus { outline: none; }
 .move-modal .modal-heading { padding-bottom: 12px; }
 .move-modal .modal-heading h2 { margin-top: 6px; }
@@ -1244,7 +1244,7 @@
 :root[data-theme='dark'] .occurrence-bar-move { color: #17132e; }
 :root[data-theme='dark'] .move-warning { background: #2f2a1f; color: #ffd497; }
 @media (max-width: 620px) {
-  .move-modal { max-height: calc(100dvh - 18px - env(safe-area-inset-bottom, 0px)); padding-top: 16px; }
+  .move-modal { max-height: calc(100dvh - 18px); padding-top: 16px; }
   .move-body { gap: 10px; padding-top: 12px; }
   .occurrence-bar { gap: 9px; padding: 10px; }
   .occurrence-bar-icon { width: 30px; height: 30px; }
@@ -1253,4 +1253,36 @@
   .move-calendar .momentum-date-day { height: 38px; }
   .move-chip { padding: 0 10px; font-size: 12.5px; }
   .move-confirm { white-space: normal; line-height: 1.25; }
+}
+
+/* ---------- 24. iPhone: zaokrąglone rogi ekranu i pasek Home (viewport-fit=cover w index.html) ---------- */
+/* Aplikacja sięga krawędzi ekranu, a marginesy bezpieczne (env) trzymają przyciski z dala od rogów i paska Home.
+   W poziomie (wycięcie z boku ekranu) cała aplikacja odsuwa się od krawędzi. */
+.app-shell { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+@media (max-width: 850px) {
+  /* Dolna nawigacja: tło do samej krawędzi (wypełnia rogi), przyciski nad paskiem Home i odsunięte od rogów. */
+  .mobile-bottom-nav {
+    height: calc(60px + max(6px, env(safe-area-inset-bottom, 0px)));
+    padding: 6px max(10px, env(safe-area-inset-left, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-right, 0px));
+  }
+  .mobile-more-sheet { left: max(9px, env(safe-area-inset-left, 0px)); right: max(9px, env(safe-area-inset-right, 0px)); }
+  .momentum-mobile-fab { right: max(20px, calc(env(safe-area-inset-right, 0px) + 12px)); }
+}
+@media (max-width: 620px) {
+  /* Arkusze od dołu sięgają krawędzi ekranu (także pod paskiem Home); ich stopki mają własny margines od paska. */
+  .modal { max-height: calc(100dvh - 18px); }
+  /* Okna z przyklejoną stopką (Ustawienia, projekt, potwierdzenia): stopka dochodzi do samego dołu ekranu —
+     wcześniej między nią a krawędzią prześwitywała przewijana treść. Przyciski stoją nad paskiem Home. */
+  .modal-backdrop > .modal:is(.settings-modal, .resize-confirm-modal, .project-editor) { padding-bottom: 0; }
+  .modal:is(.settings-modal, .resize-confirm-modal, .project-editor) > .modal-bottom {
+    position: sticky; bottom: 0; z-index: 6; margin: 18px -17px 0;
+    padding: 12px 17px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line); background: var(--surface); box-shadow: 0 -8px 22px rgba(25, 20, 58, .07);
+  }
+  .settings-modal > .modal-bottom { flex-direction: column; align-items: stretch; gap: 10px; }
+  .settings-modal > .modal-bottom > small { justify-content: center; text-align: center; line-height: 1.45; }
+  .settings-modal > .modal-bottom > .btn { width: 100%; min-height: 48px; font-size: 14px; }
+  :root[data-theme='dark'] .modal:is(.settings-modal, .resize-confirm-modal, .project-editor) > .modal-bottom { box-shadow: 0 -8px 22px rgba(0, 0, 0, .3); }
+  /* „LOKALNIE” nad kolumną godzin (56 px) nachodziło ok. 5 px na pierwszą kolumnę dnia — teraz mieści się w środku. */
+  .calendar-head .timezone { padding-left: 0; font-size: 9.5px; letter-spacing: .03em; }
 }

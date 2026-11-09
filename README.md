@@ -149,14 +149,14 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
 - Szybkie dodawanie popularnych zadań, przeciąganie z panelu po prawej na kalendarz; skróty `N` (nowe zadanie) i `Ctrl/Cmd + K` (wyszukiwarka).
 - Rutyny: tworzenie szablonów, edytowanie kroków i dni tygodnia, wykonanie krok po kroku, jeden przycisk zamyka rutynę; jej blok w kalendarzu zostaje automatycznie oznaczony jako ukończony.
 - XP, poziomy, seria aktywności, 100 odznak, statystyki, wykres ostatnich 7 dni i udział kategorii.
-- Konfigurowalne kolory pięciu kategorii, jasny/ciemny motyw, responsywny interfejs.
+- Konfigurowalne kolory pięciu kategorii, jasny/ciemny motyw, responsywny interfejs (na iPhonie dolne menu i stopki okien omijają zaokrąglone rogi ekranu i pasek Home — `viewport-fit=cover` + `env(safe-area-inset-*)`).
 - Automatyczny zapis w `localStorage`, działające przykładowe dane. W ustawieniach można je zresetować.
 
 ## Zakres i ograniczenia MVP
 
 **To jest świadomie frontend-first**: nie ma jeszcze backendu Spring Boot, PostgreSQL, logowania, API Google Calendar/Tasks, synchronizacji wielu urządzeń, serwera powiadomień push ani aplikacji mobilnej. Dane są lokalne w konkretnej przeglądarce. Zdjęcia są zapisywane jako data URI (limit 900 KB), co nadaje się do demo, nie do rozwiązania produkcyjnego.
 
-Nie ma jeszcze resize drag krawędzi bloku ani przenoszenia pojedynczego wystąpienia rutyny między dniami. Długość bloku można zmienić w edytorze zadania. Dla rutyn kalendarz pokazuje wystąpienia według harmonogramu szablonu.
+Długość bloku zmienisz w edytorze zadania albo przeciągając jego dolną krawędź w kalendarzu (co 15 minut). Dla rutyn kalendarz pokazuje wystąpienia według harmonogramu szablonu; pojedynczy termin można przenieść na inny dzień (zob. *Zadania cykliczne*).
 
 ## Jak działa model danych
 
