@@ -95,6 +95,10 @@ Zadanie, które się powtarza, ale nie ma listy kroków (np. siłownia w pn, śr
   XP przyznawane jest za każde ukończone wystąpienie.
 - Lista „Moje zadania” ma sekcję **Cykliczne**: harmonogram i najbliższy termin każdej serii.
 - Przeciągnięcie lub zmiana długości bloku w kalendarzu pyta, czy zmienić tylko to wystąpienie, czy całą serię.
+- **Przenieś na inny dzień** (także na iPhonie, gdzie bloku nie da się przeciągnąć na inny dzień): w oknie rutyny, zadania
+  cyklicznego albo zwykłego zadania pasek z terminem ma przycisk „Przenieś”. Szybki wybór (*Dzień wcześniej/później*, *Dziś*,
+  *Jutro*), kalendarz i godzina. Przenosi się tylko ten jeden termin — np. piątkowa siłownia na poniedziałek — razem
+  z odhaczonymi krokami. „Pierwotny termin” cofa przeniesienie. Wystąpienie można przesunąć do 6 tygodni od terminu z harmonogramu.
 - Usuwanie: *Tylko to wystąpienie*, *Zakończ serię* (kolejne terminy znikają, historia i XP zostają) albo *Usuń całą serię*.
 - Przypomnienia, powiadomienia w tle, synchronizacja, statystyki i Weekly Review działają tak jak dla rutyn.
   W przeglądzie tygodnia seria liczy się jako zadanie, a jej regularność widać w sekcji systematyczności.

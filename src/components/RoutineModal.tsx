@@ -7,6 +7,7 @@ import { PhotoPicker } from './PhotoPicker';
 import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { CategoryChoices } from './CategoryChoices';
 import { ReminderPicker } from './ReminderPicker';
+import { MoveOccurrenceModal, OccurrenceBar } from './MoveOccurrenceModal';
 import { formatDuration, fullDate, todayKey } from '../lib/date';
 import { orderRoutineSteps, placeRoutineStep, unnestRoutineStep } from '../lib/routineHierarchy';
 import { useRoutineStepDrag } from '../lib/useRoutineStepDrag';
@@ -30,15 +31,23 @@ interface SessionProps {
   onEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Dzień z harmonogramu (klucz logu); `date` to dzień, w którym wystąpienie jest teraz. */
+  sourceDate?: string;
+  /** Godziny innych wystąpień tej rutyny w wybranym dniu — ostrzeżenie przy przenoszeniu. */
+  otherTimesOn?: (date: string) => string[];
+  /** Przeniesienie tylko tego wystąpienia na inny dzień/godzinę. */
+  onMove?: (date: string, time: string) => void;
 }
 
-export function RoutineSession({ routine, date, log, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose }: SessionProps) {
+export function RoutineSession({ routine, date, log, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose, sourceDate, otherTimesOn, onMove }: SessionProps) {
   const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, date));
   const completed = visibleSteps.filter(step => log.checkedStepIds.includes(step.id)).length;
   const count = visibleSteps.length;
   const [timer, setTimer] = useState<{ stepId: string; seconds: number; endAt: number | null } | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const movedFrom = sourceDate && (sourceDate !== date || displayTime !== routine.time) ? { date: sourceDate, time: routine.time } : null;
   const menuRef = useRef<HTMLDivElement>(null);
   // Menu „więcej” zamykamy dotknięciem obok albo klawiszem Escape.
   useEffect(() => {
@@ -76,6 +85,7 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
     <div className="routine-session-scroll">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJA RUTYNA · {fullDate(date)}</span><h2>{routine.title}</h2><CategoryBadge category={routine.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
     <div className="routine-banner" style={{ '--routine-color': categoryColor } as React.CSSProperties}><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="routine-banner-icon"/><div><strong>{routine.description || 'Małe kroki, wielki progres.'}</strong><span><Clock3 size={14} /> {displayTime} · {formatDuration(duration)} <span className="dot-spacer">·</span> <Flame size={14} /> +{routine.xp} XP</span></div></div>
+    {onMove && <OccurrenceBar label="To wystąpienie" date={date} time={displayTime} movedFrom={movedFrom} onMove={() => setMoving(true)}/>}
     <div className="routine-progress-heading"><strong>Twoje kroki</strong><span>{completed}/{count} wykonane</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
     <div className="routine-checklist">
       {count === 0 && <div className="routine-no-steps">W tym dniu nie zaplanowano żadnych kroków. Harmonogram każdego kroku zmienisz w „Edytuj szablon”.</div>}
@@ -123,6 +133,8 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
         </div>}
       </div>
     </div>
+    {moving && onMove && <MoveOccurrenceModal kind="routine" title={routine.title} date={date} time={displayTime} sourceDate={sourceDate ?? date} originalTime={routine.time}
+      otherTimesOn={otherTimesOn} onMove={(nextDate, nextTime) => onMove(nextDate, nextTime ?? displayTime)} onClose={() => setMoving(false)}/>}
   </div></div>;
 }
 

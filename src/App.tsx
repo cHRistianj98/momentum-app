@@ -624,22 +624,57 @@ function App() {
     if (block.date === date && block.time === time) return;
     setPendingRoutineMove({ block, date, time });
   }
+  /** Wyjątek terminu jednego wystąpienia: log zostaje pod dniem z harmonogramu, a wystąpienie (z krokami i XP) idzie na nowy dzień. */
+  function applyOccurrenceMove(routineId: string, sourceDate: string, date: string, time: string) {
+    const key = `${routineId}:${sourceDate}`;
+    setData(prev => {
+      const template = prev.routines.find(r => r.id === routineId);
+      if (!template) return prev;
+      const updated = { ...(prev.routineLogs[key] ?? emptyLog(key)) };
+      delete updated.dateOverride;
+      delete updated.timeOverride;
+      if (date !== sourceDate) updated.dateOverride = date;
+      if (time !== template.time) updated.timeOverride = time;
+      return { ...prev, routineLogs: { ...prev.routineLogs, [key]: updated } };
+    });
+  }
+  /** Przycisk „Przenieś” w oknie rutyny lub zadania cyklicznego. */
+  function moveOccurrence(routineId: string, sourceDate: string, date: string, time: string) {
+    const routine = data.routines.find(r => r.id === routineId);
+    if (!routine) return;
+    applyOccurrenceMove(routineId, sourceDate, date, time);
+    // Otwarte okno rutyny pokazuje odtąd nowy dzień (kroki dnia, nagłówek).
+    setRoutineDialog(current => current && current.id === routineId && (current.occurrenceDate ?? current.date) === sourceDate ? { ...current, date } : current);
+    setToast(date === sourceDate && time === routine.time
+      ? `„${routine.title}” wraca na pierwotny termin`
+      : `Przeniesiono „${routine.title}” na ${shortDayLabel(date, today)}, ${time} — reszta ${isTaskSeries(routine) ? 'serii' : 'rutyny'} bez zmian`);
+  }
+  /** Zwykłe zadanie: nowy dzień (i godzina) bez otwierania edycji pól. */
+  function moveTaskTo(id: string, date: string, time: string | null) {
+    const task = data.tasks.find(t => t.id === id);
+    if (!task) return;
+    setData(prev => ({ ...prev, tasks: prev.tasks.map(t => t.id === id ? { ...t, date, time } : t) }));
+    setToast(`Przeniesiono „${task.title}” na ${shortDayLabel(date, today)}${time ? `, ${time}` : ''}`);
+  }
+  /** Godziny innych wystąpień tej samej rutyny/serii w danym dniu (bez przenoszonego). */
+  const otherOccurrenceTimes = (routineId: string, sourceDate: string) => (date: string): string[] => {
+    const routine = data.routines.find(r => r.id === routineId);
+    if (!routine) return [];
+    const times: string[] = [];
+    const own = data.routineLogs[`${routineId}:${date}`];
+    if (date !== sourceDate && occurrenceExists(routine, date, own) && (own?.dateOverride ?? date) === date) times.push(own?.timeOverride ?? routine.time);
+    for (const [key, log] of Object.entries(data.routineLogs)) {
+      if (!key.startsWith(`${routineId}:`) || key === `${routineId}:${sourceDate}` || log.skipped || log.dateOverride !== date) continue;
+      times.push(log.timeOverride ?? routine.time);
+    }
+    return times.sort();
+  };
   function confirmRoutineMove(scope: 'single' | 'all') {
     if (!pendingRoutineMove) return;
     const { block, date, time } = pendingRoutineMove;
     const sourceDate = block.occurrenceDate ?? block.date;
     if (scope === 'single') {
-      const key = `${block.sourceId}:${sourceDate}`;
-      setData(prev => {
-        const template = prev.routines.find(r => r.id === block.sourceId);
-        if (!template) return prev;
-        const updated = { ...(prev.routineLogs[key] ?? emptyLog(key)) };
-        delete updated.dateOverride;
-        delete updated.timeOverride;
-        if (date !== sourceDate) updated.dateOverride = date;
-        if (time !== template.time) updated.timeOverride = time;
-        return { ...prev, routineLogs: { ...prev.routineLogs, [key]: updated } };
-      });
+      applyOccurrenceMove(block.sourceId, sourceDate, date, time);
       setToast(`Przeniesiono tylko wystąpienie „${block.title}”`);
     } else {
       // Dni tygodnia przesuwają się jak dotąd; reguła z interwałem (co 2 tyg., co miesiąc) przesuwa też początek serii.
@@ -786,9 +821,15 @@ function App() {
         series={series} occurrence={series && taskDialog.occurrenceDate ? seriesOccurrence(series, taskDialog.occurrenceDate) : undefined}
         nextSourceDate={series ? nextOccurrence(series, data.routineLogs, today)?.sourceDate : undefined}
         initialDate={taskDialog.date} initialTime={taskDialog.time} initialDuration={taskDialog.duration} initialProjectId={taskDialog.projectId} initialMilestoneId={taskDialog.milestoneId} projects={data.projects} categories={categories} focusSeconds={focus.history.filter(record=>record.taskId===taskDialog.id).reduce((sum,record)=>sum+record.focusSeconds,0)} defaultReminders={reminders.settings.taskDefaults} notificationsEnabled={notificationsActive} onEnableNotifications={enableNotifications} onFocus={startFocus} onSave={saveTask} onDelete={deleteTask}
-        onSaveSeries={saveSeries} onSkipOccurrence={skipOccurrence} onEndSeries={endSeries} onDeleteSeries={deleteSeries} onClose={()=>setTaskDialog(null)}/>;
+        onSaveSeries={saveSeries} onSkipOccurrence={skipOccurrence} onEndSeries={endSeries} onDeleteSeries={deleteSeries}
+        onMoveTask={moveTaskTo}
+        onMoveOccurrence={series ? (sourceDate, date, time) => moveOccurrence(series.id, sourceDate, date, time) : undefined}
+        otherTimesOn={series && taskDialog.occurrenceDate ? otherOccurrenceTimes(series.id, taskDialog.occurrenceDate) : undefined}
+        onClose={()=>setTaskDialog(null)}/>;
     })()}
-    {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date)} duration={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).durationOverride ?? r.duration} displayTime={logFor(r.id,routineDialog.occurrenceDate ?? routineDialog.date).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,routineDialog.occurrenceDate ?? routineDialog.date,step,routineDialog.date)} onChangeSteps={steps=>changeRoutineSteps(r.id,steps)} onComplete={()=>completeRoutine(r.id,routineDialog.occurrenceDate ?? routineDialog.date,routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,routineDialog.occurrenceDate ?? routineDialog.date,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onDelete={()=>deleteRoutine(r.id)} onClose={()=>setRoutineDialog(null)}/>:null;})()}
+    {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);const occurrenceDate=routineDialog.occurrenceDate ?? routineDialog.date;return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,occurrenceDate)} duration={logFor(r.id,occurrenceDate).durationOverride ?? r.duration} displayTime={logFor(r.id,occurrenceDate).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,occurrenceDate,step,routineDialog.date)} onChangeSteps={steps=>changeRoutineSteps(r.id,steps)} onComplete={()=>completeRoutine(r.id,occurrenceDate,routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,occurrenceDate,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onDelete={()=>deleteRoutine(r.id)}
+      sourceDate={occurrenceDate} otherTimesOn={otherOccurrenceTimes(r.id,occurrenceDate)} onMove={(date,time)=>moveOccurrence(r.id,occurrenceDate,date,time)}
+      onClose={()=>setRoutineDialog(null)}/>:null;})()}
     {editorDialog&&<RoutineEditor routine={editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined} categories={categories} defaultReminders={reminders.settings.routineDefaults} notificationsEnabled={notificationsActive} onEnableNotifications={enableNotifications} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}/>}
     {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Ustawienia</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><NotificationSettingsPanel api={reminders} push={push} data={data} onChange={settings=>setData(prev=>({...prev,notifications:settings}))} onApplyDefaults={applyDefaultReminders}/><div className="settings-divider"/><CloudSyncPanel api={cloudSync} data={data}/><div className="settings-divider"/><DataBackup data={data}/><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){void eraseStoredData().then(()=>window.location.reload()).catch(()=>window.alert('Nie udało się zresetować danych. Spróbuj ponownie.'));}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>{getOfflineDatabaseStatus() === 'ready' ? 'Dane lokalne: IndexedDB + kopia zgodności. Zapisuj backup JSON poza telefonem.' : 'Zapis lokalny: localStorage. IndexedDB niedostępne — zrób backup JSON.'}</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
     {weeklyNudge && <div className="wr-notice" role="dialog" aria-label="Tygodniowe podsumowanie">

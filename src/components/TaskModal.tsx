@@ -8,6 +8,7 @@ import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { PhotoPicker } from './PhotoPicker';
 import { CategoryChoices } from './CategoryChoices';
 import { ReminderPicker } from './ReminderPicker';
+import { MoveOccurrenceModal, OccurrenceBar } from './MoveOccurrenceModal';
 import { TASK_PRESETS } from '../lib/seed';
 import { ALL_WEEKDAYS, WEEKDAYS_FROM_MONDAY, describeRepeat, shortDayLabel } from '../lib/recurrence';
 import { fullDate, parseDate, shiftDate, todayKey } from '../lib/date';
@@ -57,6 +58,12 @@ interface Props {
   onSkipOccurrence: (routineId: string, sourceDate: string) => void;
   onEndSeries: (routineId: string, fromSourceDate: string) => void;
   onDeleteSeries: (routineId: string) => void;
+  /** Przeniesienie zwykłego zadania na inny dzień (zapisuje się od razu). */
+  onMoveTask?: (taskId: string, date: string, time: string | null) => void;
+  /** Przeniesienie tylko tego wystąpienia zadania cyklicznego. */
+  onMoveOccurrence?: (sourceDate: string, date: string, time: string) => void;
+  /** Godziny innych wystąpień tej serii w wybranym dniu — ostrzeżenie przy przenoszeniu. */
+  otherTimesOn?: (date: string) => string[];
   onClose: () => void;
 }
 
@@ -140,8 +147,9 @@ function ProjectPicker({ label, value, options, disabled = false, onChange }: {
   );
 }
 
-export function TaskModal({ task, series, occurrence, nextSourceDate, initialDate, initialTime, initialDuration, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onFocus, onSave, onDelete, onSaveSeries, onSkipOccurrence, onEndSeries, onDeleteSeries, onClose }: Props) {
+export function TaskModal({ task, series, occurrence, nextSourceDate, initialDate, initialTime, initialDuration, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onFocus, onSave, onDelete, onSaveSeries, onSkipOccurrence, onEndSeries, onDeleteSeries, onMoveTask, onMoveOccurrence, otherTimesOn, onClose }: Props) {
   const today = todayKey();
+  const [moving, setMoving] = useState(false);
   const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => series
     ? { title: series.title, description: series.description, category: series.category, icon: series.icon, image: series.image,
       date: series.repeat?.start ?? occurrence?.sourceDate ?? today, time: series.time, duration: series.duration, done: occurrence?.done ?? false,
@@ -257,6 +265,9 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
         <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={form.icon} image={form.image} category={form.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">{series ? <><Repeat2 size={12}/> {occurrence ? fullDate(occurrence.date).toLocaleUpperCase('pl-PL') : 'CAŁA SERIA'}</> : 'TWOJE ZADANIA'}</span><h2>{heading}</h2><CategoryBadge category={form.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
         {!task && !series && <div className="presets"><span>Dodaj szybko:</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration, xp: p.xp }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
         <div className="modal-fields">
+          {series && occurrence && onMoveOccurrence && <OccurrenceBar label="To wystąpienie" date={occurrence.date} time={occurrence.time}
+            movedFrom={movedOccurrence ? { date: occurrence.sourceDate, time: series.time } : null} note="Pola poniżej zmieniają całą serię." onMove={() => setMoving(true)}/>}
+          {task && !recurring && form.date && onMoveTask && <OccurrenceBar label="Termin" date={form.date} time={form.time} onMove={() => setMoving(true)}/>}
           <label className="field"><span>Nazwa zadania <i>*</i></span><input ref={titleRef} placeholder="Np. 45 minut pracy nad aplikacją" value={form.title} onChange={e => change('title', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} maxLength={90}/></label>
           <label className="field"><span>Opis / notatka</span><textarea placeholder="O czym warto pamiętać?" rows={2} value={form.description} onChange={e => change('description', e.target.value)} /></label>
           <div className="field"><span>Kategoria finansowa</span><CategoryChoices categories={categories} value={form.category} onChange={v=>change('category',v)}/></div>
@@ -291,7 +302,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
               ? <small className="repeat-summary"><Repeat2 size={13}/> {repeatSummary}</small>
               : <small className="repeat-hint">Np. siłownia w pn, śr i pt — jak zwykłe zadanie, tylko powtarzane. Bez listy kroków.</small>}
             {recurring && until && <small className="repeat-note repeat-note--ended"><Flag size={13}/> <span>Seria zakończona — ostatnie wystąpienie {shortDayLabel(until, today)}.</span> <button type="button" onClick={() => setUntil(undefined)}>Wznów serię</button></small>}
-            {movedOccurrence && occurrence && <small className="repeat-note"><CalendarClock size={13}/> <span>To wystąpienie przeniesiono na {fullDate(occurrence.date)}, {occurrence.time}. Zmiany godziny poniżej dotyczą całej serii.</span></small>}
+            {movedOccurrence && occurrence && !onMoveOccurrence && <small className="repeat-note"><CalendarClock size={13}/> <span>To wystąpienie przeniesiono na {fullDate(occurrence.date)}, {occurrence.time}. Zmiany godziny poniżej dotyczą całej serii.</span></small>}
             {lostTaskLinks && <small className="repeat-note"><FolderKanban size={13}/> <span>Zadanie cykliczne nie ma podzadań ani projektu — zostaną pominięte.</span></small>}
           </div>
           <ReminderPicker value={form.reminders ?? []} onChange={reminders => change('reminders', reminders)} time={form.time}
@@ -352,6 +363,11 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
           </button>
         </div>
       </div>
+      {moving && series && occurrence && onMoveOccurrence && <MoveOccurrenceModal kind="series" title={series.title} date={occurrence.date} time={occurrence.time}
+        sourceDate={occurrence.sourceDate} originalTime={series.time} otherTimesOn={otherTimesOn}
+        onMove={(date, time) => onMoveOccurrence(occurrence.sourceDate, date, time ?? occurrence.time)} onClose={() => setMoving(false)}/>}
+      {moving && task && !series && form.date && onMoveTask && <MoveOccurrenceModal kind="task" title={form.title.trim() || task.title} date={form.date} time={form.time}
+        onMove={(date, time) => { setForm(current => ({ ...current, date, time })); onMoveTask(task.id, date, time); }} onClose={() => setMoving(false)}/>}
     </div>
   );
 }
