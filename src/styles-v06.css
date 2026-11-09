@@ -1286,3 +1286,8 @@
   /* „LOKALNIE” nad kolumną godzin (56 px) nachodziło ok. 5 px na pierwszą kolumnę dnia — teraz mieści się w środku. */
   .calendar-head .timezone { padding-left: 0; font-size: 9.5px; letter-spacing: .03em; }
 }
+
+/* ---------- 25. Galeria 500 miniaturek ---------- */
+/* Karta trzyma zdjęcie u góry: gdy sąsiedni tytuł zajmuje dwie linie, przycisk nie centruje już treści w pionie
+   (wcześniej obrazek „zjeżdżał” w dół i nad nim zostawał pasek tła). */
+.photo-catalog-grid button { display: flex; flex-direction: column; justify-content: flex-start; }

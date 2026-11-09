@@ -144,7 +144,7 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
 - Pulpit z kartami progresu, XP, kalendarzem dnia i panelem zadań.
 - Kalendarz **dzień/tydzień**, nawigacja po datach, kliknięcie pustego slotu tworzy zadanie z godziną.
 - **Przeciąganie bloków zadań** na inną godzinę i dzień na siatce kalendarza; zmiana czasu trwania w edytorze.
-- Zadania: dodawanie, edycja, usuwanie, ukończenie/cofnięcie, kategoria, własna ikona, małe zdjęcie, czas, notatka, XP.
+- Zadania: dodawanie, edycja, usuwanie, ukończenie/cofnięcie, kategoria, własna ikona, małe zdjęcie (galeria 500 miniaturek w 16 grupach albo własne), czas, notatka, XP.
 - Inbox dla zadań bez terminu, zadania zaplanowane i ukończone, filtrowanie, wyszukiwanie.
 - Szybkie dodawanie popularnych zadań, przeciąganie z panelu po prawej na kalendarz; skróty `N` (nowe zadanie) i `Ctrl/Cmd + K` (wyszukiwarka).
 - Rutyny: tworzenie szablonów, edytowanie kroków i dni tygodnia, wykonanie krok po kroku, jeden przycisk zamyka rutynę; jej blok w kalendarzu zostaje automatycznie oznaczony jako ukończony.
@@ -190,6 +190,7 @@ momentum-app/
     lib/
       date.ts                 # czas i daty lokalne
       icons.tsx               # zestaw ikon z lucide-react
+      photos.ts               # katalog 500 miniaturek (public/assets/thumbs/<grupa>-NN.webp, 240×160)
       seed.ts                 # dane demonstracyjne, kategorie, presety
       storage.ts              # zapis lokalny
       recurrence.ts           # powtarzanie: wystąpienia serii, opisy, przesuwanie całej serii

@@ -4,6 +4,7 @@ import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
 import { PhotoPicker } from './PhotoPicker';
+import { PHOTO_OPTIONS } from '../lib/photos';
 import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { CategoryChoices } from './CategoryChoices';
 import { ReminderPicker } from './ReminderPicker';
@@ -195,7 +196,7 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={icon} image={image} category={category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">BUDUJ DOBRE NAWYKI</span><h2>{routine ? 'Edytuj rutynę' : 'Nowa rutyna'}</h2><CategoryBadge category={category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20}/></button></div>
     <div className="modal-fields"><div className="field"><span>Ikona i nazwa</span>
       <div className="name-icon-row"><button type="button" className="selected-icon selected-icon--square" onClick={()=>setPicker(p=>p==='icons'?null:'icons')} aria-label="Wybierz ikonę"><TaskIcon name={icon} size={24}/></button><input ref={inputRef} placeholder="Np. Wieczorna regeneracja" value={title} onChange={e=>setTitle(e.target.value)} maxLength={80}/></div>
-      <div className="routine-assets-row"><button type="button" className="btn btn--secondary" onClick={()=>setPicker(p=>p==='icons'?null:'icons')}><TaskIcon name={icon} size={17}/> Ponad 1000 ikon</button><button type="button" className="btn btn--secondary" onClick={()=>setPicker(p=>p==='photos'?null:'photos')}><Camera size={17}/> Galeria 100 zdjęć</button>{image&&<span className="routine-selected-image"><img src={image} alt="Miniatura rutyny"/><button type="button" onClick={()=>setImage(undefined)} aria-label="Usuń zdjęcie"><X size={13}/></button></span>}</div>
+      <div className="routine-assets-row"><button type="button" className="btn btn--secondary" onClick={()=>setPicker(p=>p==='icons'?null:'icons')}><TaskIcon name={icon} size={17}/> Ponad 1000 ikon</button><button type="button" className="btn btn--secondary" onClick={()=>setPicker(p=>p==='photos'?null:'photos')}><Camera size={17}/> Galeria {PHOTO_OPTIONS.length} zdjęć</button>{image&&<span className="routine-selected-image"><img src={image} alt="Miniatura rutyny"/><button type="button" onClick={()=>setImage(undefined)} aria-label="Usuń zdjęcie"><X size={13}/></button></span>}</div>
       {picker==='icons'&&<IconPicker value={icon} onSelect={v=>{setIcon(v);setPicker(null);}}/>}
       {picker==='photos'&&<PhotoPicker value={image} onSelect={v=>{setImage(v);setPicker(null);}}/>}
     </div>

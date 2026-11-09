@@ -6,6 +6,7 @@ import { IconPicker } from './IconPicker';
 import { DatePicker } from './DatePicker';
 import { TimePicker, DurationPicker, XpStepper } from './FormControls';
 import { PhotoPicker } from './PhotoPicker';
+import { PHOTO_OPTIONS } from '../lib/photos';
 import { CategoryChoices } from './CategoryChoices';
 import { ReminderPicker } from './ReminderPicker';
 import { MoveOccurrenceModal, OccurrenceBar } from './MoveOccurrenceModal';
@@ -313,7 +314,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
             <span>Ikona i zdjęcie</span>
             <div className="image-icon-row">
               <button type="button" className="selected-icon" onClick={()=>setPicker(p=>p==='icons'?null:'icons')} aria-expanded={picker==='icons'}><TaskIcon name={form.icon} size={24}/><span>Wybierz ikonę</span></button>
-              <button type="button" className="selected-icon" onClick={()=>setPicker(p=>p==='photos'?null:'photos')} aria-expanded={picker==='photos'}><ImagePlus size={24}/><span>100 zdjęć</span></button>
+              <button type="button" className="selected-icon" onClick={()=>setPicker(p=>p==='photos'?null:'photos')} aria-expanded={picker==='photos'}><ImagePlus size={24}/><span>{PHOTO_OPTIONS.length} zdjęć</span></button>
               <label className="image-upload"><Camera size={20}/><span>Własne zdjęcie</span><input type="file" hidden accept="image/*" onChange={e=>onImage(e.target.files?.[0])}/></label>
               {form.image&&<div className="image-thumbnail"><img src={form.image} alt="Wybrana miniatura zadania"/><button type="button" title="Usuń zdjęcie" onClick={()=>change('image',undefined)}><X size={13}/></button></div>}
             </div>
