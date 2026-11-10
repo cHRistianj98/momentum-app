@@ -1311,3 +1311,51 @@
 .momentum-xp-preview { display: grid; gap: 4px; min-height: 43px; padding: 7px 11px; border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--line-strong)); border-radius: 11px; background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
 .momentum-xp-preview-value { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-size: 15px; font-weight: 850; }
 .momentum-xp-preview small { color: var(--subtext); font-size: 10.5px; line-height: 1.4; }
+
+/* ---------- 27. Usuwanie pojedynczego wystąpienia rutyny i zadania cyklicznego ---------- */
+/* Pasek „To wystąpienie” z dwiema akcjami: tekst u góry, przyciski pod nim (na telefonie mieszczą się w jednym rzędzie). */
+.occurrence-bar--actions { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 11px; row-gap: 10px; }
+.occurrence-bar-actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; }
+.occurrence-bar-delete {
+  display: inline-flex; flex: none; align-items: center; gap: 6px; min-height: 38px; padding: 0 13px;
+  border: 1px solid #f6c9ce; border-radius: 11px; background: #fff3f4; color: #d4505d; font-size: 12.5px; font-weight: 800;
+}
+.occurrence-bar--skipped { border-style: dashed; border-color: #f0c2c8; background: color-mix(in srgb, #d4505d 5%, var(--surface)); }
+.occurrence-bar--skipped .occurrence-bar-icon { background: #ffe9ec; color: #d4505d; }
+.occurrence-bar--skipped .occurrence-bar-main small { color: #c24a57; }
+
+/* Lista usuniętych wystąpień w edycji rutyny i zadania cyklicznego — każdy dzień można przywrócić. */
+.skipped-occurrences { display: grid; gap: 7px; margin-top: 2px; padding: 10px 11px; border: 1px dashed var(--line-strong); border-radius: 13px; background: var(--surface-2); }
+.skipped-occurrences-title { display: inline-flex; align-items: center; gap: 6px; color: var(--subtext); font-size: 11.5px; font-weight: 800; }
+.skipped-occurrences-title svg { color: #d4505d; }
+.skipped-occurrences-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.skipped-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line)); border-radius: 999px;
+  background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 750;
+}
+.skipped-chip svg { color: var(--primary); }
+.skipped-occurrences small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+
+/* „Cofnij” w komunikacie na dole ekranu. Dłuższy komunikat zajmuje szerokość ekranu (do 450 px),
+   zamiast zawijać się w wąską kolumnę przy left: 50%. */
+.toast { width: max-content; }
+.toast .toast-action {
+  flex: none; min-height: 30px; margin-left: 4px; padding: 0 11px; border-radius: 9px;
+  background: rgba(255, 255, 255, .14); color: #fff; font-size: 11.5px; font-weight: 850;
+}
+@media (hover: hover) {
+  .occurrence-bar-delete:hover { background: #ffe6e9; }
+  .skipped-chip:hover { border-color: var(--primary); background: var(--primary-pale); }
+  .toast .toast-action:hover { background: rgba(255, 255, 255, .24); }
+}
+:root[data-theme='dark'] .occurrence-bar-delete { border-color: #6b3540; background: #3d2329; color: #ff9aa5; }
+:root[data-theme='dark'] .occurrence-bar--skipped { border-color: #6b3540; background: color-mix(in srgb, #ff9aa5 6%, var(--surface)); }
+:root[data-theme='dark'] .occurrence-bar--skipped .occurrence-bar-icon { background: #3d2329; color: #ff9aa5; }
+:root[data-theme='dark'] .occurrence-bar--skipped .occurrence-bar-main small,
+:root[data-theme='dark'] .skipped-occurrences-title svg { color: #ff9aa5; }
+@media (max-width: 620px) {
+  .occurrence-bar--actions { column-gap: 9px; }
+  .occurrence-bar-actions { gap: 7px; }
+  .occurrence-bar-actions > button { min-height: 40px; padding: 0 12px; }
+}

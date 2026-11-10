@@ -93,6 +93,21 @@ export function nextOccurrence(routine: Routine, logs: Record<string, RoutineLog
   return null;
 }
 
+/**
+ * Usunięte pojedyncze wystąpienia (od dnia `from` włącznie), które bez usunięcia byłyby w planie —
+ * lista do przywrócenia w edycji rutyny lub serii. Rosnąco po dniu z harmonogramu.
+ */
+export function skippedOccurrences(routine: Routine, logs: Record<string, RoutineLog>, from: string): string[] {
+  const prefix = `${routine.id}:`;
+  const dates: string[] = [];
+  for (const [key, log] of Object.entries(logs)) {
+    if (!log?.skipped || !key.startsWith(prefix)) continue;
+    const sourceDate = key.slice(prefix.length);
+    if (isDateKey(sourceDate) && sourceDate >= from && occursOn(routine, sourceDate)) dates.push(sourceDate);
+  }
+  return dates.sort();
+}
+
 function plural(count: number, one: string, few: string, many: string): string {
   if (count === 1) return one;
   const last = count % 10;

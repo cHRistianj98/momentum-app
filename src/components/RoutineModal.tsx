@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CalendarX2, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -8,7 +8,7 @@ import { PHOTO_OPTIONS } from '../lib/photos';
 import { TimePicker, DurationPicker, XpPreview } from './FormControls';
 import { CategoryChoices } from './CategoryChoices';
 import { ReminderPicker } from './ReminderPicker';
-import { MoveOccurrenceModal, OccurrenceBar } from './MoveOccurrenceModal';
+import { MoveOccurrenceModal, OccurrenceBar, SkippedOccurrenceBar, SkippedOccurrences } from './MoveOccurrenceModal';
 import { formatDuration, fullDate, todayKey } from '../lib/date';
 import { orderRoutineSteps, placeRoutineStep, unnestRoutineStep } from '../lib/routineHierarchy';
 import { useRoutineStepDrag } from '../lib/useRoutineStepDrag';
@@ -41,9 +41,13 @@ interface SessionProps {
   otherTimesOn?: (date: string) => string[];
   /** Przeniesienie tylko tego wystąpienia na inny dzień/godzinę. */
   onMove?: (date: string, time: string) => void;
+  /** Usunięcie tylko tego wystąpienia (np. wolny dzień) — reszta rutyny bez zmian. */
+  onSkip?: () => void;
+  /** Przywrócenie usuniętego wystąpienia. */
+  onRestore?: () => void;
 }
 
-export function RoutineSession({ routine, date, log, xp, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose, sourceDate, otherTimesOn, onMove }: SessionProps) {
+export function RoutineSession({ routine, date, log, xp, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose, sourceDate, otherTimesOn, onMove, onSkip, onRestore }: SessionProps) {
   const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, date));
   const completed = visibleSteps.filter(step => log.checkedStepIds.includes(step.id)).length;
   const count = visibleSteps.length;
@@ -52,6 +56,13 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
   const [menuOpen, setMenuOpen] = useState(false);
   const [moving, setMoving] = useState(false);
   const movedFrom = sourceDate && (sourceDate !== date || displayTime !== routine.time) ? { date: sourceDate, time: routine.time } : null;
+  const skipped = Boolean(log.skipped);
+  // Ukończone wystąpienie ma już XP w historii — usunięcie wymaga potwierdzenia.
+  const skipThisOccurrence = () => {
+    if (!onSkip) return;
+    if (log.completed && !window.confirm(`To wystąpienie „${routine.title}” jest już ukończone. Usunąć je razem z XP za ten dzień?`)) return;
+    onSkip();
+  };
   const menuRef = useRef<HTMLDivElement>(null);
   // Menu „więcej” zamykamy dotknięciem obok albo klawiszem Escape.
   useEffect(() => {
@@ -89,7 +100,9 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
     <div className="routine-session-scroll">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJA RUTYNA · {fullDate(date)}</span><h2>{routine.title}</h2><CategoryBadge category={routine.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
     <div className="routine-banner" style={{ '--routine-color': categoryColor } as React.CSSProperties}><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="routine-banner-icon"/><div><strong>{routine.description || 'Małe kroki, wielki progres.'}</strong><span><Clock3 size={14} /> {displayTime} · {formatDuration(duration)} <span className="dot-spacer">·</span> <Flame size={14} /> +{xp} XP</span></div></div>
-    {onMove && <OccurrenceBar label="To wystąpienie" date={date} time={displayTime} movedFrom={movedFrom} onMove={() => setMoving(true)}/>}
+    {onMove && (skipped && onRestore
+      ? <SkippedOccurrenceBar date={date} hint="Odhaczenie kroku też przywróci rutynę na ten dzień." onRestore={onRestore}/>
+      : <OccurrenceBar label="To wystąpienie" date={date} time={displayTime} movedFrom={movedFrom} onMove={() => setMoving(true)} onDelete={onSkip ? skipThisOccurrence : undefined}/>)}
     <div className="routine-progress-heading"><strong>Twoje kroki</strong><span>{completed}/{count} wykonane</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
     <div className="routine-checklist">
       {count === 0 && <div className="routine-no-steps">W tym dniu nie zaplanowano żadnych kroków. Harmonogram każdego kroku zmienisz w „Edytuj szablon”.</div>}
@@ -133,7 +146,8 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
           aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}><MoreHorizontal size={19}/></button>
         {menuOpen && <div className="routine-actions-menu" role="menu">
           <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onEdit(); }}><PencilLine size={16}/> Edytuj szablon</button>
-          <button type="button" role="menuitem" className="is-danger" onClick={() => { setMenuOpen(false); if (window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`)) onDelete(); }}><Trash2 size={16}/> Usuń rutynę</button>
+          {onSkip && !skipped && <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); skipThisOccurrence(); }}><CalendarX2 size={16}/> Usuń to wystąpienie</button>}
+          <button type="button" role="menuitem" className="is-danger" onClick={() => { setMenuOpen(false); if (window.confirm(`Usunąć rutynę „${routine.title}” wraz z całą historią wykonań? Tej operacji nie można cofnąć.`)) onDelete(); }}><Trash2 size={16}/> Usuń całą rutynę</button>
         </div>}
       </div>
     </div>
@@ -152,10 +166,13 @@ interface EditorProps {
   onSave: (routine: Routine) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  /** Usunięte pojedyncze wystąpienia od dziś (dni z harmonogramu) — do przywrócenia. */
+  skippedDates?: string[];
+  onRestoreOccurrence?: (sourceDate: string) => void;
 }
 const WEEK = ['N', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
 
-export function RoutineEditor({ routine, categories, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onSave, onDelete, onClose }: EditorProps) {
+export function RoutineEditor({ routine, categories, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onSave, onDelete, onClose, skippedDates = [], onRestoreOccurrence }: EditorProps) {
   const [title, setTitle] = useState(routine?.title ?? '');
   const [description, setDescription] = useState(routine?.description ?? '');
   const [icon, setIcon] = useState<IconKey>(routine?.icon ?? 'sun');
@@ -209,7 +226,9 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
     <div className="field"><span>Kategoria finansowa</span><CategoryChoices categories={categories} value={category} onChange={setCategory}/></div>
     <div className="two-fields"><div className="field"><span>Godzina</span><TimePicker value={time} onChange={v => setTime(v ?? '07:00')}/></div><div className="field"><span>Czas trwania</span><DurationPicker value={duration} onChange={setDuration}/></div></div>
     <ReminderPicker value={reminders} onChange={setReminders} time={time} systemEnabled={notificationsEnabled} onEnableSystem={onEnableNotifications}/>
-    <div className="field"><span>Powtarzaj w dni</span><div className="weekday-picker">{WEEK.map((w,i)=><button key={i} className={weekdays.includes(i) ? 'selected' : ''} onClick={()=>setWeekdays(arr=>arr.includes(i) ? arr.filter(x=>x!==i) : [...arr,i].sort())}>{w}</button>)}</div></div>
+    <div className="field"><span>Powtarzaj w dni</span><div className="weekday-picker">{WEEK.map((w,i)=><button key={i} className={weekdays.includes(i) ? 'selected' : ''} onClick={()=>setWeekdays(arr=>arr.includes(i) ? arr.filter(x=>x!==i) : [...arr,i].sort())}>{w}</button>)}</div>
+      {routine && onRestoreOccurrence && <SkippedOccurrences dates={skippedDates} onRestore={onRestoreOccurrence}/>}
+    </div>
     <div className="field"><span>Lista kroków</span>
       <small className="routine-gesture-note">Przytrzymaj ⋮⋮: przesuń w górę lub dół, aby zmienić kolejność; w prawo — dodaj podzadanie, w lewo — odłącz.</small>
       <div className="editor-steps" ref={stepsRef}>

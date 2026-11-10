@@ -99,7 +99,12 @@ Zadanie, które się powtarza, ale nie ma listy kroków (np. siłownia w pn, śr
   cyklicznego albo zwykłego zadania pasek z terminem ma przycisk „Przenieś”. Szybki wybór (*Dzień wcześniej/później*, *Dziś*,
   *Jutro*), kalendarz i godzina. Przenosi się tylko ten jeden termin — np. piątkowa siłownia na poniedziałek — razem
   z odhaczonymi krokami. „Pierwotny termin” cofa przeniesienie. Wystąpienie można przesunąć do 6 tygodni od terminu z harmonogramu.
-- Usuwanie: *Tylko to wystąpienie*, *Zakończ serię* (kolejne terminy znikają, historia i XP zostają) albo *Usuń całą serię*.
+- **Usuń to wystąpienie** (np. wolny dzień albo święto w środku tygodnia): w oknie rutyny lub zadania cyklicznego pasek
+  „To wystąpienie” ma obok „Przenieś” przycisk „Usuń to wystąpienie” (w rutynie także w menu „…”). Znika tylko ten jeden
+  termin — pozostałe dni, harmonogram i historia zostają bez zmian. Komunikat ma przycisk „Cofnij”, a usunięte dni (od dziś)
+  przywrócisz w edycji rutyny lub serii, w sekcji *Usunięte wystąpienia*. Usunięcie ukończonego wystąpienia wymaga
+  potwierdzenia (znika też jego XP). Odhaczenie kroku w usuniętej rutynie przywraca ją na ten dzień.
+- Menu „Usuń” w zadaniu cyklicznym: *Tylko to wystąpienie*, *Zakończ serię* (kolejne terminy znikają, historia i XP zostają) albo *Usuń całą serię*.
 - Przypomnienia, powiadomienia w tle, synchronizacja, statystyki i Weekly Review działają tak jak dla rutyn.
   W przeglądzie tygodnia seria liczy się jako zadanie, a jej regularność widać w sekcji systematyczności.
 - Zwykłe zadanie można zamienić na cykliczne, wybierając powtarzanie w jego edycji.
@@ -181,7 +186,7 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
 
 **To jest świadomie frontend-first**: nie ma jeszcze backendu Spring Boot, PostgreSQL, logowania, API Google Calendar/Tasks, synchronizacji wielu urządzeń, serwera powiadomień push ani aplikacji mobilnej. Dane są lokalne w konkretnej przeglądarce. Zdjęcia są zapisywane jako data URI (limit 900 KB), co nadaje się do demo, nie do rozwiązania produkcyjnego.
 
-Długość bloku zmienisz w edytorze zadania albo przeciągając jego dolną krawędź w kalendarzu (co 15 minut). Dla rutyn kalendarz pokazuje wystąpienia według harmonogramu szablonu; pojedynczy termin można przenieść na inny dzień (zob. *Zadania cykliczne*).
+Długość bloku zmienisz w edytorze zadania albo przeciągając jego dolną krawędź w kalendarzu (co 15 minut). Dla rutyn kalendarz pokazuje wystąpienia według harmonogramu szablonu; pojedynczy termin można przenieść na inny dzień albo usunąć (zob. *Zadania cykliczne*).
 
 ## Jak działa model danych
 

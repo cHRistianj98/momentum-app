@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, CalendarClock, Check, ChevronLeft, ChevronRight, CornerUpLeft, TriangleAlert, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, CalendarX2, Check, ChevronLeft, ChevronRight, CornerUpLeft, RotateCcw, TriangleAlert, X } from 'lucide-react';
 import { TimePicker } from './FormControls';
 import { dateKey, fullDate, mondayOf, monthTitle, parseDate, shiftDate, todayKey } from '../lib/date';
 import { daysBetween, shortDayLabel } from '../lib/recurrence';
@@ -163,11 +163,14 @@ type BarProps = {
   movedFrom?: { date: string; time: string } | null;
   note?: string;
   onMove: () => void;
+  /** Usunięcie tylko tego wystąpienia rutyny lub zadania cyklicznego (reszta bez zmian). */
+  onDelete?: () => void;
 };
 
-/** Pasek z terminem i przyciskiem „Przenieś” w oknach rutyny i zadania. */
-export function OccurrenceBar({ label, date, time, movedFrom, note, onMove }: BarProps) {
-  return <div className="occurrence-bar">
+/** Pasek z terminem i przyciskami „Przenieś” (oraz „Usuń to wystąpienie”) w oknach rutyny i zadania. */
+export function OccurrenceBar({ label, date, time, movedFrom, note, onMove, onDelete }: BarProps) {
+  const move = <button type="button" className="occurrence-bar-move" onClick={onMove}><CalendarClock size={15}/> Przenieś</button>;
+  return <div className={`occurrence-bar ${onDelete ? 'occurrence-bar--actions' : ''}`}>
     <span className="occurrence-bar-icon" aria-hidden="true"><CalendarClock size={18}/></span>
     <div className="occurrence-bar-main">
       <small>{label}</small>
@@ -175,6 +178,42 @@ export function OccurrenceBar({ label, date, time, movedFrom, note, onMove }: Ba
       {movedFrom && <em>Przeniesione z: {fullDate(movedFrom.date)}, {movedFrom.time}</em>}
       {note && <em>{note}</em>}
     </div>
-    <button type="button" className="occurrence-bar-move" onClick={onMove}><CalendarClock size={15}/> Przenieś</button>
+    {onDelete
+      ? <div className="occurrence-bar-actions">
+        {move}
+        <button type="button" className="occurrence-bar-delete" onClick={onDelete} title="Usuwa tylko ten jeden termin — pozostałe zostają bez zmian">
+          <CalendarX2 size={15}/> Usuń to wystąpienie
+        </button>
+      </div>
+      : move}
+  </div>;
+}
+
+/** Okno otwarte dla wystąpienia, które usunięto z planu (np. z karty rutyny albo starego powiadomienia). */
+export function SkippedOccurrenceBar({ date, hint, onRestore }: { date: string; hint?: string; onRestore: () => void }) {
+  return <div className="occurrence-bar occurrence-bar--skipped">
+    <span className="occurrence-bar-icon" aria-hidden="true"><CalendarX2 size={18}/></span>
+    <div className="occurrence-bar-main">
+      <small>Usunięte z planu</small>
+      <strong>{capitalize(fullDate(date))}</strong>
+      {hint && <em>{hint}</em>}
+    </div>
+    <button type="button" className="occurrence-bar-move occurrence-bar-restore" onClick={onRestore}><RotateCcw size={15}/> Przywróć</button>
+  </div>;
+}
+
+/** Usunięte pojedyncze wystąpienia (od dziś) — dotknięcie przywraca dzień do planu. */
+export function SkippedOccurrences({ dates, onRestore }: { dates: string[]; onRestore: (sourceDate: string) => void }) {
+  const today = todayKey();
+  if (!dates.length) return null;
+  return <div className="skipped-occurrences">
+    <span className="skipped-occurrences-title"><CalendarX2 size={14}/> Usunięte wystąpienia</span>
+    <div className="skipped-occurrences-list">
+      {dates.map(date => <button key={date} type="button" className="skipped-chip" onClick={() => onRestore(date)}
+        aria-label={`Przywróć: ${fullDate(date)}`} title="Przywróć to wystąpienie">
+        <span>{shortDayLabel(date, today)}</span><RotateCcw size={13} aria-hidden="true"/>
+      </button>)}
+    </div>
+    <small>Dotknij dzień, aby przywrócić go do planu. Pozostałe terminy się nie zmieniają.</small>
   </div>;
 }

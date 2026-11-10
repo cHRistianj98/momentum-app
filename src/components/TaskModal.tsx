@@ -9,7 +9,7 @@ import { PhotoPicker } from './PhotoPicker';
 import { PHOTO_OPTIONS } from '../lib/photos';
 import { CategoryChoices } from './CategoryChoices';
 import { ReminderPicker } from './ReminderPicker';
-import { MoveOccurrenceModal, OccurrenceBar } from './MoveOccurrenceModal';
+import { MoveOccurrenceModal, OccurrenceBar, SkippedOccurrenceBar, SkippedOccurrences } from './MoveOccurrenceModal';
 import { TASK_PRESETS } from '../lib/seed';
 import { ALL_WEEKDAYS, WEEKDAYS_FROM_MONDAY, describeRepeat, shortDayLabel } from '../lib/recurrence';
 import { fullDate, parseDate, shiftDate, todayKey } from '../lib/date';
@@ -25,6 +25,8 @@ export interface SeriesOccurrence {
   date: string;
   time: string;
   done: boolean;
+  /** Wystąpienie usunięte z planu (okno otwarte np. ze starego powiadomienia). */
+  skipped?: boolean;
 }
 
 export interface SeriesSaveOptions {
@@ -66,6 +68,9 @@ interface Props {
   onMoveOccurrence?: (sourceDate: string, date: string, time: string) => void;
   /** Godziny innych wystąpień tej serii w wybranym dniu — ostrzeżenie przy przenoszeniu. */
   otherTimesOn?: (date: string) => string[];
+  /** Usunięte pojedyncze wystąpienia serii od dziś — do przywrócenia. */
+  skippedDates?: string[];
+  onRestoreOccurrence?: (sourceDate: string) => void;
   onClose: () => void;
 }
 
@@ -149,7 +154,7 @@ function ProjectPicker({ label, value, options, disabled = false, onChange }: {
   );
 }
 
-export function TaskModal({ task, series, occurrence, nextSourceDate, initialDate, initialTime, initialDuration, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onFocus, onSave, onDelete, onSaveSeries, onSkipOccurrence, onEndSeries, onDeleteSeries, onMoveTask, onMoveOccurrence, otherTimesOn, onClose }: Props) {
+export function TaskModal({ task, series, occurrence, nextSourceDate, initialDate, initialTime, initialDuration, initialProjectId, initialMilestoneId, projects, categories, focusSeconds, defaultReminders = [], notificationsEnabled = false, onEnableNotifications, onFocus, onSave, onDelete, onSaveSeries, onSkipOccurrence, onEndSeries, onDeleteSeries, onMoveTask, onMoveOccurrence, otherTimesOn, skippedDates = [], onRestoreOccurrence, onClose }: Props) {
   const today = todayKey();
   const [moving, setMoving] = useState(false);
   const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt'>>(() => series
@@ -189,6 +194,12 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
     : '';
   const movedOccurrence = Boolean(occurrence && series && (occurrence.date !== occurrence.sourceDate || occurrence.time !== series.time));
   const endFrom = occurrence?.sourceDate ?? nextSourceDate;
+  // Tylko ten jeden termin; ukończone wystąpienie ma już XP w historii, więc pytamy o potwierdzenie.
+  function skipThisOccurrence() {
+    if (!series || !occurrence) return;
+    if (occurrence.done && !window.confirm(`To wystąpienie „${series.title}” jest już ukończone. Usunąć je razem z XP za ten dzień?`)) return;
+    onSkipOccurrence(series.id, occurrence.sourceDate);
+  }
 
   function chooseRepeat(every: RepeatMode, interval: number) {
     setRepeat({ every, interval });
@@ -267,8 +278,9 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
         <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={form.icon} image={form.image} category={form.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">{series ? <><Repeat2 size={12}/> {occurrence ? fullDate(occurrence.date).toLocaleUpperCase('pl-PL') : 'CAŁA SERIA'}</> : 'TWOJE ZADANIA'}</span><h2>{heading}</h2><CategoryBadge category={form.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
         {!task && !series && <div className="presets"><span>Dodaj szybko:</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
         <div className="modal-fields">
-          {series && occurrence && onMoveOccurrence && <OccurrenceBar label="To wystąpienie" date={occurrence.date} time={occurrence.time}
-            movedFrom={movedOccurrence ? { date: occurrence.sourceDate, time: series.time } : null} note="Pola poniżej zmieniają całą serię." onMove={() => setMoving(true)}/>}
+          {series && occurrence?.skipped && onRestoreOccurrence && <SkippedOccurrenceBar date={occurrence.date} hint="Pola poniżej zmieniają całą serię." onRestore={() => onRestoreOccurrence(occurrence.sourceDate)}/>}
+          {series && occurrence && !occurrence.skipped && onMoveOccurrence && <OccurrenceBar label="To wystąpienie" date={occurrence.date} time={occurrence.time}
+            movedFrom={movedOccurrence ? { date: occurrence.sourceDate, time: series.time } : null} note="Pola poniżej zmieniają całą serię." onMove={() => setMoving(true)} onDelete={skipThisOccurrence}/>}
           {task && !recurring && form.date && onMoveTask && <OccurrenceBar label="Termin" date={form.date} time={form.time} onMove={() => setMoving(true)}/>}
           <label className="field"><span>Nazwa zadania <i>*</i></span><input ref={titleRef} placeholder="Np. 45 minut pracy nad aplikacją" value={form.title} onChange={e => change('title', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} maxLength={90}/></label>
           <label className="field"><span>Opis / notatka</span><textarea placeholder="O czym warto pamiętać?" rows={2} value={form.description} onChange={e => change('description', e.target.value)} /></label>
@@ -304,6 +316,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
               ? <small className="repeat-summary"><Repeat2 size={13}/> {repeatSummary}</small>
               : <small className="repeat-hint">Np. siłownia w pn, śr i pt — jak zwykłe zadanie, tylko powtarzane. Bez listy kroków.</small>}
             {recurring && until && <small className="repeat-note repeat-note--ended"><Flag size={13}/> <span>Seria zakończona — ostatnie wystąpienie {shortDayLabel(until, today)}.</span> <button type="button" onClick={() => setUntil(undefined)}>Wznów serię</button></small>}
+            {series && recurring && onRestoreOccurrence && <SkippedOccurrences dates={skippedDates} onRestore={onRestoreOccurrence}/>}
             {movedOccurrence && occurrence && !onMoveOccurrence && <small className="repeat-note"><CalendarClock size={13}/> <span>To wystąpienie przeniesiono na {fullDate(occurrence.date)}, {occurrence.time}. Zmiany godziny poniżej dotyczą całej serii.</span></small>}
             {lostTaskLinks && <small className="repeat-note"><FolderKanban size={13}/> <span>Zadanie cykliczne nie ma podzadań ani projektu — zostaną pominięte.</span></small>}
           </div>
@@ -333,7 +346,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
               <button type="button" className="task-footer-delete" aria-label="Usuń zadanie cykliczne" title="Usuń" aria-haspopup="menu" aria-expanded={deleteMenu}
                 onClick={() => setDeleteMenu(open => !open)}><Trash2 size={18} /><span className="task-footer-long">Usuń</span></button>
               {deleteMenu && <div className="series-delete-menu" role="menu" aria-label="Co usunąć?">
-                {occurrence && <button type="button" role="menuitem" onClick={() => { setDeleteMenu(false); onSkipOccurrence(series.id, occurrence.sourceDate); }}>
+                {occurrence && !occurrence.skipped && <button type="button" role="menuitem" onClick={() => { setDeleteMenu(false); skipThisOccurrence(); }}>
                   <CalendarX2 size={17}/><span><strong>Tylko to wystąpienie</strong><small>{fullDate(occurrence.date)} — reszta serii bez zmian.</small></span>
                 </button>}
                 {endFrom && <button type="button" role="menuitem" onClick={() => { setDeleteMenu(false); onEndSeries(series.id, endFrom); }}>

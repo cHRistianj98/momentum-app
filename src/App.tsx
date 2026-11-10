@@ -24,7 +24,7 @@ import { emptyLog, RoutineEditor, RoutineSession } from './components/RoutineMod
 import { checkedWithParentPropagation, toggleRoutineStepBranch } from './lib/routineHierarchy';
 import { routineStepsOnDate } from './lib/routineStepSchedule';
 import { parseRoutineTransfer, replaceRoutineKeepingIdentity } from './lib/routineImport';
-import { describeRepeat, isTaskSeries, nextOccurrence, occurrenceExists, shiftSeries, shortDayLabel } from './lib/recurrence';
+import { describeRepeat, isTaskSeries, nextOccurrence, occurrenceExists, shiftSeries, shortDayLabel, skippedOccurrences } from './lib/recurrence';
 import type { RoutineLog, RoutineStep } from './types';
 import { TaskIcon } from './lib/icons';
 import { CategoryBadge, TaskVisual } from './components/VisualIdentity';
@@ -71,6 +71,14 @@ function seriesMoveHint(routine: Routine | undefined, date: string, time: string
 
 function H({ children }: { children: React.ReactNode }) { return <span className="heading-spark">{children}</span>; }
 
+/** Odhaczenie kroku, ukończenie albo przeniesienie usuniętego wystąpienia przywraca je do planu. */
+function unskipped(log: RoutineLog): RoutineLog {
+  if (!log.skipped) return log;
+  const restored = { ...log };
+  delete restored.skipped;
+  return restored;
+}
+
 function App() {
   const [data, setData] = useAppData();
   const routineImportRef = useRef<HTMLInputElement>(null);
@@ -87,6 +95,12 @@ function App() {
   const [search, setSearch] = useState('');
   const [taskFilter, setTaskFilter] = useState<'all' | 'today' | 'completed'>('all');
   const [toast, setToast] = useState('');
+  /** Akcja przypięta do konkretnego komunikatu — znika, gdy pojawi się inny. */
+  const [toastAction, setToastAction] = useState<{ message: string; label: string; run: () => void } | null>(null);
+  const showToast = (message: string, action?: { label: string; run: () => void }) => {
+    setToast(message);
+    setToastAction(action ? { message, ...action } : null);
+  };
   const [mobileNav, setMobileNav] = useState(false);
   const [mobileMore, setMobileMore] = useState(false);
   const [reminderBanner, setReminderBanner] = useState<NotificationFeedItem | null>(null);
@@ -280,9 +294,10 @@ function App() {
 
   useEffect(() => {
     if (!toast) return;
-    const timeout = window.setTimeout(() => setToast(''), 3600);
+    // Komunikat z przyciskiem (np. „Cofnij”) wisi dłużej, żeby zdążyć go użyć.
+    const timeout = window.setTimeout(() => setToast(''), toastAction?.message === toast ? 7000 : 3600);
     return () => window.clearTimeout(timeout);
-  }, [toast]);
+  }, [toast, toastAction]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -489,7 +504,7 @@ function App() {
     if (!routine) return;
     const activeSteps = routineStepsOnDate(routine.steps, displayDate);
     if (!activeSteps.some(step => step.id === stepId)) return;
-    updateRoutineLog(id,date,log=>({...log,checkedStepIds:toggleRoutineStepBranch(activeSteps, log.checkedStepIds, stepId)}));
+    updateRoutineLog(id,date,log=>({...unskipped(log),checkedStepIds:toggleRoutineStepBranch(activeSteps, log.checkedStepIds, stepId)}));
   }
   function changeRoutineSteps(id: string, steps: RoutineStep[]) {
     setData(prev => ({
@@ -506,7 +521,7 @@ function App() {
     const log=logFor(id,date);
     const activeSteps = routineStepsOnDate(routine.steps, displayDate);
     if (log.completed || activeSteps.length === 0 || activeSteps.some(s=>!log.checkedStepIds.includes(s.id))) return;
-    updateRoutineLog(id,date,l=>({...l,completed:true,completedAt:new Date().toISOString()}));
+    updateRoutineLog(id,date,l=>({...unskipped(l),completed:true,completedAt:new Date().toISOString()}));
     setRoutineDialog(null);
     setToast(`Rutyna zakończona! +${occurrenceXp(routine, data.routineLogs, date)} XP`);
   }
@@ -519,7 +534,7 @@ function App() {
       let routineLogs = prev.routineLogs;
       if (setDone) {
         const key = `${routine.id}:${setDone.sourceDate}`;
-        const log = prev.routineLogs[key] ?? emptyLog(key);
+        const log = unskipped(prev.routineLogs[key] ?? emptyLog(key));
         if (log.completed !== setDone.done) {
           routineLogs = { ...prev.routineLogs, [key]: setDone.done
             ? { ...log, completed: true, completedAt: new Date().toISOString() }
@@ -546,15 +561,34 @@ function App() {
     const done = logFor(routineId, sourceDate).completed;
     updateRoutineLog(routineId, sourceDate, log => done
       ? { ...log, completed: false, completedAt: undefined }
-      : { ...log, completed: true, completedAt: new Date().toISOString() });
+      : { ...unskipped(log), completed: true, completedAt: new Date().toISOString() });
     setToast(done ? 'Wystąpienie przywrócone do realizacji' : `Świetnie! +${occurrenceXp(routine, data.routineLogs, sourceDate)} XP za „${routine.title}”`);
   }
   function skipOccurrence(routineId: string, sourceDate: string) {
+    const routine = data.routines.find(r => r.id === routineId);
+    if (!routine) return;
     const key = `${routineId}:${sourceDate}`;
-    // Pusty log z flagą „skipped”: bez XP i bez wcześniejszych wyjątków terminu.
+    const previous = data.routineLogs[key];
+    // Pusty log z flagą „skipped”: bez XP i bez wcześniejszych wyjątków terminu. „Cofnij” przywraca poprzedni stan.
     setData(prev => ({ ...prev, routineLogs: { ...prev.routineLogs, [key]: { id: key, checkedStepIds: [], completed: false, skipped: true } } }));
     setTaskDialog(null);
-    setToast('Usunięto to wystąpienie — reszta serii bez zmian');
+    setRoutineDialog(null);
+    showToast(`Usunięto „${routine.title}” (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)}) — reszta ${isTaskSeries(routine) ? 'serii' : 'rutyny'} bez zmian`,
+      { label: 'Cofnij', run: () => restoreOccurrence(routineId, sourceDate, previous) });
+  }
+  /** Przywraca usunięte wystąpienie: z „Cofnij” dokładnie poprzedni stan, z listy usuniętych — termin z harmonogramu. */
+  function restoreOccurrence(routineId: string, sourceDate: string, previous?: RoutineLog) {
+    const routine = data.routines.find(r => r.id === routineId);
+    if (!routine) return;
+    const key = `${routineId}:${sourceDate}`;
+    setData(prev => {
+      if (!prev.routines.some(r => r.id === routineId)) return prev;
+      const routineLogs = { ...prev.routineLogs };
+      if (previous && !previous.skipped) routineLogs[key] = previous;
+      else if (routineLogs[key]?.skipped) delete routineLogs[key];
+      return { ...prev, routineLogs };
+    });
+    showToast(`„${routine.title}” wraca do planu (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)})`);
   }
   function endSeries(routineId: string, fromSourceDate: string) {
     const routine = data.routines.find(r => r.id === routineId);
@@ -580,7 +614,7 @@ function App() {
   }
   function seriesOccurrence(routine: Routine, sourceDate: string): SeriesOccurrence {
     const log: RoutineLog | undefined = data.routineLogs[`${routine.id}:${sourceDate}`];
-    return { sourceDate, date: log?.dateOverride ?? sourceDate, time: log?.timeOverride ?? routine.time, done: Boolean(log?.completed) };
+    return { sourceDate, date: log?.dateOverride ?? sourceDate, time: log?.timeOverride ?? routine.time, done: Boolean(log?.completed), ...(log?.skipped ? { skipped: true } : {}) };
   }
   const openSeries = (routineId: string, occurrenceDate?: string) => { setRoutineDialog(null); setTaskDialog({ seriesId: routineId, occurrenceDate }); };
   function resizeBlock(block: CalendarBlock, nextDuration: number) {
@@ -639,7 +673,7 @@ function App() {
     setData(prev => {
       const template = prev.routines.find(r => r.id === routineId);
       if (!template) return prev;
-      const updated = { ...(prev.routineLogs[key] ?? emptyLog(key)) };
+      const updated = unskipped({ ...(prev.routineLogs[key] ?? emptyLog(key)) });
       delete updated.dateOverride;
       delete updated.timeOverride;
       if (date !== sourceDate) updated.dateOverride = date;
@@ -834,12 +868,16 @@ function App() {
         onMoveTask={moveTaskTo}
         onMoveOccurrence={series ? (sourceDate, date, time) => moveOccurrence(series.id, sourceDate, date, time) : undefined}
         otherTimesOn={series && taskDialog.occurrenceDate ? otherOccurrenceTimes(series.id, taskDialog.occurrenceDate) : undefined}
+        skippedDates={series ? skippedOccurrences(series, data.routineLogs, today) : undefined}
+        onRestoreOccurrence={series ? sourceDate => restoreOccurrence(series.id, sourceDate) : undefined}
         onClose={()=>setTaskDialog(null)}/>;
     })()}
     {routineDialog&&(()=>{const r=data.routines.find(x=>x.id===routineDialog.id);const occurrenceDate=routineDialog.occurrenceDate ?? routineDialog.date;return r?<RoutineSession routine={r} date={routineDialog.date} log={logFor(r.id,occurrenceDate)} xp={occurrenceXp(r,data.routineLogs,occurrenceDate)} duration={logFor(r.id,occurrenceDate).durationOverride ?? r.duration} displayTime={logFor(r.id,occurrenceDate).timeOverride ?? r.time} categoryColor={(categories[r.category] ?? categories.unpaid).color} categories={categories} onToggleStep={step=>toggleRoutineStep(r.id,occurrenceDate,step,routineDialog.date)} onChangeSteps={steps=>changeRoutineSteps(r.id,steps)} onComplete={()=>completeRoutine(r.id,occurrenceDate,routineDialog.date)} onUndo={()=>updateRoutineLog(r.id,occurrenceDate,l=>({...l,completed:false,completedAt:undefined}))} onEdit={()=>{setEditorDialog({id:r.id});setRoutineDialog(null);}} onDelete={()=>deleteRoutine(r.id)}
       sourceDate={occurrenceDate} otherTimesOn={otherOccurrenceTimes(r.id,occurrenceDate)} onMove={(date,time)=>moveOccurrence(r.id,occurrenceDate,date,time)}
+      onSkip={()=>skipOccurrence(r.id,occurrenceDate)} onRestore={()=>restoreOccurrence(r.id,occurrenceDate)}
       onClose={()=>setRoutineDialog(null)}/>:null;})()}
-    {editorDialog&&<RoutineEditor routine={editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined} categories={categories} defaultReminders={reminders.settings.routineDefaults} notificationsEnabled={notificationsActive} onEnableNotifications={enableNotifications} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}/>}
+    {editorDialog&&(()=>{const edited=editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined;return <RoutineEditor routine={edited} categories={categories} defaultReminders={reminders.settings.routineDefaults} notificationsEnabled={notificationsActive} onEnableNotifications={enableNotifications} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}
+      skippedDates={edited?skippedOccurrences(edited,data.routineLogs,today):[]} onRestoreOccurrence={edited?sourceDate=>restoreOccurrence(edited.id,sourceDate):undefined}/>;})()}
     {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Ustawienia</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><NotificationSettingsPanel api={reminders} push={push} data={data} onChange={settings=>setData(prev=>({...prev,notifications:settings}))} onApplyDefaults={applyDefaultReminders}/><div className="settings-divider"/><CloudSyncPanel api={cloudSync} data={data}/><div className="settings-divider"/><DataBackup data={data}/><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){void eraseStoredData().then(()=>window.location.reload()).catch(()=>window.alert('Nie udało się zresetować danych. Spróbuj ponownie.'));}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>{getOfflineDatabaseStatus() === 'ready' ? 'Dane lokalne: IndexedDB + kopia zgodności. Zapisuj backup JSON poza telefonem.' : 'Zapis lokalny: localStorage. IndexedDB niedostępne — zrób backup JSON.'}</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
     {weeklyNudge && <div className="wr-notice" role="dialog" aria-label="Tygodniowe podsumowanie">
       <span className="wr-notice-icon"><Trophy size={22}/></span>
@@ -853,7 +891,7 @@ function App() {
     {activeAchievement&&<AchievementPopup achievement={activeAchievement} onClose={()=>setActiveAchievement(null)}/>}
     {reminderBanner&&<ReminderBanner item={reminderBanner} series={isTaskSeries(data.routines.find(r=>r.id===reminderBanner.sourceId))} onClose={closeReminderBanner} onOpen={()=>{reminders.markRead(reminderBanner.id);openNotificationItem(reminderBanner);setReminderBanner(null);}}/>}
     {!settingsOpen&&<CloudSyncBanner api={cloudSync} onResolve={openCloudSyncSettings}/>}
-    {toast&&<div className="toast" role="status"><span><Sparkles size={17}/></span>{toast}<button onClick={()=>setToast('')} aria-label="Zamknij"><X size={15}/></button></div>}
+    {toast&&<div className="toast" role="status"><span><Sparkles size={17}/></span>{toast}{toastAction?.message===toast&&<button type="button" className="toast-action" onClick={()=>{const action=toastAction;setToast('');setToastAction(null);action.run();}}>{toastAction.label}</button>}<button onClick={()=>setToast('')} aria-label="Zamknij"><X size={15}/></button></div>}
     {mobileMore && <>
       <button className="mobile-more-scrim" type="button" aria-label="Zamknij dodatkowe menu" onClick={()=>setMobileMore(false)} />
       <nav className="mobile-more-sheet" aria-label="Pozostałe moduły Momentum">
