@@ -22,6 +22,10 @@ export interface Task {
   time: string | null; // HH:mm; null = bez godziny
   duration: number;
   done: boolean;
+  /**
+   * Pamiątka po ręcznie ustawianym XP. Aplikacja liczy XP sama (lib/xp.ts) i tego pola nie czyta;
+   * zapisuje w nim wartość z klucza tylko dla zgodności ze starszymi wersjami i kopiami JSON.
+   */
   xp: number;
   createdAt: string;
   projectId?: string | null;
@@ -70,6 +74,7 @@ export interface Routine {
   duration: number;
   weekdays: number[]; // 0 = niedziela ... 6 = sobota
   steps: RoutineStep[];
+  /** Jak w zadaniu: wartość tylko dla zgodności — XP rutyny liczy lib/xp.ts (czas, kategoria, kroki, regularność). */
   xp: number;
   active: boolean;
   /** Przypomnienia dla każdego wystąpienia, w minutach przed godziną rutyny. */
@@ -145,5 +150,4 @@ export interface TaskPreset {
   icon: IconKey;
   category: CategoryKey;
   duration: number;
-  xp: number;
 }

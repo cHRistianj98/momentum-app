@@ -29,6 +29,8 @@ function nextScheduledDay(routine: Routine, today: string): number | null {
 interface Props {
   routine: Routine;
   log: RoutineLog;
+  /** XP za dzisiejsze wystąpienie (liczy aplikacja: czas, kategoria, kroki i regularność). */
+  xp: number;
   /** Kroki zaplanowane na dziś (część kroków może mieć własny harmonogram). */
   stepsToday: number;
   checkedToday: number;
@@ -37,7 +39,7 @@ interface Props {
   onOpen: () => void;
 }
 
-export function RoutineCard({ routine, log, stepsToday, checkedToday, occursToday, categories, onOpen }: Props) {
+export function RoutineCard({ routine, log, xp, stepsToday, checkedToday, occursToday, categories, onOpen }: Props) {
   const today = todayKey();
   const todayDow = parseDate(today).getDay();
   const style = categories[routine.category] ?? categories.unpaid;
@@ -45,7 +47,7 @@ export function RoutineCard({ routine, log, stepsToday, checkedToday, occursToda
   const percent = state === 'done' ? 100 : stepsToday ? Math.round(checkedToday / stepsToday * 100) : 0;
   const nextDay = nextScheduledDay(routine, today);
   const frequency = routine.weekdays.length === 7 ? 'Codziennie' : routine.weekdays.length === 0 ? 'Bez harmonogramu' : `${routine.weekdays.length}× w tygodniu`;
-  const status = state === 'done' ? <><Check size={14} strokeWidth={3}/> Ukończona dziś · +{routine.xp} XP</>
+  const status = state === 'done' ? <><Check size={14} strokeWidth={3}/> Ukończona dziś · +{xp} XP</>
     : state === 'progress' ? <><Play size={12} fill="currentColor"/> W trakcie · {checkedToday}/{stepsToday}</>
     : state === 'todo' ? <><Sparkles size={13}/> Dziś · {stepsLabel(stepsToday)}</>
     : <><CalendarOff size={13}/> Dziś wolne{nextDay !== null ? ` · następna: ${DAY_NAMES[nextDay]}` : ''}</>;
@@ -65,7 +67,7 @@ export function RoutineCard({ routine, log, stepsToday, checkedToday, occursToda
     </span>
     <span className="rcard-chips">
       <span><Clock3 size={13}/> {routine.time} · {formatDuration(routine.duration)}</span>
-      <span><Zap size={13}/> +{routine.xp} XP</span>
+      <span><Zap size={13}/> +{xp} XP</span>
       <CategoryBadge category={routine.category} categories={categories} compact/>
     </span>
     <span className="rcard-days" aria-label={`Dni: ${routine.weekdays.length === 7 ? 'codziennie' : WEEK_ORDER.filter(day => routine.weekdays.includes(day)).map(day => DAY_LABELS[day]).join(', ')}`}>

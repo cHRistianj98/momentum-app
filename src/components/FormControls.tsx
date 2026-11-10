@@ -110,12 +110,10 @@ export function DurationPicker({ value, onChange }: { value: number; onChange: (
   </>;
 }
 
-export function XpStepper({ value, onChange, label = 'Nagroda XP' }: { value: number; onChange: (xp: number) => void; label?: string }) {
-  const normalize = (n: number) => Math.max(0, Math.min(500, Math.round(n)));
-  return <div className="momentum-xp-stepper">
-    <button type="button" aria-label="Odejmij 5 XP" disabled={value <= 0} onClick={() => onChange(normalize(value-5))}><Minus size={15}/></button>
-    <div className="momentum-xp-input"><Sparkles size={15}/><input aria-label={label} type="text" inputMode="numeric" pattern="[0-9]*" value={value}
-      onChange={e => { if (/^\d*$/.test(e.target.value)) onChange(normalize(Number(e.target.value || '0'))); }}/></div>
-    <button type="button" aria-label="Dodaj 5 XP" disabled={value >= 500} onClick={() => onChange(normalize(value+5))}><Plus size={15}/></button>
+/** XP liczone przez aplikację według stałego klucza (lib/xp.ts) — tylko do odczytu, z krótkim wyjaśnieniem. */
+export function XpPreview({ xp, hint, label = 'Nagroda XP' }: { xp: number; hint: string; label?: string }) {
+  return <div className="momentum-xp-preview" role="status" aria-label={`${label}: ${xp} XP. ${hint}`}>
+    <span className="momentum-xp-preview-value"><Sparkles size={15}/> +{xp} XP</span>
+    <small>{hint}</small>
   </div>;
 }

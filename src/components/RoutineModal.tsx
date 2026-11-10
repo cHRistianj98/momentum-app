@@ -5,7 +5,7 @@ import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
 import { PhotoPicker } from './PhotoPicker';
 import { PHOTO_OPTIONS } from '../lib/photos';
-import { TimePicker, DurationPicker, XpStepper } from './FormControls';
+import { TimePicker, DurationPicker, XpPreview } from './FormControls';
 import { CategoryChoices } from './CategoryChoices';
 import { ReminderPicker } from './ReminderPicker';
 import { MoveOccurrenceModal, OccurrenceBar } from './MoveOccurrenceModal';
@@ -14,12 +14,15 @@ import { orderRoutineSteps, placeRoutineStep, unnestRoutineStep } from '../lib/r
 import { useRoutineStepDrag } from '../lib/useRoutineStepDrag';
 import { normalizeStepWeekdays, routineStepsOnDate, stepWeekdaysLabel } from '../lib/routineStepSchedule';
 import { occursOn } from '../lib/recurrence';
+import { XP_RULES, routineXp } from '../lib/xp';
 import type { CategoryConfig, CategoryKey, IconKey, Routine, RoutineLog, RoutineStep } from '../types';
 
 interface SessionProps {
   routine: Routine;
   date: string;
   log: RoutineLog;
+  /** XP za to wystąpienie — liczy aplikacja (czas, kategoria, kroki, regularność). */
+  xp: number;
   duration: number;
   displayTime: string;
   categoryColor: string;
@@ -40,7 +43,7 @@ interface SessionProps {
   onMove?: (date: string, time: string) => void;
 }
 
-export function RoutineSession({ routine, date, log, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose, sourceDate, otherTimesOn, onMove }: SessionProps) {
+export function RoutineSession({ routine, date, log, xp, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose, sourceDate, otherTimesOn, onMove }: SessionProps) {
   const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, date));
   const completed = visibleSteps.filter(step => log.checkedStepIds.includes(step.id)).length;
   const count = visibleSteps.length;
@@ -85,7 +88,7 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-modal" role="dialog" aria-modal="true" aria-label="Rutyna">
     <div className="routine-session-scroll">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">TWOJA RUTYNA · {fullDate(date)}</span><h2>{routine.title}</h2><CategoryBadge category={routine.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
-    <div className="routine-banner" style={{ '--routine-color': categoryColor } as React.CSSProperties}><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="routine-banner-icon"/><div><strong>{routine.description || 'Małe kroki, wielki progres.'}</strong><span><Clock3 size={14} /> {displayTime} · {formatDuration(duration)} <span className="dot-spacer">·</span> <Flame size={14} /> +{routine.xp} XP</span></div></div>
+    <div className="routine-banner" style={{ '--routine-color': categoryColor } as React.CSSProperties}><TaskVisual icon={routine.icon} image={routine.image} category={routine.category} categories={categories} size="large" className="routine-banner-icon"/><div><strong>{routine.description || 'Małe kroki, wielki progres.'}</strong><span><Clock3 size={14} /> {displayTime} · {formatDuration(duration)} <span className="dot-spacer">·</span> <Flame size={14} /> +{xp} XP</span></div></div>
     {onMove && <OccurrenceBar label="To wystąpienie" date={date} time={displayTime} movedFrom={movedFrom} onMove={() => setMoving(true)}/>}
     <div className="routine-progress-heading"><strong>Twoje kroki</strong><span>{completed}/{count} wykonane</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
     <div className="routine-checklist">
@@ -116,14 +119,14 @@ export function RoutineSession({ routine, date, log, duration, displayTime, cate
         </div>;
       })}
     </div>
-    {log.completed && <div className="completion-message"><span>✦</span><div><strong>Rutyna ukończona!</strong><small>Świetna robota. +{routine.xp} XP zostało uwzględnione w Twoim progresie.</small></div></div>}
+    {log.completed && <div className="completion-message"><span>✦</span><div><strong>Rutyna ukończona!</strong><small>Świetna robota. +{xp} XP zostało uwzględnione w Twoim progresie.</small></div></div>}
     </div>
     <div className="modal-bottom routine-session-actions routine-actions">
       <button type="button" className="routine-actions-icon" onClick={onClose} aria-label="Wróć do kalendarza" title="Wróć do kalendarza"><ArrowLeft size={19}/></button>
       {log.completed
         ? <button type="button" className="btn btn--secondary routine-actions-main" onClick={onUndo}><RotateCcw size={16}/> Cofnij ukończenie</button>
         : <button type="button" disabled={count === 0 || completed !== count} className="btn btn--primary routine-actions-main" onClick={onComplete}>
-          <Check size={17}/> Zakończ rutynę <span className="routine-actions-badge">{count > 0 && completed === count ? `+${routine.xp} XP` : `${completed}/${count}`}</span>
+          <Check size={17}/> Zakończ rutynę <span className="routine-actions-badge">{count > 0 && completed === count ? `+${xp} XP` : `${completed}/${count}`}</span>
         </button>}
       <div className="routine-actions-more-wrap" ref={menuRef}>
         <button type="button" className="routine-actions-icon routine-actions-more" aria-label="Więcej opcji rutyny" title="Więcej opcji"
@@ -160,7 +163,6 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
   const [image, setImage] = useState<string | undefined>(routine?.image);
   const [time, setTime] = useState(routine?.time ?? '07:00');
   const [duration, setDuration] = useState(routine?.duration ?? 30);
-  const [xp, setXp] = useState(routine?.xp ?? 40);
   const [weekdays, setWeekdays] = useState(routine?.weekdays ?? [0,1,2,3,4,5,6]);
   const [reminders, setReminders] = useState<number[]>(() => routine ? [...(routine.reminders ?? [])] : [...defaultReminders]);
   const [steps, setSteps] = useState<RoutineStep[]>(routine?.steps ?? [{ id: crypto.randomUUID(), title: '' }]);
@@ -187,10 +189,13 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [scheduleStepId]);
+  // XP rutyny liczy aplikacja: czas × kategoria jak w zadaniach + 1 XP za krok; premia za regularność dochodzi przy wykonaniu.
+  const namedSteps = steps.filter(s => s.title.trim()).length;
+  const baseXp = routineXp(category, duration, namedSteps, 0);
   function save() {
     const validSteps = orderRoutineSteps(steps.filter(s => s.title.trim()).map(s => ({ ...s, title: s.title.trim() })));
     if (!title.trim() || !validSteps.length || !weekdays.length) return;
-    onSave({ id: routine?.id ?? crypto.randomUUID(), title: title.trim(), description: description.trim(), icon, image, category, time, duration, xp, weekdays, steps: validSteps, active: routine?.active ?? true, ...(reminders.length ? { reminders } : {}) });
+    onSave({ id: routine?.id ?? crypto.randomUUID(), title: title.trim(), description: description.trim(), icon, image, category, time, duration, xp: routineXp(category, duration, validSteps.length, 0), weekdays, steps: validSteps, active: routine?.active ?? true, ...(reminders.length ? { reminders } : {}) });
   }
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-editor" role="dialog" aria-modal="true" aria-label="Edytor rutyny">
     <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={icon} image={image} category={category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">BUDUJ DOBRE NAWYKI</span><h2>{routine ? 'Edytuj rutynę' : 'Nowa rutyna'}</h2><CategoryBadge category={category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20}/></button></div>
@@ -236,7 +241,8 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
       {editorHint && <small className="routine-drag-hint" role="status">{editorHint.label}</small>}
       <button type="button" className="link-btn" onClick={()=>setSteps(arr=>[...arr,{id:crypto.randomUUID(),title:''}])}><Plus size={15}/> Dodaj kolejny krok</button>
     </div>
-    <div className="field"><span>XP za całą rutynę</span><XpStepper value={xp} onChange={setXp}/></div></div>
+    <div className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><XpPreview xp={baseXp} label="XP za wykonanie rutyny"
+      hint={`Liczone automatycznie: czas i kategoria jak w zadaniach, +${XP_RULES.routineStep} XP za każdy krok. Za wykonania z rzędu dochodzi do +${XP_RULES.routineStreakCap} XP.`}/></div></div>
     <div className="modal-bottom routine-editor-footer">
       {routine
         ? <button type="button" className="routine-editor-delete" aria-label="Usuń rutynę" title="Usuń rutynę" onClick={()=>{if(window.confirm('Usunąć rutynę i historię jej wykonań?')) onDelete(routine.id);}}><Trash2 size={18}/><span>Usuń</span></button>

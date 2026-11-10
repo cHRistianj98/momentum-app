@@ -10,13 +10,17 @@ interface Props {
   focusMs: number;
   breakMs: number;
   breakElapsedMs: number;
+  /** XP za ukończenie zadania (0, gdy już ukończone). */
+  completionXp: number;
+  /** XP za dotychczasowy czas skupienia w tej sesji. */
+  focusXp: number;
   categories: CategoryConfig;
   onPhase: (phase: FocusPhase, breakMinutes?: number) => void;
   onFinish: (complete: boolean) => void;
   onClose: () => void;
 }
 
-export function FocusMode({ task, session, history, focusMs, breakMs, breakElapsedMs, categories, onPhase, onFinish, onClose }: Props) {
+export function FocusMode({ task, session, history, focusMs, breakMs, breakElapsedMs, completionXp, focusXp, categories, onPhase, onFinish, onClose }: Props) {
   const focusSeconds = Math.floor(focusMs / 1000);
   const plannedSeconds = session.plannedMinutes * 60;
   const progress = plannedSeconds > 0 ? Math.min(100, (focusSeconds / plannedSeconds) * 100) : 0;
@@ -70,8 +74,8 @@ export function FocusMode({ task, session, history, focusMs, breakMs, breakElaps
           <div className="focus-stat"><Zap size={17} /><span>Wcześniej</span><strong>{formatFocusClock(previousSeconds)}</strong></div>
         </div>
         <div className="focus-finish-area">
-          <button className="focus-complete" onClick={() => onFinish(true)}><Check size={19} /> Zakończ zadanie {task && !task.done ? `· +${task.xp} XP` : ''}</button>
-          <button className="focus-save" onClick={() => onFinish(false)}><Square size={15} /> Zapisz czas bez oznaczania zadania</button>
+          <button className="focus-complete" onClick={() => onFinish(true)}><Check size={19} /> Zakończ zadanie {task && completionXp + focusXp > 0 ? `· +${completionXp + focusXp} XP` : ''}</button>
+          <button className="focus-save" onClick={() => onFinish(false)}><Square size={15} /> Zapisz czas bez oznaczania zadania{focusXp > 0 ? ` · +${focusXp} XP` : ''}</button>
         </div>
       </main>
       <footer className="focus-footer">Realny czas jest liczony bez przerw i pozostaje zapisany po odświeżeniu strony.</footer>

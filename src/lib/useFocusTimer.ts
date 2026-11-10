@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { readMomentumKey, saveMomentumKey } from './offlineDatabase';
 import {
-  FOCUS_STORAGE_KEY, changePhase, createFocusSession, finishFocusSession, readFocusStore, snapshot,
+  FOCUS_HISTORY_LIMIT, FOCUS_STORAGE_KEY, changePhase, createFocusSession, finishFocusSession, readFocusStore, snapshot,
   type FocusPhase, type FocusRecord,
 } from './focus';
+import type { CategoryKey } from '../types';
 
 export function useFocusTimer() {
   const [store, setStore] = useState(() => readFocusStore(readMomentumKey(FOCUS_STORAGE_KEY)));
@@ -41,10 +42,10 @@ export function useFocusTimer() {
       : previous);
   }
 
-  function finish(taskCompleted: boolean, xpAwarded: number): FocusRecord | null {
+  function finish(taskCompleted: boolean, xpAwarded: number, category?: CategoryKey): FocusRecord | null {
     if (!store.active) return null;
-    const record = finishFocusSession(store.active, Date.now(), taskCompleted, xpAwarded);
-    setStore(previous => ({ active: null, history: [...previous.history, record].slice(-500) }));
+    const record = finishFocusSession(store.active, Date.now(), taskCompleted, xpAwarded, category);
+    setStore(previous => ({ active: null, history: [...previous.history, record].slice(-FOCUS_HISTORY_LIMIT) }));
     return record;
   }
 

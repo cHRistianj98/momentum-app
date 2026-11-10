@@ -4,7 +4,7 @@ import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
 import { DatePicker } from './DatePicker';
-import { TimePicker, DurationPicker, XpStepper } from './FormControls';
+import { TimePicker, DurationPicker, XpPreview } from './FormControls';
 import { PhotoPicker } from './PhotoPicker';
 import { PHOTO_OPTIONS } from '../lib/photos';
 import { CategoryChoices } from './CategoryChoices';
@@ -13,6 +13,7 @@ import { MoveOccurrenceModal, OccurrenceBar } from './MoveOccurrenceModal';
 import { TASK_PRESETS } from '../lib/seed';
 import { ALL_WEEKDAYS, WEEKDAYS_FROM_MONDAY, describeRepeat, shortDayLabel } from '../lib/recurrence';
 import { fullDate, parseDate, shiftDate, todayKey } from '../lib/date';
+import { XP_RULES, taskXp } from '../lib/xp';
 import type { CategoryConfig, Project, RepeatUnit, Routine, Task } from '../types';
 import { newSubtask } from '../lib/projects';
 
@@ -70,7 +71,7 @@ interface Props {
 
 const EMPTY: Omit<Task, 'id' | 'createdAt'> = {
   title: '', description: '', category: 'potential', icon: 'target',
-  image: undefined, date: null, time: null, duration: 45, done: false, xp: 40,
+  image: undefined, date: null, time: null, duration: 45, done: false, xp: 0,
 };
 
 type RepeatMode = 'none' | RepeatUnit;
@@ -213,7 +214,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
     const reminders = form.reminders?.length ? [...form.reminders] : undefined;
     const done = doneOverride ?? form.done;
     if (repeat.every === 'none') {
-      onSave({ ...form, reminders, done, title: form.title.trim(), duration: Math.max(15, Number(form.duration)), xp: Math.max(0, Number(form.xp)), id: task?.id ?? crypto.randomUUID(), createdAt: task?.createdAt ?? new Date().toISOString() });
+      onSave({ ...form, reminders, done, title: form.title.trim(), duration: Math.max(15, Number(form.duration)), xp: taskXp(Math.max(15, Number(form.duration)), form.category), id: task?.id ?? crypto.randomUUID(), createdAt: task?.createdAt ?? new Date().toISOString() });
       return;
     }
     const routine: Routine = {
@@ -227,7 +228,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
       category: form.category,
       time: form.time ?? nextFullHour(),
       duration: Math.max(15, Number(form.duration)),
-      xp: Math.max(0, Number(form.xp)),
+      xp: taskXp(Math.max(15, Number(form.duration)), form.category),
       weekdays: seriesWeekdays,
       steps: series?.steps ?? [],
       active: series?.active ?? true,
@@ -264,7 +265,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
       <div className="modal task-modal" role="dialog" aria-modal="true" aria-label={heading}>
         <div className="task-modal-scroll">
         <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={form.icon} image={form.image} category={form.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">{series ? <><Repeat2 size={12}/> {occurrence ? fullDate(occurrence.date).toLocaleUpperCase('pl-PL') : 'CAŁA SERIA'}</> : 'TWOJE ZADANIA'}</span><h2>{heading}</h2><CategoryBadge category={form.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
-        {!task && !series && <div className="presets"><span>Dodaj szybko:</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration, xp: p.xp }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
+        {!task && !series && <div className="presets"><span>Dodaj szybko:</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
         <div className="modal-fields">
           {series && occurrence && onMoveOccurrence && <OccurrenceBar label="To wystąpienie" date={occurrence.date} time={occurrence.time}
             movedFrom={movedOccurrence ? { date: occurrence.sourceDate, time: series.time } : null} note="Pola poniżej zmieniają całą serię." onMove={() => setMoving(true)}/>}
@@ -309,7 +310,8 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
           <ReminderPicker value={form.reminders ?? []} onChange={reminders => change('reminders', reminders)} time={form.time}
             inactiveHint={!recurring && (!form.date || !form.time) ? 'Przypomnienia zaczną działać po ustawieniu daty i godziny.' : undefined}
             systemEnabled={notificationsEnabled} onEnableSystem={onEnableNotifications}/>
-          <div className="two-fields"><div className="field"><span>Czas trwania <Clock3 size={13} /></span><DurationPicker value={form.duration} onChange={duration => change('duration',duration)}/></div><div className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><XpStepper value={form.xp} onChange={xp => change('xp',xp)}/></div></div>
+          <div className="two-fields"><div className="field"><span>Czas trwania <Clock3 size={13} /></span><DurationPicker value={form.duration} onChange={duration => change('duration',duration)}/></div><div className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><XpPreview xp={taskXp(form.duration, form.category)} label="XP za ukończenie"
+            hint={`Liczone automatycznie: ${String(XP_RULES.taskPer15[form.category]).replace('.', ',')} XP za każde 15 min (${categories[form.category]?.label ?? 'kategoria'}) + ${XP_RULES.completion} za ukończenie; czas ponad 2 h liczy się w połowie. Focus Mode doda premię za realny czas pracy.`}/></div></div>
           <div className="field">
             <span>Ikona i zdjęcie</span>
             <div className="image-icon-row">

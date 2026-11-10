@@ -6,6 +6,7 @@ import { formatFocusClock, type FocusRecord } from '../lib/focus';
 import { buildDailyReality, summarizeReality } from '../lib/planReality';
 import { resolveCategories } from '../lib/storage';
 import { ACHIEVEMENT_GROUPS, RANKS, type AchievementGroup, type AchievementView, type RankView } from '../lib/progression';
+import { XP_RULES, sumXp, type LevelInfo, type XpEntry } from '../lib/xp';
 import type { AppData, CategoryKey } from '../types';
 
 const CATEGORY_KEYS: CategoryKey[] = ['unpaid', 'potential', 'income'];
@@ -17,8 +18,9 @@ type DayStat = { count: number; minutes: number };
 interface Props {
   data: AppData;
   totalXp: number;
-  currentLevel: number;
-  levelXp: number;
+  level: LevelInfo;
+  /** Wszystkie zdobyte punkty (lib/xp.ts) — do podziału XP z ostatnich dni. */
+  xpLedger: XpEntry[];
   streak: number;
   achievements: AchievementView[];
   rank: RankView;
@@ -109,7 +111,7 @@ function Delta({ current, previous }: { current: number; previous: number }) {
   return <span className={`ins-delta ${change > 0 ? 'is-up' : 'is-down'}`}>{change > 0 ? <TrendingUp size={12}/> : <TrendingDown size={12}/>} {change > 0 ? '+' : ''}{change}%</span>;
 }
 
-export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, achievements, rank, nextRank, focusHistory }: Props) {
+export function InsightsView({ data, totalXp, level, xpLedger, streak, achievements, rank, nextRank, focusHistory }: Props) {
   const [chartView, setChartView] = useState<'week' | 'month'>('week');
   const [achievementFilter, setAchievementFilter] = useState<'all' | 'earned' | 'locked'>('all');
   const [expandedGroups, setExpandedGroups] = useState<AchievementGroup[]>([]);
@@ -161,7 +163,6 @@ export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, ach
     return `${categories[key].color} ${start}% ${cumulative}%`;
   });
 
-  const xpIntoLevel = totalXp % levelXp;
   const earned = achievements.filter(item => item.unlocked).length;
   const closest = achievements.filter(item => !item.unlocked)
     .sort((a, b) => b.progress / b.target - a.progress / a.target || a.target - b.target).slice(0, 3);
@@ -175,18 +176,22 @@ export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, ach
   const focusSeconds = focusHistory.reduce((sum, record) => sum + record.focusSeconds, 0);
   const rankProgress = nextRank ? Math.max(0, Math.min(1, (totalXp - rank.minXp) / Math.max(1, nextRank.minXp - rank.minXp))) : 1;
   const RankIcon = rank.icon;
+  // Skąd pochodziło XP w ostatnich 7 dniach (wpisy bez daty — zadania z Inboxu — pomijamy).
+  const recentXp = (kinds: XpEntry['kind'][]) => sumXp(xpLedger, entry => kinds.includes(entry.kind) && !!entry.date && entry.date >= last7Start && entry.date <= today);
+  const xpRecent = { tasks: recentXp(['task', 'series']), routines: recentXp(['routine']), focus: recentXp(['focus']) };
+  const rate = (value: number) => String(value).replace('.', ',');
 
   return <div className="ins-page">
     <section className="ins-hero" style={{ '--rank-accent': rank.accent, '--rank-tint': rank.tint } as React.CSSProperties}>
       <img className="ins-hero-art" src={rank.art} alt="" aria-hidden="true"/>
       <div className="ins-hero-top">
-        <Ring value={xpIntoLevel / levelXp} className="ins-hero-ring">
-          <small>POZIOM</small><strong>{currentLevel}</strong><span>{xpIntoLevel}/{levelXp} XP</span>
+        <Ring value={level.progress} className="ins-hero-ring">
+          <small>POZIOM</small><strong>{level.level}</strong><span>{level.into.toLocaleString('pl-PL')}/{level.size.toLocaleString('pl-PL')} XP</span>
         </Ring>
         <div className="ins-hero-copy">
           <span className="ins-hero-eyebrow"><RankIcon size={13}/> TWOJA RANGA</span>
           <h2>{rank.title}</h2>
-          <p><strong>{totalXp.toLocaleString('pl-PL')} XP</strong> łącznie · {levelXp - xpIntoLevel} XP do poziomu {currentLevel + 1}</p>
+          <p><strong>{totalXp.toLocaleString('pl-PL')} XP</strong> łącznie · {level.toNext.toLocaleString('pl-PL')} XP do poziomu {level.level + 1}</p>
         </div>
       </div>
       <div className="ins-hero-rank">
@@ -198,6 +203,15 @@ export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, ach
         <span><Award size={14}/> {earned}/{achievements.length} odznak</span>
         <span><CheckCircle2 size={14}/> {stats.completed} ukończonych</span>
       </div>
+      <details className="ins-xp-key">
+        <summary><Zap size={14}/> Jak liczymy XP? <small>7 dni: zadania +{xpRecent.tasks} · rutyny +{xpRecent.routines} · Focus +{xpRecent.focus}</small></summary>
+        <ul>
+          <li><b>Zadania</b> — za każde 15 min: {CATEGORY_KEYS.slice().reverse().map(key => `${categories[key].label} ${rate(XP_RULES.taskPer15[key])}`).join(' · ')} XP, do tego +{XP_RULES.completion} za ukończenie. Czas ponad 2 h liczy się w połowie, ponad 4 h już nie.</li>
+          <li><b>Focus Mode</b> — połowa tej stawki za każde 15 min realnego skupienia (do 4 h na sesję), także bez kończenia zadania.</li>
+          <li><b>Rutyny</b> — czas jak w zadaniach, +{XP_RULES.routineStep} XP za każdy krok i do +{XP_RULES.routineStreakCap} XP za wykonania z rzędu.</li>
+        </ul>
+        <p>XP przyznaje aplikacja i przelicza je z całej historii. Kolejne poziomy wymagają coraz więcej punktów, a najwyższa ranga i największe odznaki to efekt ponad roku regularnej pracy.</p>
+      </details>
     </section>
 
     <div className="ins-tiles">
@@ -332,7 +346,7 @@ export function InsightsView({ data, totalXp, currentLevel, levelXp, streak, ach
       <div className="ins-rank-path" aria-label="Ścieżka rang">{RANKS.map(item => {
         const Icon = item.icon;
         const state = item.id === rank.id ? 'is-current' : totalXp >= item.minXp ? 'is-earned' : '';
-        return <span key={item.id} className={`ins-rank-step ${state}`} style={{ '--rank-accent': item.accent } as React.CSSProperties} title={`${item.title} · od ${item.minXp} XP`}>
+        return <span key={item.id} className={`ins-rank-step ${state}`} style={{ '--rank-accent': item.accent } as React.CSSProperties} title={`${item.title} · od ${item.minXp.toLocaleString('pl-PL')} XP`}>
           <i><Icon size={14}/></i><small>{item.title}</small>
         </span>;
       })}</div>

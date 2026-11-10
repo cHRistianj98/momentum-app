@@ -14,7 +14,7 @@ import type { FocusRecord } from './focus';
 import { dateKey, mondayOf, parseDate, shiftDate, todayKey } from './date';
 import { daysBetween, isDateKey, isTaskSeries, occursOn } from './recurrence';
 
-/** Rangi, poziomy i osiągnięcia liczone wyłącznie z ukończonych zadań i rutyn. */
+/** Rangi i osiągnięcia liczone z ukończonych zadań, rutyn i sesji Focus (klucz XP — xp.ts). */
 export type AchievementGroup = 'tasks' | 'consistency' | 'time' | 'planning' | 'routines' | 'money' | 'projects' | 'focus' | 'xp';
 
 /** Kolejność i nazwy grup w Statystykach. */
@@ -56,12 +56,16 @@ export type RankView = {
   art: string;
 };
 
+/**
+ * Rangi według łącznego XP (klucz w xp.ts). Przy regularnym korzystaniu: druga ranga po ok. tygodniu,
+ * trzecia po ok. miesiącu, czwarta po ok. pół roku, najwyższa po ponad roku.
+ */
 export const RANKS: RankView[] = [
   { id: 'spark', title: 'Iskra Startu', subtitle: 'Zaczynasz świadomie planować swój czas.', minXp: 0, accent: '#7f72ff', tint: '#f0edff', icon: Sparkles, art: '/assets/progression/rank-spark.svg' },
-  { id: 'builder', title: 'Budowniczy Nawyków', subtitle: 'Tworzysz solidne fundamenty codziennej regularności.', minXp: 500, accent: '#3aa0ff', tint: '#edf6ff', icon: ShieldCheck, art: '/assets/progression/rank-builder.svg' },
-  { id: 'pilot', title: 'Pilot Progresu', subtitle: 'Sterujesz tygodniem z coraz większą pewnością.', minXp: 1200, accent: '#ff8a57', tint: '#fff3ec', icon: Rocket, art: '/assets/progression/rank-pilot.svg' },
-  { id: 'master', title: 'Mistrz Momentum', subtitle: 'Systematyczność zaczyna naprawdę procentować.', minXp: 2500, accent: '#26b274', tint: '#ecfaf3', icon: Crown, art: '/assets/progression/rank-master.svg' },
-  { id: 'legend', title: 'Legenda Momentum', subtitle: 'Twoje dni działają jak dopracowany system.', minXp: 5000, accent: '#f3b23c', tint: '#fff8e8', icon: Gem, art: '/assets/progression/rank-legend.svg' },
+  { id: 'builder', title: 'Budowniczy Nawyków', subtitle: 'Tworzysz solidne fundamenty codziennej regularności.', minXp: 1000, accent: '#3aa0ff', tint: '#edf6ff', icon: ShieldCheck, art: '/assets/progression/rank-builder.svg' },
+  { id: 'pilot', title: 'Pilot Progresu', subtitle: 'Sterujesz tygodniem z coraz większą pewnością.', minXp: 5000, accent: '#ff8a57', tint: '#fff3ec', icon: Rocket, art: '/assets/progression/rank-pilot.svg' },
+  { id: 'master', title: 'Mistrz Momentum', subtitle: 'Systematyczność zaczyna naprawdę procentować.', minXp: 20000, accent: '#26b274', tint: '#ecfaf3', icon: Crown, art: '/assets/progression/rank-master.svg' },
+  { id: 'legend', title: 'Legenda Momentum', subtitle: 'Twoje dni działają jak dopracowany system.', minXp: 60000, accent: '#f3b23c', tint: '#fff8e8', icon: Gem, art: '/assets/progression/rank-legend.svg' },
 ];
 
 export function resolveRank(totalXp: number) {
@@ -147,8 +151,10 @@ type AchievementDefinition = {
 };
 
 /**
- * Katalog 100 odznak. Pierwsze 28 (z wersji 0.4.2) zachowują identyfikatory i zasady,
- * więc zdobyte wcześniej odznaki pozostają zdobyte.
+ * Katalog 100 odznak. Identyfikatory się nie zmieniają, więc zdobyte wcześniej odznaki pozostają zdobyte;
+ * liczba w identyfikatorze to historyczny próg i nie musi już odpowiadać `target`.
+ * Progi skalibrowano symulacją dwóch lat korzystania: przy regularnym używaniu najmniejsze odznaki
+ * w grupie wpadają w 1. dniu, tygodniu albo miesiącu, a najwyższe dopiero po ponad roku.
  */
 export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   // Zadania (16)
@@ -157,12 +163,12 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   { id: 'tasks-25', group: 'tasks', title: 'Maszyna do działania', description: 'Ukończ 25 zadań.', reward: 'Systematyczność', target: 25, metric: 'completedTasks', icon: ShieldCheck, accent: '#5d8ef7', tint: '#edf3ff' },
   { id: 'tasks-50', group: 'tasks', title: 'Pół setki', description: 'Ukończ 50 zadań.', reward: 'Rozpęd', target: 50, metric: 'completedTasks', icon: ListChecks, accent: '#6c7cf2' },
   { id: 'tasks-100', group: 'tasks', title: 'Setka sukcesów', description: 'Ukończ 100 zadań.', reward: 'Legenda działania', target: 100, metric: 'completedTasks', icon: Trophy, accent: '#d9a535', tint: '#fff8e5' },
-  { id: 'tasks-250', group: 'tasks', title: 'Ćwierć tysiąca', description: 'Ukończ 250 zadań.', reward: 'Stały rytm działania', target: 250, metric: 'completedTasks', icon: ClipboardCheck, accent: '#4f6fe0' },
-  { id: 'tasks-500', group: 'tasks', title: 'Pięćsetka', description: 'Ukończ 500 zadań.', reward: 'Ikona działania', target: 500, metric: 'completedTasks', icon: Medal, accent: '#3f5bd1' },
+  { id: 'tasks-250', group: 'tasks', title: 'Pięćsetka', description: 'Ukończ 500 zadań.', reward: 'Stały rytm działania', target: 500, metric: 'completedTasks', icon: ClipboardCheck, accent: '#4f6fe0' },
+  { id: 'tasks-500', group: 'tasks', title: 'Półtora tysiąca', description: 'Ukończ 1 500 zadań.', reward: 'Ikona działania', target: 1500, metric: 'completedTasks', icon: Medal, accent: '#3f5bd1' },
   { id: 'completions-50', group: 'tasks', title: 'Pięćdziesiąt razy tak', description: 'Ukończ łącznie 50 zadań lub wykonań rutyn.', reward: 'Dobra passa', target: 50, metric: 'completedCount', icon: CheckCheck, accent: '#8a7cf6' },
   { id: 'completions-150', group: 'tasks', title: 'Nie do zatrzymania', description: 'Ukończ 150 zadań lub wykonań rutyn.', reward: 'Wielkie osiągnięcie', target: 150, metric: 'completedCount', icon: Trophy, accent: '#bb86e7', tint: '#f6efff' },
-  { id: 'completions-300', group: 'tasks', title: 'Trzysta kroków', description: 'Ukończ łącznie 300 zadań lub wykonań rutyn.', reward: 'Siła nawyku', target: 300, metric: 'completedCount', icon: BadgeCheck, accent: '#a370ec' },
-  { id: 'completions-500', group: 'tasks', title: 'Szczyt możliwości', description: 'Ukończ łącznie 500 zadań lub wykonań rutyn.', reward: 'Widok ze szczytu', target: 500, metric: 'completedCount', icon: Mountain, accent: '#8656d9' },
+  { id: 'completions-300', group: 'tasks', title: 'Osiemset kroków', description: 'Ukończ łącznie 800 zadań lub wykonań rutyn.', reward: 'Siła nawyku', target: 800, metric: 'completedCount', icon: BadgeCheck, accent: '#a370ec' },
+  { id: 'completions-500', group: 'tasks', title: 'Szczyt możliwości', description: 'Ukończ łącznie 2 000 zadań lub wykonań rutyn.', reward: 'Widok ze szczytu', target: 2000, metric: 'completedCount', icon: Mountain, accent: '#8656d9' },
   { id: 'quick-wins-25', group: 'tasks', title: 'Szybkie zwycięstwa', description: 'Ukończ 25 krótkich zadań (do 15 minut).', reward: 'Lekkość', target: 25, metric: 'quickWins', icon: Timer, accent: '#38a3e8' },
   { id: 'marathon-180', group: 'tasks', title: 'Maraton', description: 'Ukończ zadanie lub rutynę trwającą min. 3 godziny.', reward: 'Wytrzymałość', target: 1, metric: 'marathon', icon: Hourglass, accent: '#e0794c' },
   { id: 'inbox-zero', group: 'tasks', title: 'Pusty Inbox', description: 'Ukończ 10 zadań i opróżnij Inbox (zadania bez daty).', reward: 'Czysta głowa', target: 1, metric: 'inboxZero', icon: Inbox, accent: '#3ab0a2' },
@@ -182,33 +188,33 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   { id: 'active-100', group: 'consistency', title: 'Sto dni działania', description: 'Zrealizuj coś w 100 różnych dniach.', reward: 'Trwały nawyk', target: 100, metric: 'activeDays', icon: CalendarCheck2, accent: '#df8f35' },
   { id: 'active-365', group: 'consistency', title: 'Rok działania', description: 'Zrealizuj coś w 365 różnych dniach.', reward: 'Rok progresu', target: 365, metric: 'activeDays', icon: CalendarHeart, accent: '#cf7a2e' },
   { id: 'weekend-10', group: 'consistency', title: 'Weekendowy rytm', description: 'Ukończ 10 zadań lub rutyn w weekendy.', reward: 'Weekend z głową', target: 10, metric: 'weekendCount', icon: Coffee, accent: '#f2985a' },
-  { id: 'weekend-50', group: 'consistency', title: 'Aktywne weekendy', description: 'Ukończ 50 zadań lub rutyn w weekendy.', reward: 'Wolny czas, dobry czas', target: 50, metric: 'weekendCount', icon: TreePalm, accent: '#e57f45' },
+  { id: 'weekend-50', group: 'consistency', title: 'Aktywne weekendy', description: 'Ukończ 150 zadań lub rutyn w weekendy.', reward: 'Wolny czas, dobry czas', target: 150, metric: 'weekendCount', icon: TreePalm, accent: '#e57f45' },
   { id: 'months-3', group: 'consistency', title: 'Kwartał z Momentum', description: 'Ukończ coś w 3 różnych miesiącach.', reward: 'Długi oddech', target: 3, metric: 'activeMonths', icon: CalendarRange, accent: '#f2b14b' },
   { id: 'months-6', group: 'consistency', title: 'Pół roku progresu', description: 'Ukończ coś w 6 różnych miesiącach.', reward: 'Pory roku', target: 6, metric: 'activeMonths', icon: TreeDeciduous, accent: '#d99a3a' },
   { id: 'comeback', group: 'consistency', title: 'Wielki powrót', description: 'Wróć do działania po co najmniej tygodniu przerwy.', reward: 'Nowy start', target: 1, metric: 'comeback', icon: Undo2, accent: '#f7a26a' },
 
   // Czas działania (12)
   { id: 'focus-180', group: 'time', title: '3 godziny skupienia', description: 'Ukończ łącznie co najmniej 180 minut zaplanowanych bloków.', reward: '+ fokus', target: 180, metric: 'completedMinutes', icon: Target, accent: '#4e97ff', tint: '#edf4ff' },
-  { id: 'focus-600', group: 'time', title: '10 godzin w działaniu', description: 'Ukończ łącznie 10 godzin zadań i rutyn.', reward: 'Skupienie', target: 600, metric: 'completedMinutes', icon: Clock, accent: '#4c8ef5' },
-  { id: 'focus-1200', group: 'time', title: '20 godzin skupienia', description: 'Ukończ 20 godzin zaplanowanego działania.', reward: 'Koncentracja', target: 1200, metric: 'completedMinutes', icon: Focus, accent: '#629eeb', tint: '#eef6ff' },
-  { id: 'focus-3000', group: 'time', title: '50 godzin w działaniu', description: 'Ukończ łącznie 50 godzin zadań i rutyn.', reward: 'Głęboka praca', target: 3000, metric: 'completedMinutes', icon: AlarmClock, accent: '#3d78e0' },
-  { id: 'focus-6000', group: 'time', title: '100 godzin progresu', description: 'Ukończ 100 godzin działania.', reward: 'Długofalowy progres', target: 6000, metric: 'completedMinutes', icon: Clock3, accent: '#467bd9', tint: '#eef3ff' },
-  { id: 'focus-12000', group: 'time', title: '200 godzin w działaniu', description: 'Ukończ łącznie 200 godzin zadań i rutyn.', reward: 'Mistrzostwo czasu', target: 12000, metric: 'completedMinutes', icon: Watch, accent: '#2f62c7' },
+  { id: 'focus-600', group: 'time', title: '20 godzin w działaniu', description: 'Ukończ łącznie 20 godzin zadań i rutyn.', reward: 'Skupienie', target: 1200, metric: 'completedMinutes', icon: Clock, accent: '#4c8ef5' },
+  { id: 'focus-1200', group: 'time', title: '100 godzin skupienia', description: 'Ukończ 100 godzin zaplanowanego działania.', reward: 'Koncentracja', target: 6000, metric: 'completedMinutes', icon: Focus, accent: '#629eeb', tint: '#eef6ff' },
+  { id: 'focus-3000', group: 'time', title: '400 godzin w działaniu', description: 'Ukończ łącznie 400 godzin zadań i rutyn.', reward: 'Głęboka praca', target: 24000, metric: 'completedMinutes', icon: AlarmClock, accent: '#3d78e0' },
+  { id: 'focus-6000', group: 'time', title: '800 godzin progresu', description: 'Ukończ 800 godzin działania.', reward: 'Długofalowy progres', target: 48000, metric: 'completedMinutes', icon: Clock3, accent: '#467bd9', tint: '#eef3ff' },
+  { id: 'focus-12000', group: 'time', title: '2000 godzin w działaniu', description: 'Ukończ łącznie 2 000 godzin zadań i rutyn.', reward: 'Mistrzostwo czasu', target: 120000, metric: 'completedMinutes', icon: Watch, accent: '#2f62c7' },
   { id: 'morning-5', group: 'time', title: 'Ranny ptaszek', description: 'Ukończ 5 zadań zaplanowanych przed 9:00.', reward: 'Dobry poranek', target: 5, metric: 'morningCount', icon: Sun, accent: '#e7a23d', tint: '#fff5e8' },
-  { id: 'morning-25', group: 'time', title: 'Poranny rytm', description: 'Ukończ 25 zadań zaplanowanych przed 9:00.', reward: 'Złota godzina', target: 25, metric: 'morningCount', icon: Sunrise, accent: '#e9973a' },
+  { id: 'morning-25', group: 'time', title: 'Poranny rytm', description: 'Ukończ 100 zadań zaplanowanych przed 9:00.', reward: 'Złota godzina', target: 100, metric: 'morningCount', icon: Sunrise, accent: '#e9973a' },
   { id: 'dawn-5', group: 'time', title: 'Przed świtem', description: 'Ukończ 5 zadań zaplanowanych przed 7:00.', reward: 'Pierwsze światło', target: 5, metric: 'dawnCount', icon: SunDim, accent: '#f0a845' },
   { id: 'evening-5', group: 'time', title: 'Nocny strateg', description: 'Ukończ 5 zadań zaplanowanych po 20:00.', reward: 'Wieczorny fokus', target: 5, metric: 'eveningCount', icon: Moon, accent: '#7783c8', tint: '#eef0ff' },
-  { id: 'evening-25', group: 'time', title: 'Wieczorny rytm', description: 'Ukończ 25 zadań zaplanowanych od 20:00.', reward: 'Spokojny wieczór', target: 25, metric: 'eveningCount', icon: Sunset, accent: '#6f6fc4' },
+  { id: 'evening-25', group: 'time', title: 'Wieczorny rytm', description: 'Ukończ 100 zadań zaplanowanych od 20:00.', reward: 'Spokojny wieczór', target: 100, metric: 'eveningCount', icon: Sunset, accent: '#6f6fc4' },
   { id: 'night-5', group: 'time', title: 'Nocna zmiana', description: 'Ukończ 5 zadań zaplanowanych od 22:00.', reward: 'Cisza nocy', target: 5, metric: 'nightCount', icon: MoonStar, accent: '#5d68b8' },
 
   // Planowanie (10)
   { id: 'planner-10', group: 'planning', title: 'Planista', description: 'Nadaj godzinę przynajmniej 10 zadaniom.', reward: '+ kontrola planu', target: 10, metric: 'scheduledTasks', icon: CalendarDays, accent: '#a564ff', tint: '#f5efff' },
   { id: 'planner-50', group: 'planning', title: 'Architekt czasu', description: 'Zaplanuj godzinę dla 50 zadań.', reward: 'Świetne planowanie', target: 50, metric: 'scheduledTasks', icon: CalendarDays, accent: '#ae7ff3', tint: '#f6efff' },
-  { id: 'planner-100', group: 'planning', title: 'Setka w kalendarzu', description: 'Nadaj godzinę 100 zadaniom.', reward: 'Plan pod kontrolą', target: 100, metric: 'scheduledTasks', icon: CalendarClock, accent: '#9a6cf0' },
-  { id: 'planner-250', group: 'planning', title: 'Kalendarz pod kontrolą', description: 'Nadaj godzinę 250 zadaniom.', reward: 'Mistrzowskie planowanie', target: 250, metric: 'scheduledTasks', icon: CalendarCog, accent: '#8456dc' },
+  { id: 'planner-100', group: 'planning', title: 'Pięćset w kalendarzu', description: 'Nadaj godzinę 500 zadaniom.', reward: 'Plan pod kontrolą', target: 500, metric: 'scheduledTasks', icon: CalendarClock, accent: '#9a6cf0' },
+  { id: 'planner-250', group: 'planning', title: 'Kalendarz pod kontrolą', description: 'Nadaj godzinę 1 500 zadaniom.', reward: 'Mistrzowskie planowanie', target: 1500, metric: 'scheduledTasks', icon: CalendarCog, accent: '#8456dc' },
   { id: 'plan-ahead-7', group: 'planning', title: 'Tydzień do przodu', description: 'Zaplanuj zadania na każdy z 7 najbliższych dni.', reward: 'Spokojna głowa', target: 7, metric: 'planAheadDays', icon: CalendarPlus, accent: '#b07cf6' },
   { id: 'perfect-day-1', group: 'planning', title: 'Perfekcyjny dzień', description: 'Ukończ wszystkie zadania dnia (co najmniej 3).', reward: 'Czysta lista', target: 1, metric: 'perfectDays', icon: SquareCheckBig, accent: '#7c6af0' },
-  { id: 'perfect-days-10', group: 'planning', title: 'Dziesięć czystych list', description: 'Zalicz 10 dni z kompletem ukończonych zadań.', reward: 'Precyzja', target: 10, metric: 'perfectDays', icon: Goal, accent: '#6a55dd' },
+  { id: 'perfect-days-10', group: 'planning', title: 'Mistrz czystych list', description: 'Zalicz 150 dni z kompletem ukończonych zadań.', reward: 'Precyzja', target: 150, metric: 'perfectDays', icon: Goal, accent: '#6a55dd' },
   { id: 'day-5', group: 'planning', title: 'Produktywny dzień', description: 'Ukończ 5 zadań lub rutyn jednego dnia.', reward: 'Pełne obroty', target: 5, metric: 'bestDay', icon: TrendingUp, accent: '#a985f5' },
   { id: 'day-10', group: 'planning', title: 'Dzień rekordów', description: 'Ukończ 10 zadań lub rutyn jednego dnia.', reward: 'Rekordowe tempo', target: 10, metric: 'bestDay', icon: Flag, accent: '#946df0' },
   { id: 'week-25', group: 'planning', title: 'Tydzień pełen działania', description: 'Ukończ 25 zadań lub rutyn w jednym tygodniu.', reward: 'Tygodniowy szczyt', target: 25, metric: 'bestWeek', icon: Layers, accent: '#8a64e6' },
@@ -218,8 +224,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   { id: 'routines-10', group: 'routines', title: 'Żelazny nawyk', description: 'Zakończ 10 rutyn.', reward: 'Dyscyplina', target: 10, metric: 'completedRoutineSessions', icon: ShieldCheck, accent: '#45a4c8', tint: '#ebfaff' },
   { id: 'routines-25', group: 'routines', title: 'Rytm codzienności', description: 'Zakończ 25 rutyn.', reward: 'Stabilność', target: 25, metric: 'completedRoutineSessions', icon: Repeat, accent: '#a86ef0' },
   { id: 'routines-50', group: 'routines', title: 'Mistrz rutyn', description: 'Zakończ 50 rutyn.', reward: 'Wewnętrzna siła', target: 50, metric: 'completedRoutineSessions', icon: Crown, accent: '#4bb992', tint: '#eafaf4' },
-  { id: 'routines-100', group: 'routines', title: 'Sto rytuałów', description: 'Zakończ 100 rutyn.', reward: 'Automatyzm', target: 100, metric: 'completedRoutineSessions', icon: Repeat2, accent: '#3c94b8' },
-  { id: 'routines-250', group: 'routines', title: 'Twierdza nawyków', description: 'Zakończ 250 rutyn.', reward: 'Niewzruszoność', target: 250, metric: 'completedRoutineSessions', icon: Castle, accent: '#3a9e7f' },
+  { id: 'routines-100', group: 'routines', title: 'Dwieście rytuałów', description: 'Zakończ 200 rutyn.', reward: 'Automatyzm', target: 200, metric: 'completedRoutineSessions', icon: Repeat2, accent: '#3c94b8' },
+  { id: 'routines-250', group: 'routines', title: 'Twierdza nawyków', description: 'Zakończ 600 rutyn.', reward: 'Niewzruszoność', target: 600, metric: 'completedRoutineSessions', icon: Castle, accent: '#3a9e7f' },
   { id: 'routine-builder-3', group: 'routines', title: 'Trzy filary', description: 'Miej jednocześnie 3 aktywne rutyny.', reward: 'Solidne fundamenty', target: 3, metric: 'activeRoutines', icon: Blocks, accent: '#c47ae8' },
   { id: 'routine-chain-7', group: 'routines', title: 'Łańcuch 7', description: 'Wykonaj rutynę lub zadanie cykliczne 7 razy z rzędu.', reward: 'Nie przerywaj łańcucha', target: 7, metric: 'longestChain', icon: Link, accent: '#5aa9d6' },
   { id: 'routine-chain-30', group: 'routines', title: 'Łańcuch 30', description: 'Wykonaj rutynę lub zadanie cykliczne 30 razy z rzędu.', reward: 'Żelazna konsekwencja', target: 30, metric: 'longestChain', icon: Link2, accent: '#3f8fc0' },
@@ -231,16 +237,16 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   // Przychód i rozwój (15)
   { id: 'income-120', group: 'money', title: 'Monetyzacja', description: 'Ukończ 120 minut zadań przynoszących przychód.', reward: '+ złota odznaka', target: 120, metric: 'incomeMinutes', icon: Wallet, accent: '#1ca36f', tint: '#eaf8f1' },
   { id: 'income-600', group: 'money', title: '10 godzin zarobkowych', description: 'Ukończ 10 godzin działań dających przychód.', reward: 'Solidny fundament', target: 600, metric: 'incomeMinutes', icon: Banknote, accent: '#22a971' },
-  { id: 'income-1500', group: 'money', title: '25 godzin zarobkowych', description: 'Ukończ 25 godzin działań dających przychód.', reward: 'Rozwój finansowy', target: 1500, metric: 'incomeMinutes', icon: Wallet, accent: '#1da67c', tint: '#eaf9f3' },
-  { id: 'income-6000', group: 'money', title: '100 godzin zarobkowych', description: 'Ukończ 100 godzin działań dających przychód.', reward: 'Finansowa siła', target: 6000, metric: 'incomeMinutes', icon: Landmark, accent: '#168a5c' },
+  { id: 'income-1500', group: 'money', title: '50 godzin zarobkowych', description: 'Ukończ 50 godzin działań dających przychód.', reward: 'Rozwój finansowy', target: 3000, metric: 'incomeMinutes', icon: Wallet, accent: '#1da67c', tint: '#eaf9f3' },
+  { id: 'income-6000', group: 'money', title: '1000 godzin zarobkowych', description: 'Ukończ 1 000 godzin działań dających przychód.', reward: 'Finansowa siła', target: 60000, metric: 'incomeMinutes', icon: Landmark, accent: '#168a5c' },
   { id: 'income-10', group: 'money', title: 'Pracowity tydzień', description: 'Ukończ 10 zadań przynoszących przychód.', reward: 'Zarabianie', target: 10, metric: 'incomeCount', icon: Wallet, accent: '#46b875', tint: '#ebfaf2' },
-  { id: 'income-50', group: 'money', title: 'Pięćdziesiąt zleceń', description: 'Ukończ 50 zadań przynoszących przychód.', reward: 'Stabilny przychód', target: 50, metric: 'incomeCount', icon: PiggyBank, accent: '#2fb27a' },
+  { id: 'income-50', group: 'money', title: 'Pięćset zleceń', description: 'Ukończ 500 zadań przynoszących przychód.', reward: 'Stabilny przychód', target: 500, metric: 'incomeCount', icon: PiggyBank, accent: '#2fb27a' },
   { id: 'potential-300', group: 'money', title: 'Inwestycja w przyszłość', description: 'Poświęć 5 godzin na działania z potencjalnym przychodem.', reward: 'Budowanie przyszłości', target: 300, metric: 'potentialMinutes', icon: Rocket, accent: '#e3a32b', tint: '#fff8e8' },
   { id: 'potential-1200', group: 'money', title: 'Ziarno sukcesu', description: 'Poświęć 20 godzin na działania z potencjalnym przychodem.', reward: 'Rośnie potencjał', target: 1200, metric: 'potentialMinutes', icon: Sprout, accent: '#dc9a27' },
-  { id: 'potential-3000', group: 'money', title: 'Drzewo możliwości', description: 'Poświęć 50 godzin na działania z potencjalnym przychodem.', reward: 'Owoce pracy', target: 3000, metric: 'potentialMinutes', icon: TreePine, accent: '#c98a1f' },
+  { id: 'potential-3000', group: 'money', title: 'Drzewo możliwości', description: 'Poświęć 300 godzin na działania z potencjalnym przychodem.', reward: 'Owoce pracy', target: 18000, metric: 'potentialMinutes', icon: TreePine, accent: '#c98a1f' },
   { id: 'potential-count-25', group: 'money', title: 'Fabryka pomysłów', description: 'Ukończ 25 zadań z potencjalnym przychodem.', reward: 'Inwestycja w siebie', target: 25, metric: 'potentialCount', icon: Lightbulb, accent: '#e8b23a' },
   { id: 'unpaid-600', group: 'money', title: 'Czas dla siebie', description: 'Ukończ 10 godzin działań bez przychodu: zdrowie, dom, relaks.', reward: 'Dbanie o siebie', target: 600, metric: 'unpaidMinutes', icon: HeartPulse, accent: '#ec6573' },
-  { id: 'unpaid-3000', group: 'money', title: 'Siła codzienności', description: 'Ukończ 50 godzin działań bez przychodu.', reward: 'Dobre nawyki', target: 3000, metric: 'unpaidMinutes', icon: Dumbbell, accent: '#d9505f' },
+  { id: 'unpaid-3000', group: 'money', title: 'Siła codzienności', description: 'Ukończ 800 godzin działań bez przychodu.', reward: 'Dobre nawyki', target: 48000, metric: 'unpaidMinutes', icon: Dumbbell, accent: '#d9505f' },
   { id: 'balanced', group: 'money', title: 'Wszechstronny plan', description: 'Ukończ zadania ze wszystkich 3 kategorii finansowych.', reward: 'Równowaga', target: 3, metric: 'usedCategories', icon: Target, accent: '#8c7be5', tint: '#f1efff' },
   { id: 'balanced-day', group: 'money', title: 'Zrównoważony dzień', description: 'Jednego dnia ukończ coś z każdej z 3 kategorii.', reward: 'Harmonia', target: 1, metric: 'balancedDay', icon: Scale, accent: '#8c7be5' },
   { id: 'balanced-week', group: 'money', title: 'Zrównoważony tydzień', description: 'W jednym tygodniu ukończ coś z każdej kategorii.', reward: 'Pełny obraz', target: 1, metric: 'balancedWeek', icon: Shapes, accent: '#7a68d8' },
@@ -257,17 +263,17 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   // Focus Mode (5)
   { id: 'focus-session-1', group: 'focus', title: 'Pierwsza sesja Focus', description: 'Zakończ pierwszą sesję Focus Mode.', reward: 'Tryb skupienia', target: 1, metric: 'focusSessions', icon: Headphones, accent: '#5b7fe6' },
   { id: 'focus-sessions-10', group: 'focus', title: 'Dziesięć sesji Focus', description: 'Zakończ 10 sesji Focus Mode.', reward: 'Koncentracja', target: 10, metric: 'focusSessions', icon: Brain, accent: '#4d6fd8' },
-  { id: 'focus-sessions-50', group: 'focus', title: 'Sztuka skupienia', description: 'Zakończ 50 sesji Focus Mode.', reward: 'Umysł jak brzytwa', target: 50, metric: 'focusSessions', icon: BrainCircuit, accent: '#3f5fc8' },
-  { id: 'focus-hours-10', group: 'focus', title: '10 godzin z Focus', description: 'Przepracuj łącznie 10 godzin w Focus Mode.', reward: 'Głęboka koncentracja', target: 600, metric: 'focusMinutes', icon: Glasses, accent: '#6a7ff0' },
+  { id: 'focus-sessions-50', group: 'focus', title: 'Sztuka skupienia', description: 'Zakończ 300 sesji Focus Mode.', reward: 'Umysł jak brzytwa', target: 300, metric: 'focusSessions', icon: BrainCircuit, accent: '#3f5fc8' },
+  { id: 'focus-hours-10', group: 'focus', title: '100 godzin z Focus', description: 'Przepracuj łącznie 100 godzin w Focus Mode.', reward: 'Głęboka koncentracja', target: 6000, metric: 'focusMinutes', icon: Glasses, accent: '#6a7ff0' },
   { id: 'deep-work-90', group: 'focus', title: 'Głęboka praca', description: 'Przepracuj 90 minut w jednej sesji Focus.', reward: 'Stan flow', target: 1, metric: 'deepWork', icon: Waves, accent: '#4a68d0' },
 
-  // Doświadczenie (6)
-  { id: 'xp-500', group: 'xp', title: 'Poziom 2', description: 'Zdobądź 500 XP i wejdź na kolejny poziom.', reward: '+ nowa ranga', target: 500, metric: 'totalXp', icon: Trophy, accent: '#6a5cff', tint: '#f0edff' },
+  // Doświadczenie (6) — progi dla klucza XP z xp.ts: 1. dzień, tydzień, miesiąc, kwartał, ok. 9 miesięcy, ponad rok.
+  { id: 'xp-500', group: 'xp', title: 'Poziom 2', description: 'Zdobądź 100 XP i wejdź na kolejny poziom.', reward: '+ nowa ranga', target: 100, metric: 'totalXp', icon: Trophy, accent: '#6a5cff', tint: '#f0edff' },
   { id: 'xp-1000', group: 'xp', title: 'Tysiąc punktów', description: 'Zdobądź 1 000 XP.', reward: 'Nowa energia', target: 1000, metric: 'totalXp', icon: Gauge, accent: '#8a63f4' },
-  { id: 'xp-2000', group: 'xp', title: 'Łowca doświadczenia', description: 'Zdobądź 2 000 XP.', reward: 'Mistrz progresu', target: 2000, metric: 'totalXp', icon: Zap, accent: '#9d6bfa', tint: '#f5ecff' },
-  { id: 'xp-5000', group: 'xp', title: 'Elita Momentum', description: 'Zdobądź 5 000 XP.', reward: 'Elitarna odznaka', target: 5000, metric: 'totalXp', icon: Gem, accent: '#f0ad33', tint: '#fff7e8' },
-  { id: 'xp-10000', group: 'xp', title: 'Dziesięć tysięcy', description: 'Zdobądź 10 000 XP.', reward: 'Diamentowa forma', target: 10000, metric: 'totalXp', icon: Diamond, accent: '#7a4fe0' },
-  { id: 'xp-25000', group: 'xp', title: 'Orbita Momentum', description: 'Zdobądź 25 000 XP.', reward: 'Poza skalą', target: 25000, metric: 'totalXp', icon: Orbit, accent: '#5b3fc4' },
+  { id: 'xp-2000', group: 'xp', title: 'Łowca doświadczenia', description: 'Zdobądź 4 000 XP.', reward: 'Mistrz progresu', target: 4000, metric: 'totalXp', icon: Zap, accent: '#9d6bfa', tint: '#f5ecff' },
+  { id: 'xp-5000', group: 'xp', title: 'Elita Momentum', description: 'Zdobądź 12 000 XP.', reward: 'Elitarna odznaka', target: 12000, metric: 'totalXp', icon: Gem, accent: '#f0ad33', tint: '#fff7e8' },
+  { id: 'xp-10000', group: 'xp', title: 'Diamentowa forma', description: 'Zdobądź 30 000 XP.', reward: 'Blask doświadczenia', target: 30000, metric: 'totalXp', icon: Diamond, accent: '#7a4fe0' },
+  { id: 'xp-25000', group: 'xp', title: 'Orbita Momentum', description: 'Zdobądź 75 000 XP.', reward: 'Poza skalą', target: 75000, metric: 'totalXp', icon: Orbit, accent: '#5b3fc4' },
 ];
 
 /** Jasne tło odznaki: 10% koloru odznaki na białym. */

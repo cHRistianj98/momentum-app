@@ -1291,3 +1291,23 @@
 /* Karta trzyma zdjęcie u góry: gdy sąsiedni tytuł zajmuje dwie linie, przycisk nie centruje już treści w pionie
    (wcześniej obrazek „zjeżdżał” w dół i nad nim zostawał pasek tła). */
 .photo-catalog-grid button { display: flex; flex-direction: column; justify-content: flex-start; }
+
+/* ---------- 26. Klucz XP w Statystykach ---------- */
+/* Rozwijane wyjaśnienie, jak aplikacja przyznaje XP, z podziałem punktów z ostatnich 7 dni. */
+.ins-xp-key { position: relative; border: 1px solid rgba(255, 255, 255, .22); border-radius: 16px; background: rgba(255, 255, 255, .1); backdrop-filter: blur(6px); }
+.ins-xp-key summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 10px 13px; cursor: pointer; list-style: none; font-size: 12.5px; font-weight: 800; }
+.ins-xp-key summary::-webkit-details-marker { display: none; }
+.ins-xp-key summary::after { content: '▾'; order: 2; margin-left: auto; opacity: .8; transition: transform .2s ease; }
+.ins-xp-key[open] summary::after { transform: rotate(180deg); }
+.ins-xp-key summary small { order: 3; flex-basis: 100%; color: rgba(255, 255, 255, .8); font-size: 11.5px; font-weight: 700; }
+.ins-xp-key ul { display: grid; gap: 7px; margin: 0; padding: 2px 14px 4px 30px; color: rgba(255, 255, 255, .92); font-size: 12.5px; line-height: 1.5; }
+.ins-xp-key li b { color: #fff; }
+.ins-xp-key p { padding: 6px 14px 12px; color: rgba(255, 255, 255, .78); font-size: 11.5px; line-height: 1.5; }
+@media (min-width: 851px) {
+  .ins-xp-key summary small { order: 1; flex-basis: auto; margin-left: 4px; }
+}
+
+/* Podgląd XP w formularzach zadania i rutyny (zamiast ręcznego ustawiania). */
+.momentum-xp-preview { display: grid; gap: 4px; min-height: 43px; padding: 7px 11px; border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--line-strong)); border-radius: 11px; background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+.momentum-xp-preview-value { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-size: 15px; font-weight: 850; }
+.momentum-xp-preview small { color: var(--subtext); font-size: 10.5px; line-height: 1.4; }

@@ -1,4 +1,6 @@
 /** Model sesji Focus niezależny od komponentów i danych Momentum. */
+import type { CategoryKey } from '../types';
+
 export type FocusPhase = 'focus' | 'paused' | 'break';
 
 export interface FocusSession {
@@ -27,6 +29,8 @@ export interface FocusRecord {
   finishedAt: string;
   taskCompleted: boolean;
   xpAwarded: number;
+  /** Kategoria zadania w chwili zakończenia — XP za skupienie liczy się także po usunięciu zadania. */
+  category?: CategoryKey;
 }
 
 export interface FocusStore {
@@ -36,6 +40,11 @@ export interface FocusStore {
 
 export const FOCUS_STORAGE_KEY = 'momentum.focus.v1';
 export const EMPTY_FOCUS_STORE: FocusStore = { active: null, history: [] };
+/**
+ * Ile ostatnich sesji przechowujemy. Z historii liczy się XP za skupienie i odznaki Focus Mode,
+ * więc limit musi starczyć na lata (ok. 250 B na sesję, 5000 sesji to ok. 1,2 MB).
+ */
+export const FOCUS_HISTORY_LIMIT = 5000;
 
 export function snapshot(session: FocusSession, now: number): { focusMs: number; breakMs: number } {
   const runningMs = session.phaseStartedAt === null ? 0 : Math.max(0, now - session.phaseStartedAt);
@@ -71,7 +80,7 @@ export function createFocusSession(taskId: string, taskTitle: string, plannedMin
   };
 }
 
-export function finishFocusSession(session: FocusSession, now: number, taskCompleted: boolean, xpAwarded: number): FocusRecord {
+export function finishFocusSession(session: FocusSession, now: number, taskCompleted: boolean, xpAwarded: number, category?: CategoryKey): FocusRecord {
   const elapsed = snapshot(session, now);
   return {
     id: session.id,
@@ -84,6 +93,7 @@ export function finishFocusSession(session: FocusSession, now: number, taskCompl
     finishedAt: new Date(now).toISOString(),
     taskCompleted,
     xpAwarded,
+    ...(category ? { category } : {}),
   };
 }
 
@@ -93,7 +103,7 @@ export function readFocusStore(raw: string | null): FocusStore {
     const value = JSON.parse(raw) as Partial<FocusStore>;
     const history = Array.isArray(value.history) ? value.history.filter(record =>
       record && typeof record.taskId === 'string' && Number.isFinite(record.focusSeconds) && record.focusSeconds >= 0
-    ).slice(-500) : [];
+    ).slice(-FOCUS_HISTORY_LIMIT) : [];
     const active = value.active;
     if (!active || typeof active.taskId !== 'string' || !['focus','paused','break'].includes(active.phase) ||
       !Number.isFinite(active.focusMs) || !Number.isFinite(active.breakMs) ||

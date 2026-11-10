@@ -108,12 +108,37 @@ Technicznie seria to wpis w `routines` z `kind: 'task'`, bez kroków, z regułą
 `interval`, `start`, opcjonalnie `until`). Dzięki temu korzysta z tych samych wirtualnych wystąpień i logów co rutyny.
 Rutyny bez `repeat` działają jak dotąd (dni tygodnia, bez daty startu).
 
+## Doświadczenie (XP)
+
+XP przyznaje aplikacja według stałego klucza (`src/lib/xp.ts`) — w formularzach zadania i rutyny widać tylko podgląd
+„Nagroda ✦ XP”, nie da się go ustawić ręcznie.
+
+| Za co | XP |
+|---|---|
+| Ukończone zadanie lub wystąpienie zadania cyklicznego | +2 oraz za każde 15 min: przychód 8 · możliwy przychód 5 · bez przychodu 3 |
+| Długie bloki | minuty ponad 2 h liczą się w połowie, ponad 4 h już wcale |
+| Focus Mode | połowa stawki zadania za każde 15 min realnego skupienia (do 4 h na sesję), także bez kończenia zadania |
+| Rutyna | jak zadanie tej długości + 1 XP za każdy krok (maks. 10) + 1 XP za każde poprzednie wykonanie z rzędu (maks. +10) |
+
+- Przykłady: 45 min pracy z przychodem = 26 XP, 2 h = 66 XP; 1 h siłowni = 14 XP; 45 min Focus przy pracy z przychodem = +12 XP;
+  poranna rutyna (45 min, 4 kroki) = 15 XP, a po 10 dniach z rzędu 25 XP.
+- XP zawsze liczy się z historii, więc zmiana klucza przelicza też wcześniejsze dni. Pole `xp` w zadaniach i rutynach zostaje
+  tylko dla zgodności ze starszymi wersjami i kopiami JSON. Historia Focus Mode trzyma do 5000 sesji.
+- Poziom N wymaga łącznie 100 × (N − 1)² XP: poziom 2 = 100 XP, poziom 10 = 8 100 XP, poziom 25 = 57 600 XP.
+- Rangi: Iskra Startu (0) → Budowniczy Nawyków (1 000) → Pilot Progresu (5 000) → Mistrz Momentum (20 000) → Legenda Momentum (60 000).
+- **Statystyki → „Jak liczymy XP?”** pokazuje klucz i podział punktów z ostatnich 7 dni (zadania · rutyny · Focus).
+- Kalibracja: symulacja 2 lat dla trzech profili (okazjonalnie, regularnie, intensywnie). Przy regularnym korzystaniu
+  (ok. 100–150 XP dziennie) poziom 2 wpada 1. dnia, druga ranga po ok. tygodniu, trzecia po ok. 6 tygodniach, czwarta po ok.
+  pół roku, a Legenda po ok. półtora roku.
+
 ## Odznaki (100)
 
 - **Statystyki → Osiągnięcia i odznaki**: 100 odznak w 9 grupach (Zadania, Regularność, Czas działania, Planowanie,
   Rutyny i serie, Przychód i rozwój, Projekty, Focus Mode, Doświadczenie). Zwinięta grupa pokazuje jeden rząd,
   „Pokaż wszystkie” rozwija resztę; filtry: wszystkie / zdobyte / do zdobycia.
-- Zdobyta odznaka zostaje zdobyta, nawet gdy wynik później spadnie (np. po przerwanej serii).
+- Tempo: najmniejsze odznaki w grupie wpadają 1. dnia, w tygodniu albo w miesiącu, największe dopiero po ponad roku
+  regularnej pracy (np. 1 500 zadań, 2 000 h działania, 1 000 h z przychodem, 600 rutyn, 75 000 XP).
+- Zdobyta odznaka zostaje zdobyta, nawet gdy wynik później spadnie (np. po przerwanej serii) albo próg wzrośnie.
 - Po aktualizacji odznaki spełnione już wcześniej trafiają do kolekcji po cichu — jeden komunikat zamiast serii okienek.
 - Katalog i zasady liczenia: `src/lib/progression.ts` (`ACHIEVEMENT_DEFINITIONS`), grafiki: `public/assets/progression/ach-<id>.svg`.
 
@@ -163,7 +188,7 @@ Długość bloku zmienisz w edytorze zadania albo przeciągając jego dolną kra
 - `Task` — zadanie wraz z dziennym statusem i opcjonalnym blokiem czasowym (dla MVP jedna instancja).
 - `Routine` — szablon rutyny z listą kroków, porą i dniami tygodnia. Z `kind: 'task'` i regułą `repeat` — zadanie cykliczne.
 - `RoutineLog` — dzienne wykonanie rutyny lub zadania cyklicznego: stan kroków, ukończenie, wyjątki terminu, `skipped` (usunięte wystąpienie).
-- XP jest **wyliczane z ukończonych zadań i rutyn**, a nie dodawane inkrementalnie — dzięki temu ponowne kliknięcie nie powoduje naliczenia XP po raz drugi.
+- XP jest **wyliczane z ukończonych zadań, rutyn i sesji Focus** według klucza z `src/lib/xp.ts`, a nie dodawane inkrementalnie — dzięki temu ponowne kliknięcie nie powoduje naliczenia XP po raz drugi.
 - Kategorie określają charakter aktywności finansowo-czasowej, nie karzą za odpoczynek.
 
 Docelowo należy wydzielić instancje cyklicznych zadań i bloki czasowe do osobnych encji, dodać historię `XpTransaction`, API Spring Boot, PostgreSQL + Flyway, uwierzytelnianie i synchronizację.
@@ -198,6 +223,7 @@ momentum-app/
       notifications.ts        # zgoda, wyświetlanie powiadomień, historia
       useReminders.ts         # harmonogram przypomnień w aplikacji
       progression.ts          # rangi i katalog 100 odznak (grupy, metryki postępu)
+      xp.ts                   # klucz XP (zadania, Focus, rutyny), poziomy i rejestr zdobytych punktów
       dayExport.ts            # tekstowy eksport wybranych dni (plan, wykonanie, kroki, kolory kategorii)
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, scalanie, historia wersji)
       syncMerge.ts            # scalanie trójstronne zmian z dwóch urządzeń (czyste funkcje)

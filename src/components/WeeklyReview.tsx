@@ -7,6 +7,7 @@ import { buildWeeklyReport, compactWeekMinutes, mostRecentReviewMonday, percenta
 import { resolveCategories } from '../lib/storage';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { DayExportDialog } from './DayExport';
+import { buildXpLedger, sumXp } from '../lib/xp';
 import type { AppData, CategoryKey } from '../types';
 import type { FocusRecord } from '../lib/focus';
 
@@ -97,13 +98,17 @@ export function WeeklyReview({ data, focusHistory, onOpenNextWeek }: {data: AppD
   const elapsedCompleted = elapsed.reduce((sum, day) => sum + day.completedCount, 0);
   const rate = isCurrentWeek ? (elapsedPlanned ? Math.round(elapsedCompleted / elapsedPlanned * 100) : null) : report.completionRate;
   const mood = weekMood(rate, isCurrentWeek);
+  // XP liczy aplikacja (lib/xp.ts); klucze wpisów są takie same jak klucze pozycji planu (task:… / routine:…:dzień).
+  const xpLedger = useMemo(() => buildXpLedger(data, focusHistory), [data, focusHistory]);
+  const xpByKey = useMemo(() => new Map(xpLedger.map(entry => [entry.key, entry.xp])), [xpLedger]);
   const completedItems = useMemo(() => report.days.flatMap(day => day.items).filter(item => item.done).map(item => {
     const task = item.kind === 'task' ? data.tasks.find(entry => entry.id === item.sourceId) : undefined;
     const routine = item.kind === 'routine' ? data.routines.find(entry => entry.id === item.sourceId) : undefined;
-    return { item, xp: task?.xp ?? routine?.xp ?? 0, icon: task?.icon ?? routine?.icon ?? 'check', image: task?.image ?? routine?.image };
-  }), [report, data.tasks, data.routines]);
+    return { item, xp: xpByKey.get(item.key) ?? 0, icon: task?.icon ?? routine?.icon ?? 'check', image: task?.image ?? routine?.image };
+  }), [report, data.tasks, data.routines, xpByKey]);
   const wins = [...completedItems].sort((a, b) => b.xp - a.xp || b.item.plannedMinutes - a.item.plannedMinutes).slice(0, 3);
-  const weekXp = completedItems.reduce((sum, entry) => sum + entry.xp, 0);
+  // Cały tydzień: zadania, rutyny i premie za sesje Focus z tych dni.
+  const weekXp = sumXp(xpLedger, entry => !!entry.date && entry.date >= report.start && entry.date <= report.end);
   const changingWeek = (delta: number) => {
     const next = shiftDate(weekStart, delta * 7);
     if (next <= maxStart) setWeekStart(next);
