@@ -106,7 +106,6 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .icon-btn:hover { background: var(--surface-3); color: var(--primary); }
 .notification-btn { position: relative; }
 .notification-btn i { position: absolute; right: 5px; top: 4px; height: 7px; width: 7px; background: #f16a83; border: 2px solid var(--surface); border-radius: 50%; }
-.topbar-avatar { background: linear-gradient(135deg,#b7a0fb,#7f78e9); color: white; font-weight: 800; width: 37px; height: 37px; border-radius: 12px; display: grid; place-items: center; box-shadow: 0 3px 10px #8678e622; }
 .main-content { padding: 34px 36px 0; max-width: 1830px; margin: 0 auto; }
 .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 9.5px; font-weight: 900; color: #9b9bb3; letter-spacing: 1.5px; text-transform: uppercase; }
 .eyebrow--indigo { color: var(--primary); }
@@ -530,7 +529,6 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 }
 @media (max-width: 620px) {
   .topbar { padding: 0 12px; }
-  .topbar-avatar { width: 32px; height: 32px; }
   .global-search { width: 35px; border: 0; background: transparent; padding: 0; }
   .global-search input,.global-search>span { display: none; }
   .breadcrumbs { gap: 5px; }
@@ -2573,7 +2571,6 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .topbar .global-search input, .topbar .global-search > span { display:none; }
   .topbar .theme-btn { display:none; }
   .topbar-right { gap:9px; }
-  .topbar-avatar { border-radius:50%; }
 
   .main-content { padding:0 0 calc(100px + env(safe-area-inset-bottom,0px)); }
   .overview-page { gap:0; }

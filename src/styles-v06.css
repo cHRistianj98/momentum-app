@@ -1414,3 +1414,11 @@
 @media (prefers-reduced-motion: reduce) {
   .routine-step-timer::before { transition: none; }
 }
+
+/* ---------- 29. Górny pasek na telefonie: bez nieaktywnej lupki ---------- */
+/* Na wąskim ekranie pole wyszukiwania było schowane i zostawała sama ikona, która nic nie robiła.
+   Na tablecie i komputerze pole działa jak dotąd. Zwolnione miejsce dostaje tytuł strony. */
+@media (max-width: 620px) {
+  .topbar .global-search { display: none; }
+  .topbar .breadcrumbs strong { max-width: min(62vw, 260px); }
+}
