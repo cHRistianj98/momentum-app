@@ -16,6 +16,7 @@
  */
 import { BACKUP_FORMAT, BACKUP_VERSION, parseMomentumBackup, restoreMomentumBackup, type BackupPreview } from './backup';
 import { todayKey } from './date';
+import { locale, tr } from './i18n';
 import {
   getMomentumSnapshot, initializeOfflineDatabase, setMomentumWritesPaused, subscribeMomentumWrites, syncOfflineSnapshot,
 } from './offlineDatabase';
@@ -43,8 +44,15 @@ const UPLOAD_TIMEOUT_MS = 60_000;
 /** Przeglądarki przyjmują keepalive tylko dla małych żądań (limit ok. 64 KB). */
 const KEEPALIVE_LIMIT = 60_000;
 
-const SERVER_MISSING = 'Serwer synchronizacji nie odpowiada. Sprawdź, czy wdrożenie zawiera Workera z pliku wrangler.jsonc.';
-const DB_MISSING = 'Serwer działa, ale nie ma bazy danych. Wklej Database ID bazy D1 w wrangler.jsonc (d1_databases) i wdroż ponownie.';
+// Funkcje, nie stałe: tekst zależy od bieżącego języka w chwili błędu.
+const serverMissing = () => tr(
+  'Serwer synchronizacji nie odpowiada. Sprawdź, czy wdrożenie zawiera Workera z pliku wrangler.jsonc.',
+  'The sync server isn’t responding. Check that the deployment includes the Worker from wrangler.jsonc.',
+);
+const dbMissing = () => tr(
+  'Serwer działa, ale nie ma bazy danych. Wklej Database ID bazy D1 w wrangler.jsonc (d1_databases) i wdroż ponownie.',
+  'The server is running but has no database. Paste the D1 Database ID into wrangler.jsonc (d1_databases) and deploy again.',
+);
 
 export type CloudSyncPhase = 'off' | 'idle' | 'syncing' | 'offline' | 'conflict' | 'update-ready' | 'error';
 export type CloudSyncErrorCode =
@@ -139,7 +147,8 @@ function toRevision(value: unknown): number | null {
 
 export function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+  const megabytes = (bytes / 1024 / 1024).toFixed(1);
+  return `${tr(megabytes.replace('.', ','), megabytes)} MB`;
 }
 
 // ---------- Kod odzyskiwania ----------
@@ -203,10 +212,13 @@ function readLocal(): LocalSnapshot {
 
 function parseRemote(revision: number, updatedAt: string | null, snapshot: unknown): RemoteSnapshot {
   if (!isRecord(snapshot) || snapshot.format !== SYNC_FORMAT || !isRecord(snapshot.storage)) {
-    throw new CloudSyncError('invalid', 'Dane w chmurze mają nieznany format.');
+    throw new CloudSyncError('invalid', tr('Dane w chmurze mają nieznany format.', 'The data in the cloud has an unknown format.'));
   }
   if (snapshot.schemaVersion !== SYNC_SCHEMA_VERSION) {
-    throw new CloudSyncError('invalid', 'Dane w chmurze zapisała nowsza wersja Momentum. Zaktualizuj aplikację na tym urządzeniu.');
+    throw new CloudSyncError('invalid', tr(
+      'Dane w chmurze zapisała nowsza wersja Momentum. Zaktualizuj aplikację na tym urządzeniu.',
+      'The data in the cloud was saved by a newer version of Momentum. Update the app on this device.',
+    ));
   }
   const createdAt = typeof snapshot.createdAt === 'string' && Number.isFinite(Date.parse(snapshot.createdAt))
     ? snapshot.createdAt : nowIso();
@@ -217,7 +229,10 @@ function parseRemote(revision: number, updatedAt: string | null, snapshot: unkno
     const parsed = parseMomentumBackup(JSON.stringify({ format: BACKUP_FORMAT, schemaVersion: BACKUP_VERSION, createdAt, storage }));
     return { ...canonicalize(parsed.backup.storage), revision, updatedAt, createdAt, preview: parsed.preview };
   } catch (error) {
-    throw new CloudSyncError('invalid', `Dane w chmurze są nieprawidłowe: ${error instanceof Error ? error.message : 'uszkodzona migawka'}`);
+    throw new CloudSyncError('invalid', tr(
+      `Dane w chmurze są nieprawidłowe: ${error instanceof Error ? error.message : 'uszkodzona migawka'}`,
+      `The data in the cloud is invalid: ${error instanceof Error ? error.message : 'corrupted snapshot'}`,
+    ));
   }
 }
 
@@ -233,7 +248,8 @@ async function writeStorageToDevice(storage: Record<string, string>, createdAt: 
     await syncOfflineSnapshot();
   } catch (error) {
     setMomentumWritesPaused(false);
-    throw new CloudSyncError('invalid', error instanceof Error ? error.message : 'Nie udało się zapisać danych z chmury na tym urządzeniu.');
+    throw new CloudSyncError('invalid', error instanceof Error ? error.message
+      : tr('Nie udało się zapisać danych z chmury na tym urządzeniu.', 'Couldn’t save the data from the cloud on this device.'));
   }
 }
 
@@ -258,8 +274,8 @@ function mergeSnapshots(base: LocalSnapshot, local: LocalSnapshot, remote: Remot
 
 function formatSavedAt(iso: string | null): string {
   const time = iso ? Date.parse(iso) : NaN;
-  if (!Number.isFinite(time)) return 'wybranego dnia';
-  return new Date(time).toLocaleString('pl-PL', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  if (!Number.isFinite(time)) return tr('wybranego dnia', 'the selected day');
+  return new Date(time).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 }
 
 /** Przeładowanie (potrzebne, by pokazać nowe dane) tylko wtedy, gdy niczego nie przerwie. */
@@ -329,13 +345,16 @@ async function callApi(
     });
     const text = await response.text();
     // Bez Workera Cloudflare zwróci index.html (fallback SPA) zamiast JSON.
-    if (!(response.headers.get('Content-Type') ?? '').includes('application/json')) throw new CloudSyncError('unavailable', SERVER_MISSING);
+    if (!(response.headers.get('Content-Type') ?? '').includes('application/json')) throw new CloudSyncError('unavailable', serverMissing());
     let data: unknown;
-    try { data = JSON.parse(text); } catch { throw new CloudSyncError('unavailable', SERVER_MISSING); }
+    try { data = JSON.parse(text); } catch { throw new CloudSyncError('unavailable', serverMissing()); }
     return { status: response.status, data: isRecord(data) ? data : {} };
   } catch (error) {
     if (error instanceof CloudSyncError) throw error;
-    throw new CloudSyncError('offline', 'Nie udało się połączyć z serwerem synchronizacji. Spróbuję ponownie.');
+    throw new CloudSyncError('offline', tr(
+      'Nie udało się połączyć z serwerem synchronizacji. Spróbuję ponownie.',
+      'Couldn’t connect to the sync server. Will try again.',
+    ));
   } finally {
     window.clearTimeout(timer);
   }
@@ -344,26 +363,41 @@ async function callApi(
 function apiError(response: ApiResponse): CloudSyncError {
   const error = typeof response.data.error === 'string' ? response.data.error : '';
   if (response.status === 409) {
-    return new CloudSyncError('conflict', 'Dane w chmurze zmieniły się na innym urządzeniu.', toRevision(response.data.revision));
+    return new CloudSyncError('conflict', tr('Dane w chmurze zmieniły się na innym urządzeniu.', 'The data in the cloud changed on another device.'),
+      toRevision(response.data.revision));
   }
   if (error === 'account-not-found' || error === 'unauthorized') {
-    return new CloudSyncError('not-found', 'Na serwerze nie ma danych dla tego kodu. Mogły zostać usunięte z innego urządzenia.');
+    return new CloudSyncError('not-found', tr(
+      'Na serwerze nie ma danych dla tego kodu. Mogły zostać usunięte z innego urządzenia.',
+      'There is no data on the server for this code. It may have been deleted from another device.',
+    ));
   }
   if (response.status === 413) {
-    return new CloudSyncError('too-large', `Dane przekraczają limit synchronizacji (${formatSize(MAX_SYNC_BYTES)}). Usuń część zdjęć z zadań lub rutyn.`);
+    return new CloudSyncError('too-large', tr(
+      `Dane przekraczają limit synchronizacji (${formatSize(MAX_SYNC_BYTES)}). Usuń część zdjęć z zadań lub rutyn.`,
+      `Your data exceeds the sync limit (${formatSize(MAX_SYNC_BYTES)}). Remove some photos from tasks or routines.`,
+    ));
   }
-  if (response.status === 429) return new CloudSyncError('rate-limited', 'Z tej sieci założono dziś zbyt wiele kont. Spróbuj ponownie jutro.');
+  if (response.status === 429) {
+    return new CloudSyncError('rate-limited', tr(
+      'Z tej sieci założono dziś zbyt wiele kont. Spróbuj ponownie jutro.',
+      'Too many accounts have been created from this network today. Try again tomorrow.',
+    ));
+  }
   if (response.status === 503 || response.status === 404 || response.status === 405) {
-    return new CloudSyncError('unavailable', error === 'database-not-configured' || error === 'database-unavailable' ? DB_MISSING : SERVER_MISSING);
+    return new CloudSyncError('unavailable', error === 'database-not-configured' || error === 'database-unavailable' ? dbMissing() : serverMissing());
   }
-  return new CloudSyncError('server', 'Serwer synchronizacji zwrócił błąd. Spróbuję ponownie za chwilę.');
+  return new CloudSyncError('server', tr(
+    'Serwer synchronizacji zwrócił błąd. Spróbuję ponownie za chwilę.',
+    'The sync server returned an error. Will try again shortly.',
+  ));
 }
 
 async function fetchSnapshot(code: string, since?: number, timeoutMs?: number): Promise<SnapshotResponse> {
   const response = await callApi('GET', since === undefined ? '/api/snapshot' : `/api/snapshot?since=${since}`, code, { timeoutMs });
   if (response.status !== 200) throw apiError(response);
   const revision = toRevision(response.data.revision);
-  if (revision === null) throw new CloudSyncError('server', 'Serwer zwrócił nieprawidłową odpowiedź.');
+  if (revision === null) throw new CloudSyncError('server', tr('Serwer zwrócił nieprawidłową odpowiedź.', 'The server returned an invalid response.'));
   const updatedAt = typeof response.data.updatedAt === 'string' ? response.data.updatedAt : null;
   if (response.data.unchanged === true) return { revision, updatedAt, unchanged: true, remote: null };
   if (response.data.snapshot === null || response.data.snapshot === undefined) return { revision, updatedAt, unchanged: false, remote: null };
@@ -549,7 +583,7 @@ export class CloudSyncEngine {
 
   private fail(error: unknown): void {
     const failure = error instanceof CloudSyncError
-      ? error : new CloudSyncError('server', error instanceof Error ? error.message : 'Nieznany błąd synchronizacji.');
+      ? error : new CloudSyncError('server', error instanceof Error ? error.message : tr('Nieznany błąd synchronizacji.', 'Unknown sync error.'));
     const config = this.config;
     if (failure.code === 'conflict' && config?.enabled) {
       // Chmura zmieniła się tuż przed naszym zapisem: spokojnie ponawiamy (pobranie + scalenie), bez komunikatu o błędzie.
@@ -650,11 +684,14 @@ export class CloudSyncEngine {
 
   private async upload(snapshot: Pick<LocalSnapshot, 'canonical'>, base: number, options: { keepalive?: boolean; archive?: boolean } = {}): Promise<{ response: ApiResponse; size: number }> {
     const config = this.config;
-    if (!config) throw new CloudSyncError('invalid', 'Synchronizacja jest wyłączona.');
+    if (!config) throw new CloudSyncError('invalid', tr('Synchronizacja jest wyłączona.', 'Sync is turned off.'));
     const body = `{"format":"${SYNC_FORMAT}","schemaVersion":${SYNC_SCHEMA_VERSION},"createdAt":"${nowIso()}","storage":${snapshot.canonical}}`;
     const size = new Blob([body]).size;
     if (size > MAX_SYNC_BYTES) {
-      throw new CloudSyncError('too-large', `Dane zajmują ${formatSize(size)}, a limit synchronizacji to ${formatSize(MAX_SYNC_BYTES)}. Usuń część zdjęć z zadań lub rutyn.`);
+      throw new CloudSyncError('too-large', tr(
+        `Dane zajmują ${formatSize(size)}, a limit synchronizacji to ${formatSize(MAX_SYNC_BYTES)}. Usuń część zdjęć z zadań lub rutyn.`,
+        `Your data takes up ${formatSize(size)}, but the sync limit is ${formatSize(MAX_SYNC_BYTES)}. Remove some photos from tasks or routines.`,
+      ));
     }
     // Dzień według kalendarza użytkownika: serwer archiwizuje wersję przy pierwszym zapisie dnia.
     const response = await callApi('PUT', `/api/snapshot?base=${base}${options.archive ? '&archive=1' : ''}`, config.code, {
@@ -670,7 +707,7 @@ export class CloudSyncEngine {
     const { response, size } = await this.upload(local, base, options);
     if (response.status === 200) {
       const revision = toRevision(response.data.revision);
-      if (revision === null) throw new CloudSyncError('server', 'Serwer zwrócił nieprawidłową odpowiedź.');
+      if (revision === null) throw new CloudSyncError('server', tr('Serwer zwrócił nieprawidłową odpowiedź.', 'The server returned an invalid response.'));
       this.remote = null;
       this.patchConfig({ revision, hash: local.hash, lastSyncAt: nowIso() });
       await this.rememberBase(local, revision);
@@ -711,7 +748,7 @@ export class CloudSyncEngine {
     this.remote = null;
     this.patchConfig({ revision: remote.revision, hash: remote.hash, lastSyncAt: nowIso() });
     await this.rememberBase(remote, remote.revision);
-    this.setNotice('Połączono zmiany z innego urządzenia.', reload);
+    this.setNotice(tr('Połączono zmiany z innego urządzenia.', 'Merged changes from another device.'), reload);
     if (reload) {
       this.reloading = true;
       this.stop();
@@ -769,12 +806,20 @@ export class CloudSyncEngine {
   async previewLink(input: string): Promise<CloudLinkPreview> {
     const code = normalizeRecoveryCode(input);
     if (!isRecoveryCode(code)) {
-      throw new CloudSyncError('invalid', 'Kod ma 24 znaki: cyfry i litery (bez I, L, O i U). Sprawdź, czy przepisano go w całości.');
+      throw new CloudSyncError('invalid', tr(
+        'Kod ma 24 znaki: cyfry i litery (bez I, L, O i U). Sprawdź, czy przepisano go w całości.',
+        'The code has 24 characters: digits and letters (no I, L, O or U). Check that you copied all of it.',
+      ));
     }
-    if (this.config?.enabled && this.config.code === code) throw new CloudSyncError('invalid', 'To urządzenie już używa tego kodu.');
+    if (this.config?.enabled && this.config.code === code) {
+      throw new CloudSyncError('invalid', tr('To urządzenie już używa tego kodu.', 'This device is already using this code.'));
+    }
     const result = await fetchSnapshot(code);
     if (!result.remote) {
-      throw new CloudSyncError('not-found', 'Konto istnieje, ale nie ma jeszcze danych. Otwórz Momentum na pierwszym urządzeniu z internetem i spróbuj ponownie.');
+      throw new CloudSyncError('not-found', tr(
+        'Konto istnieje, ale nie ma jeszcze danych. Otwórz Momentum na pierwszym urządzeniu z internetem i spróbuj ponownie.',
+        'The account exists but has no data yet. Open Momentum on your first device while online and try again.',
+      ));
     }
     this.linkCandidate = { ...result.remote, code };
     return { code, remote: summarize(result.remote) };
@@ -783,7 +828,7 @@ export class CloudSyncEngine {
   /** Zastępuje dane tego urządzenia danymi z chmury, zapamiętuje kod i przeładowuje aplikację. */
   async confirmLink(code: string): Promise<void> {
     const candidate = this.linkCandidate;
-    if (!candidate || candidate.code !== code) throw new CloudSyncError('invalid', 'Sprawdź kod ponownie.');
+    if (!candidate || candidate.code !== code) throw new CloudSyncError('invalid', tr('Sprawdź kod ponownie.', 'Check the code again.'));
     await this.exclusive(async () => {
       this.stop();
       await this.apply(candidate, true, { enabled: true, code, userId: null });
@@ -845,10 +890,15 @@ export class CloudSyncEngine {
   // ----- historia wersji (serwer: 30 dni) -----
   async listHistory(): Promise<CloudHistoryEntry[]> {
     const config = this.config;
-    if (!config?.enabled) throw new CloudSyncError('invalid', 'Włącz synchronizację, aby zobaczyć historię wersji.');
+    if (!config?.enabled) {
+      throw new CloudSyncError('invalid', tr('Włącz synchronizację, aby zobaczyć historię wersji.', 'Turn on sync to see the version history.'));
+    }
     const response = await callApi('GET', '/api/history', config.code);
     if (response.status === 404 && response.data.error === 'not-found') {
-      throw new CloudSyncError('unavailable', 'Historia wersji będzie dostępna po wdrożeniu nowej wersji serwera.');
+      throw new CloudSyncError('unavailable', tr(
+        'Historia wersji będzie dostępna po wdrożeniu nowej wersji serwera.',
+        'Version history will be available once the new server version is deployed.',
+      ));
     }
     if (response.status !== 200) throw apiError(response);
     const entries = Array.isArray(response.data.entries) ? response.data.entries : [];
@@ -865,10 +915,10 @@ export class CloudSyncEngine {
   /** Pobiera i sprawdza wersję z historii (bez zmian lokalnych); zwraca podgląd do potwierdzenia. */
   async previewHistory(revision: number): Promise<CloudRemoteSummary> {
     const config = this.config;
-    if (!config?.enabled) throw new CloudSyncError('invalid', 'Włącz synchronizację, aby przywrócić wersję.');
+    if (!config?.enabled) throw new CloudSyncError('invalid', tr('Włącz synchronizację, aby przywrócić wersję.', 'Turn on sync to restore a version.'));
     const response = await callApi('GET', `/api/history/${revision}`, config.code, { timeoutMs: UPLOAD_TIMEOUT_MS });
     if (response.status === 404 && response.data.error === 'version-not-found') {
-      throw new CloudSyncError('not-found', 'Tej wersji nie ma już w historii. Odśwież listę.');
+      throw new CloudSyncError('not-found', tr('Tej wersji nie ma już w historii. Odśwież listę.', 'This version is no longer in the history. Refresh the list.'));
     }
     if (response.status !== 200) throw apiError(response);
     const savedAt = typeof response.data.updatedAt === 'string' ? response.data.updatedAt : null;
@@ -883,7 +933,9 @@ export class CloudSyncEngine {
    */
   async restoreHistory(revision: number): Promise<void> {
     const candidate = this.historyCandidate;
-    if (!candidate || candidate.revision !== revision) throw new CloudSyncError('invalid', 'Najpierw otwórz podgląd tej wersji.');
+    if (!candidate || candidate.revision !== revision) {
+      throw new CloudSyncError('invalid', tr('Najpierw otwórz podgląd tej wersji.', 'Open the preview of this version first.'));
+    }
     await this.exclusive(async () => {
       const config = this.config;
       if (!config?.enabled) return;
@@ -894,13 +946,16 @@ export class CloudSyncEngine {
         if (current !== null) ({ response } = await this.upload(candidate, current, { archive: true }));
         if (response.status !== 200) throw apiError(response);
         const pushed = toRevision(response.data.revision);
-        if (pushed === null) throw new CloudSyncError('server', 'Serwer zwrócił nieprawidłową odpowiedź.');
+        if (pushed === null) throw new CloudSyncError('server', tr('Serwer zwrócił nieprawidłową odpowiedź.', 'The server returned an invalid response.'));
         await writeStorageToDevice(candidate.storage, nowIso(), true);
         this.historyCandidate = null;
         this.remote = null;
         this.patchConfig({ revision: pushed, hash: candidate.hash, lastSyncAt: nowIso() });
         await this.rememberBase(candidate, pushed);
-        this.setNotice(`Przywrócono wersję z ${formatSavedAt(candidate.updatedAt)}. Poprzednia jest w historii wersji.`, true);
+        this.setNotice(tr(
+          `Przywrócono wersję z ${formatSavedAt(candidate.updatedAt)}. Poprzednia jest w historii wersji.`,
+          `Restored the version from ${formatSavedAt(candidate.updatedAt)}. The previous one is in the version history.`,
+        ), true);
         this.reloading = true;
         this.stop();
         window.location.reload();
@@ -947,7 +1002,7 @@ export class CloudSyncEngine {
       if (response.status === 200 && response.data.ok === true) return { ok: true, message: null };
       return { ok: false, message: apiError(response).message };
     } catch (error) {
-      return { ok: false, message: error instanceof CloudSyncError ? error.message : SERVER_MISSING };
+      return { ok: false, message: error instanceof CloudSyncError ? error.message : serverMissing() };
     }
   }
 }

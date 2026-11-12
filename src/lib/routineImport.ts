@@ -1,4 +1,5 @@
 import type { Routine, RoutineStep } from '../types';
+import { tr } from './i18n';
 
 export interface RoutineTransfer {
   format: 'momentum-routine';
@@ -14,11 +15,11 @@ const weekdaysValid = (input: unknown): input is number[] =>
 
 /** Routine-only import; unlike importing Momentum backup, this never replaces the whole app state. */
 export function parseRoutineTransfer(json: string): Routine {
-  if (new Blob([json]).size > 300_000) throw new Error('Plik rutyny jest zbyt duży (maksymalnie 300 KB).');
+  if (new Blob([json]).size > 300_000) throw new Error(tr('Plik rutyny jest zbyt duży (maksymalnie 300 KB).', 'The routine file is too large (300 KB max).'));
   let value: unknown;
-  try { value = JSON.parse(json); } catch { throw new Error('To nie jest poprawny plik JSON.'); }
+  try { value = JSON.parse(json); } catch { throw new Error(tr('To nie jest poprawny plik JSON.', 'This isn’t a valid JSON file.')); }
   if (!object(value) || value.format !== 'momentum-routine' || value.schemaVersion !== 1 || !object(value.routine)) {
-    throw new Error('Nieobsługiwany plik. Wybierz plik „momentum-routine” w wersji 1.');
+    throw new Error(tr('Nieobsługiwany plik. Wybierz plik „momentum-routine” w wersji 1.', 'Unsupported file. Choose a “momentum-routine” file, version 1.'));
   }
   const r = value.routine;
   if (typeof r.id !== 'string' || !r.id || typeof r.title !== 'string' || !r.title.trim()
@@ -27,7 +28,7 @@ export function parseRoutineTransfer(json: string): Routine {
     || !weekdaysValid(r.weekdays) || r.weekdays.length < 1
     || !Array.isArray(r.steps) || r.steps.length === 0 || r.steps.length > 200
     || (r.category !== 'unpaid' && r.category !== 'income' && r.category !== 'potential')) {
-    throw new Error('Plik zawiera nieprawidłowy harmonogram rutyny.');
+    throw new Error(tr('Plik zawiera nieprawidłowy harmonogram rutyny.', 'The file contains an invalid routine schedule.'));
   }
   const ids = new Set<string>();
   const steps: RoutineStep[] = r.steps.map((item: unknown) => {
@@ -36,7 +37,7 @@ export function parseRoutineTransfer(json: string): Routine {
       || (item.parentId !== undefined && typeof item.parentId !== 'string')
       || (item.weekdays !== undefined && !weekdaysValid(item.weekdays))
       || (item.timerSeconds !== undefined && (typeof item.timerSeconds !== 'number' || !Number.isInteger(item.timerSeconds) || item.timerSeconds < 1 || item.timerSeconds > 3600))) {
-      throw new Error('Plik zawiera nieprawidłowy lub powtórzony krok rutyny.');
+      throw new Error(tr('Plik zawiera nieprawidłowy lub powtórzony krok rutyny.', 'The file contains an invalid or duplicate routine step.'));
     }
     ids.add(item.id);
     return {
@@ -49,10 +50,10 @@ export function parseRoutineTransfer(json: string): Routine {
   });
   for (const step of steps) {
     if (step.parentId && (!ids.has(step.parentId) || step.parentId === step.id)) {
-      throw new Error(`Krok „${step.title}” wskazuje nieistniejącego rodzica.`);
+      throw new Error(tr(`Krok „${step.title}” wskazuje nieistniejącego rodzica.`, `Step “${step.title}” points to a parent that doesn’t exist.`));
     }
     if (step.parentId && steps.find(parent => parent.id === step.parentId)?.parentId) {
-      throw new Error('Plik ma więcej niż jeden poziom podzadań.');
+      throw new Error(tr('Plik ma więcej niż jeden poziom podzadań.', 'The file has more than one level of subtasks.'));
     }
   }
   return {

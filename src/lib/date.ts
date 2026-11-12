@@ -1,3 +1,5 @@
+import { locale, pick, tr } from './i18n';
+
 export const dateKey = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -24,13 +26,22 @@ export const mondayOf = (key: string): string => {
 };
 
 export const fullDate = (key: string): string =>
-  new Intl.DateTimeFormat('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }).format(parseDate(key));
+  new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(parseDate(key));
 
 export const monthTitle = (key: string): string =>
-  new Intl.DateTimeFormat('pl-PL', { month: 'long', year: 'numeric' }).format(parseDate(key));
+  new Intl.DateTimeFormat(locale(), { month: 'long', year: 'numeric' }).format(parseDate(key));
 
 export const shortWeekday = (key: string): string =>
-  new Intl.DateTimeFormat('pl-PL', { weekday: 'short' }).format(parseDate(key)).replace('.', '');
+  new Intl.DateTimeFormat(locale(), { weekday: 'short' }).format(parseDate(key)).replace('.', '');
+
+/** Dwuliterowe nazwy dni tygodnia, indeks jak Date.getDay() (0 = niedziela): Nd, Pn… / Su, Mo… */
+export const weekdayShortLabels = (): string[] =>
+  pick(['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'], ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']);
+
+/** Pełne nazwy dni tygodnia, indeks jak Date.getDay(): niedziela… / Sunday… */
+export const weekdayLongLabels = (): string[] =>
+  pick(['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'],
+    ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
 
 export const minuteOfDay = (time: string): number => {
   const [h, m] = time.split(':').map(Number);
@@ -45,7 +56,7 @@ export const timeFromMinutes = (minutes: number): string => {
 export const formatDuration = (duration: number): string => {
   const h = Math.floor(duration / 60);
   const m = duration % 60;
-  return [h ? `${h} godz.` : '', m ? `${m} min` : ''].filter(Boolean).join(' ') || '0 min';
+  return [h ? tr(`${h} godz.`, `${h} h`) : '', m ? `${m} min` : ''].filter(Boolean).join(' ') || '0 min';
 };
 
 export const todayKey = () => dateKey(new Date());

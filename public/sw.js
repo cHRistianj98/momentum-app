@@ -20,6 +20,17 @@ function isValidAsset(path, response) {
   return false;
 }
 
+/* Język tekstów pokazywanych przez service workera. SW nie ma dostępu do ustawień aplikacji ani do
+ * src/lib/i18n, więc wybiera jak aplikacja przy pierwszym uruchomieniu: polski, gdy przeglądarka jest po polsku. */
+function workerLanguage() {
+  try {
+    const preferred = (self.navigator.languages && self.navigator.languages[0]) || self.navigator.language || 'pl';
+    return preferred.toLowerCase().startsWith('pl') ? 'pl' : 'en';
+  } catch {
+    return 'pl';
+  }
+}
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const shell = await caches.open(SHELL_CACHE);
@@ -122,7 +133,8 @@ self.addEventListener('push', event => {
       tag: typeof payload.tag === 'string' ? payload.tag : undefined,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
-      lang: 'pl',
+      // Treść przypomnień układa aplikacja w wybranym języku; serwer może go podać w `lang`.
+      lang: typeof payload.lang === 'string' && /^(pl|en)$/.test(payload.lang) ? payload.lang : workerLanguage(),
       data: { url: sameOriginUrl(payload.url).pathname + sameOriginUrl(payload.url).search },
     });
     try {
@@ -151,7 +163,9 @@ self.addEventListener('fetch', event => {
       const shell = await caches.open(SHELL_CACHE);
       const fallback = await shell.match('/index.html');
       if (fallback) return fallback;
-      return new Response('Momentum jest offline i nie ma zapisanej wersji aplikacji.', {
+      return new Response(workerLanguage() === 'en'
+        ? 'Momentum is offline and has no saved version of the app.'
+        : 'Momentum jest offline i nie ma zapisanej wersji aplikacji.', {
         status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       });
     })());

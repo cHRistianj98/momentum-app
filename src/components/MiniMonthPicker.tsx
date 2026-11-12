@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { dateKey, mondayOf, monthTitle, parseDate, shiftDate, todayKey } from '../lib/date';
+import { locale, pick, tr } from '../lib/i18n';
 
 interface MiniMonthPickerProps {
   selectedDate: string;
@@ -14,7 +15,8 @@ interface MiniMonthPickerProps {
   triggerLabel?: string;
 }
 
-const WEEKDAYS = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
+/** Nagłówki kolumn kalendarza od poniedziałku. */
+const weekdaysFromMonday = () => pick(['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'], ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']);
 
 function startOfMonth(date: string): string {
   const d = parseDate(date);
@@ -30,7 +32,7 @@ function weekLabel(start: string): string {
   const end = shiftDate(start, 6);
   const first = parseDate(start);
   const last = parseDate(end);
-  const fmt = (date: Date) => new Intl.DateTimeFormat('pl-PL', { month: 'short' }).format(date);
+  const fmt = (date: Date) => new Intl.DateTimeFormat(locale(), { month: 'short' }).format(date);
   return first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear()
     ? `${first.getDate()}–${last.getDate()} ${fmt(last)} ${last.getFullYear()}`
     : `${first.getDate()} ${fmt(first)} – ${last.getDate()} ${fmt(last)} ${last.getFullYear()}`;
@@ -85,7 +87,7 @@ export function MiniMonthPicker({ selectedDate, scheduledDates, onSelectWeek, se
       <button
         type="button"
         className={`${triggerClassName ?? 'mini-month-trigger'} ${open ? `${triggerClassName ?? 'mini-month-trigger'}--active` : ''}`}
-        aria-label={triggerLabel ?? 'Wybierz tydzień z kalendarza miesięcznego'}
+        aria-label={triggerLabel ?? tr('Wybierz tydzień z kalendarza miesięcznego', 'Choose a week from the month calendar')}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => {
@@ -95,27 +97,27 @@ export function MiniMonthPicker({ selectedDate, scheduledDates, onSelectWeek, se
       >
         {triggerContent ?? <>
           <CalendarDays size={16} aria-hidden="true" />
-          <span>Wybierz tydzień</span>
+          <span>{tr('Wybierz tydzień', 'Choose week')}</span>
           <ChevronDown size={14} aria-hidden="true" />
         </>}
       </button>
 
       {open && (
-        <div className="mini-month-popover" role="dialog" aria-label={daySelection ? 'Wybór dnia' : 'Wybór tygodnia'} onMouseLeave={() => setHoveredWeek(null)}>
+        <div className="mini-month-popover" role="dialog" aria-label={daySelection ? tr('Wybór dnia', 'Day picker') : tr('Wybór tygodnia', 'Week picker')} onMouseLeave={() => setHoveredWeek(null)}>
           <div className="mini-month-header">
             <div>
-              <span className="mini-month-kicker">SZYBKA NAWIGACJA</span>
+              <span className="mini-month-kicker">{tr('SZYBKA NAWIGACJA', 'QUICK NAVIGATION')}</span>
               <h3>{monthTitle(shownMonth)}</h3>
             </div>
             <div className="mini-month-nav">
-              <button type="button" aria-label="Poprzedni miesiąc" onClick={() => setShownMonth(month => shiftMonth(month, -1))}><ChevronLeft size={17} /></button>
-              <button type="button" aria-label="Następny miesiąc" onClick={() => setShownMonth(month => shiftMonth(month, 1))}><ChevronRight size={17} /></button>
+              <button type="button" aria-label={tr('Poprzedni miesiąc', 'Previous month')} onClick={() => setShownMonth(month => shiftMonth(month, -1))}><ChevronLeft size={17} /></button>
+              <button type="button" aria-label={tr('Następny miesiąc', 'Next month')} onClick={() => setShownMonth(month => shiftMonth(month, 1))}><ChevronRight size={17} /></button>
             </div>
           </div>
           <div className="mini-month-weekdays" aria-hidden="true">
-            {WEEKDAYS.map(name => <span key={name}>{name}</span>)}
+            {weekdaysFromMonday().map(name => <span key={name}>{name}</span>)}
           </div>
-          <div className="mini-month-grid" aria-label={daySelection ? 'Wybierz dzień' : 'Wybierz dzień należący do tygodnia'}>
+          <div className="mini-month-grid" aria-label={daySelection ? tr('Wybierz dzień', 'Choose a day') : tr('Wybierz dzień należący do tygodnia', 'Choose a day in the week')}>
             {calendarDays.map(date => {
               const inMonth = parseDate(date).getMonth() === parseDate(shownMonth).getMonth();
               const currentWeek = mondayOf(date);
@@ -137,12 +139,12 @@ export function MiniMonthPicker({ selectedDate, scheduledDates, onSelectWeek, se
                     weekDay === 0 ? 'mini-month-day--monday' : '',
                     weekDay === 6 ? 'mini-month-day--sunday' : '',
                   ].filter(Boolean).join(' ')}
-                  aria-label={daySelection ? `${date} — pokaż ten dzień` : `${date} — wybierz tydzień ${weekLabel(currentWeek)}`}
+                  aria-label={daySelection ? tr(`${date} — pokaż ten dzień`, `${date} — show this day`) : tr(`${date} — wybierz tydzień ${weekLabel(currentWeek)}`, `${date} — choose the week of ${weekLabel(currentWeek)}`)}
                   aria-pressed={daySelection ? date === selectedDate : isSelectedWeek}
                   onMouseEnter={() => setHoveredWeek(currentWeek)}
                   onFocus={() => setHoveredWeek(currentWeek)}
                   onClick={() => choose(date)}
-                  title={daySelection ? `Pokaż ${date}` : `Przejdź do tygodnia ${weekLabel(currentWeek)}`}
+                  title={daySelection ? tr(`Pokaż ${date}`, `Show ${date}`) : tr(`Przejdź do tygodnia ${weekLabel(currentWeek)}`, `Go to the week of ${weekLabel(currentWeek)}`)}
                 >
                   <span className="mini-month-day-number">{parseDate(date).getDate()}</span>
                   {scheduledDates.has(date) && <span className="mini-month-task-dot" aria-hidden="true" />}
@@ -152,9 +154,9 @@ export function MiniMonthPicker({ selectedDate, scheduledDates, onSelectWeek, se
           </div>
           <div className="mini-month-footer">
             {daySelection
-              ? <span><span className="mini-month-legend-dot" /> Wybrany dzień: <strong>{new Intl.DateTimeFormat('pl-PL', { weekday: 'short', day: 'numeric', month: 'long' }).format(parseDate(selectedDate))}</strong></span>
-              : <span><span className="mini-month-legend-dot" /> Wybrany tydzień: <strong>{weekLabel(selectedWeek)}</strong></span>}
-            <button type="button" onClick={() => choose(today)}>Dziś</button>
+              ? <span><span className="mini-month-legend-dot" /> {tr('Wybrany dzień:', 'Selected day:')} <strong>{new Intl.DateTimeFormat(locale(), { weekday: 'short', day: 'numeric', month: 'long' }).format(parseDate(selectedDate))}</strong></span>
+              : <span><span className="mini-month-legend-dot" /> {tr('Wybrany tydzień:', 'Selected week:')} <strong>{weekLabel(selectedWeek)}</strong></span>}
+            <button type="button" onClick={() => choose(today)}>{tr('Dziś', 'Today')}</button>
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { dateKey, parseDate, shiftDate } from './date';
+import { count, tr } from './i18n';
 import { isTaskSeries, occursOn } from './recurrence';
 import type { AppData, NotificationSettings, Routine } from '../types';
 
@@ -38,42 +39,51 @@ function durationParts(minutes: number): string {
   const hours = Math.floor((minutes % 1440) / 60);
   const rest = minutes % 60;
   const parts: string[] = [];
-  if (days) parts.push(days === 1 ? '1 dzień' : `${days} dni`);
-  if (hours) parts.push(`${hours} godz.`);
+  if (days) parts.push(count(days, ['dzień', 'dni', 'dni'], ['day', 'days']));
+  if (hours) parts.push(tr(`${hours} godz.`, `${hours} h`));
   if (rest) parts.push(`${rest} min`);
   return parts.join(' ');
 }
 
 /** Krótka etykieta na chipie, np. „5 min”, „1 godz.”, „Na start”. */
 export function reminderChipLabel(offset: number): string {
-  return offset === 0 ? 'Na start' : durationParts(offset);
+  return offset === 0 ? tr('Na start', 'At start') : durationParts(offset);
 }
 
 /** Pełna etykieta, np. „30 min przed” albo „W chwili rozpoczęcia”. */
 export function reminderLongLabel(offset: number): string {
-  return offset === 0 ? 'W chwili rozpoczęcia' : `${durationParts(offset)} przed`;
+  if (offset === 0) return tr('W chwili rozpoczęcia', 'When it starts');
+  const duration = durationParts(offset);
+  return tr(`${duration} przed`, `${duration} before`);
 }
 
 /** Zdanie podsumowujące listę przypomnień w formularzu. */
 export function reminderSummary(offsets: number[], time: string | null): string {
-  if (!offsets.length) return 'Bez przypomnień.';
-  const labels = offsets.map(offset => offset === 0 ? 'w chwili startu' : `${durationParts(offset)} wcześniej`);
-  const list = labels.length > 1 ? `${labels.slice(0, -1).join(', ')} i ${labels[labels.length - 1]}` : labels[0];
-  return time ? `Przypomnimy ${list} (start o ${time}).` : `Przypomnimy ${list}.`;
+  if (!offsets.length) return tr('Bez przypomnień.', 'No reminders.');
+  const labels = offsets.map(offset => {
+    if (offset === 0) return tr('w chwili startu', 'at the start');
+    const duration = durationParts(offset);
+    return tr(`${duration} wcześniej`, `${duration} before`);
+  });
+  const head = labels.slice(0, -1).join(', ');
+  const last = labels[labels.length - 1];
+  const list = labels.length > 1 ? tr(`${head} i ${last}`, `${head} and ${last}`) : labels[0];
+  return time ? tr(`Przypomnimy ${list} (start o ${time}).`, `We’ll remind you ${list} (starts at ${time}).`) : tr(`Przypomnimy ${list}.`, `We’ll remind you ${list}.`);
 }
 
 /** Treść powiadomienia zależna od tego, ile czasu zostało do startu. */
 export function reminderLeadText(startAt: number, now: number): string {
   const minutes = Math.round((startAt - now) / 60_000);
-  if (minutes <= 0) return minutes > -2 ? 'Zaczyna się teraz' : 'Już trwa';
-  if (minutes < 60) return `Za ${minutes} min`;
+  if (minutes <= 0) return minutes > -2 ? tr('Zaczyna się teraz', 'Starting now') : tr('Już trwa', 'Already started');
+  if (minutes < 60) return tr(`Za ${minutes} min`, `In ${minutes} min`);
   if (minutes < 1440) {
     const hours = Math.floor(minutes / 60);
     const rest = minutes % 60;
-    return `Za ${hours} godz.${rest ? ` ${rest} min` : ''}`;
+    const suffix = rest ? ` ${rest} min` : '';
+    return tr(`Za ${hours} godz.${suffix}`, `In ${hours} h${suffix}`);
   }
   const days = Math.round(minutes / 1440);
-  return days === 1 ? 'Jutro' : `Za ${days} dni`;
+  return days === 1 ? tr('Jutro', 'Tomorrow') : tr(`Za ${days} dni`, `In ${days} days`);
 }
 
 export interface ScheduledReminder {

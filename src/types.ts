@@ -1,3 +1,5 @@
+import type { Language } from './lib/i18n';
+
 export type CategoryKey = 'unpaid' | 'potential' | 'income';
 export type Page = 'overview' | 'calendar' | 'tasks' | 'routines' | 'insights' | 'review' | 'projects';
 export type IconKey = string; // Nazwa ikony Lucide, wybierana z katalogu ponad 1000 ikon.
@@ -143,6 +145,8 @@ export interface AppData {
   categories: CategoryConfig;
   theme: 'light' | 'dark';
   notifications?: NotificationSettings;
+  /** Język interfejsu; brak = polski (dane sprzed wersji z językiem angielskim). */
+  language?: Language;
 }
 
 export interface TaskPreset {

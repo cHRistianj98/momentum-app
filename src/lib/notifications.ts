@@ -6,6 +6,7 @@
  * do ekranu początkowego. Bez serwera push przypomnienia są wysyłane, gdy Momentum
  * jest uruchomione — system iOS usypia skrypty aplikacji działającej w tle.
  */
+import { getLanguage } from './i18n';
 
 export type NotificationSupport = 'granted' | 'denied' | 'default' | 'unsupported' | 'ios-install' | 'insecure';
 
@@ -75,7 +76,7 @@ export async function showSystemNotification(payload: SystemNotificationPayload,
     tag: payload.tag,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    lang: 'pl',
+    lang: getLanguage(),
     data: { url: payload.url },
   };
   try {

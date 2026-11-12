@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { flushOfflineWrites } from './lib/offlineDatabase';
+import { subscribeLanguage, tr } from './lib/i18n';
 
 /**
  * Instalacja i aktualizacje PWA bez automatycznego przeładowywania.
@@ -27,8 +28,12 @@ if ('serviceWorker' in navigator) {
 let dismissedWorker: ServiceWorker | null = null;
 let updateNotice: HTMLElement | null = null;
 let installingUpdate = false;
+/** Baner jest poza Reactem: po zmianie języka (także tej ustawianej przy starcie) sami odświeżamy jego teksty. */
+let stopLanguageUpdates: (() => void) | null = null;
 
 function removeNotice(): void {
+  stopLanguageUpdates?.();
+  stopLanguageUpdates = null;
   updateNotice?.remove();
   updateNotice = null;
 }
@@ -39,14 +44,11 @@ function displayUpdate(worker: ServiceWorker): void {
   const notice = document.createElement('aside');
   notice.className = 'momentum-update-notice';
   notice.setAttribute('role', 'status');
-  notice.setAttribute('aria-label', 'Nowa wersja Momentum');
 
   const info = document.createElement('div');
   info.className = 'momentum-update-info';
   const heading = document.createElement('strong');
-  heading.textContent = 'Nowa wersja Momentum';
   const explanation = document.createElement('small');
-  explanation.textContent = 'Gotowa do instalacji. Twoje zadania i rutyny pozostaną zapisane.';
   info.append(heading, explanation);
 
   const controls = document.createElement('div');
@@ -54,7 +56,6 @@ function displayUpdate(worker: ServiceWorker): void {
   const postpone = document.createElement('button');
   postpone.type = 'button';
   postpone.className = 'momentum-update-later';
-  postpone.textContent = 'Później';
   postpone.addEventListener('click', () => {
     dismissedWorker = worker;
     removeNotice();
@@ -63,13 +64,24 @@ function displayUpdate(worker: ServiceWorker): void {
   const apply = document.createElement('button');
   apply.type = 'button';
   apply.className = 'momentum-update-apply';
-  apply.textContent = 'Zaktualizuj';
+
+  let failed = false;
+  const renderTexts = () => {
+    notice.setAttribute('aria-label', tr('Nowa wersja Momentum', 'New version of Momentum'));
+    heading.textContent = tr('Nowa wersja Momentum', 'New version of Momentum');
+    explanation.textContent = failed
+      ? tr('Aktualizacja nie powiodła się. Spróbuj ponownie po zapisaniu kopii JSON.', 'The update failed. Save a JSON backup and try again.')
+      : tr('Gotowa do instalacji. Twoje zadania i rutyny pozostaną zapisane.', 'Ready to install. Your tasks and routines will stay saved.');
+    postpone.textContent = tr('Później', 'Later');
+    apply.textContent = installingUpdate ? tr('Zapisywanie…', 'Saving…') : tr('Zaktualizuj', 'Update');
+  };
+
   apply.addEventListener('click', () => {
     if (installingUpdate) return;
     installingUpdate = true;
     apply.disabled = true;
     postpone.disabled = true;
-    apply.textContent = 'Zapisywanie…';
+    renderTexts();
     void flushOfflineWrites().then(() => {
       // Nowy SW musi już czekać. Aktywacja i przeładowanie dopiero po decyzji użytkownika.
       if (worker.state !== 'installed') throw new Error('Aktualizacja nie jest już gotowa.');
@@ -78,16 +90,18 @@ function displayUpdate(worker: ServiceWorker): void {
       installingUpdate = false;
       apply.disabled = false;
       postpone.disabled = false;
-      apply.textContent = 'Zaktualizuj';
-      explanation.textContent = 'Aktualizacja nie powiodła się. Spróbuj ponownie po zapisaniu kopii JSON.';
+      failed = true;
+      renderTexts();
       console.warn('[Momentum PWA] Nie udało się zastosować aktualizacji:', error);
     });
   });
 
+  renderTexts();
   controls.append(postpone, apply);
   notice.append(info, controls);
   document.body.append(notice);
   updateNotice = notice;
+  stopLanguageUpdates = subscribeLanguage(renderTexts);
 }
 
 function cacheCurrentAssets(registration: ServiceWorkerRegistration): void {

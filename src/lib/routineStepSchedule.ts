@@ -1,4 +1,6 @@
 import type { RoutineStep } from '../types';
+import { weekdayShortLabels } from './date';
+import { tr } from './i18n';
 
 /** Existing steps without a schedule stay visible every day (backwards compatible). */
 export function routineStepOnDate(step: RoutineStep, date: string): boolean {
@@ -21,7 +23,7 @@ export function normalizeStepWeekdays(days: number[]): number[] | undefined {
 
 export function stepWeekdaysLabel(step: RoutineStep): string {
   const days = step.weekdays;
-  if (!Array.isArray(days) || days.length === 7) return 'Codziennie';
-  const short = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
-  return days.map(day => short[day]).filter(Boolean).join(', ') || 'Nie wybrano dni';
+  if (!Array.isArray(days) || days.length === 7) return tr('Codziennie', 'Every day');
+  const short = weekdayShortLabels();
+  return days.map(day => short[day]).filter(Boolean).join(', ') || tr('Nie wybrano dni', 'No days selected');
 }

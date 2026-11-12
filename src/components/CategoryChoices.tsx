@@ -1,10 +1,11 @@
 import { FINANCIAL_ICONS, financialStyle } from './VisualIdentity';
+import { tr } from '../lib/i18n';
 import type { CategoryConfig, CategoryKey } from '../types';
 
 const ORDER: CategoryKey[] = ['unpaid', 'potential', 'income'];
 
 export function CategoryChoices({ categories, value, onChange }: { categories: CategoryConfig; value: CategoryKey; onChange: (category: CategoryKey) => void }) {
-  return <div className="category-card-options" role="group" aria-label="Kategoria przychodu">
+  return <div className="category-card-options" role="group" aria-label={tr('Kategoria przychodu', 'Income category')}>
     {ORDER.map(key => {
       const style = financialStyle(key, categories);
       const Icon = FINANCIAL_ICONS[key];

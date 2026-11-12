@@ -1422,3 +1422,14 @@
   .topbar .global-search { display: none; }
   .topbar .breadcrumbs strong { max-width: min(62vw, 260px); }
 }
+
+/* ---------- 30. Język aplikacji (Ustawienia → Język · Language) ---------- */
+/* Dłuższy polski podtytuł marki nie może ściskać logo w bocznym menu. */
+.brand-mark { flex-shrink: 0; }
+.language-switch { display: inline-flex; flex: none; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.language-switch button {
+  min-height: 36px; padding: 0 13px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--subtext); font-size: 12.5px; font-weight: 800; cursor: pointer;
+}
+.language-switch button.is-active { background: var(--surface); color: var(--primary); box-shadow: 0 2px 8px rgba(40, 30, 100, .12); }
+:root[data-theme='dark'] .language-switch button.is-active { background: var(--surface-3); }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Clock3, Minus, Plus, Sparkles, Timer } from 'lucide-react';
 import { formatDuration } from '../lib/date';
+import { tr } from '../lib/i18n';
 
 interface FloatingProps {
   open: boolean;
@@ -64,24 +65,24 @@ export function TimePicker({ value, onChange, disabled = false, allowClear = fal
   return <>
     <button ref={ref} type="button" disabled={disabled} className={`momentum-control-trigger ${open ? 'is-open' : ''} ${!value ? 'is-empty' : ''}`}
       aria-haspopup="dialog" aria-expanded={open} onClick={() => { if (!open) setDraft(parseTime(value)); setOpen(v => !v); }}>
-      <Clock3 size={16}/><span>{value ?? 'Wybierz godzinę'}</span><ChevronDown size={15}/>
+      <Clock3 size={16}/><span>{value ?? tr('Wybierz godzinę', 'Choose time')}</span><ChevronDown size={15}/>
     </button>
-    <Floating open={open} trigger={ref} close={close} label="Wybierz godzinę" className="momentum-time-popover">
-      <div className="momentum-control-heading"><span>GODZINA ROZPOCZĘCIA</span><strong>Wybierz czas</strong></div>
+    <Floating open={open} trigger={ref} close={close} label={tr('Wybierz godzinę', 'Choose time')} className="momentum-time-popover">
+      <div className="momentum-control-heading"><span>{tr('GODZINA ROZPOCZĘCIA', 'START TIME')}</span><strong>{tr('Wybierz czas', 'Pick a time')}</strong></div>
       <div className="momentum-time-columns">
-        <div className="momentum-time-column"><small>GODZINA</small><div className="momentum-time-scroll">
+        <div className="momentum-time-column"><small>{tr('GODZINA', 'HOUR')}</small><div className="momentum-time-scroll">
           {Array.from({length:24}, (_,i) => <button type="button" key={i} className={draft.h === i ? 'selected' : ''} onClick={() => setDraft(p => ({ ...p, h: i }))}>{pad(i)}</button>)}
         </div></div>
         <span className="momentum-time-colon">:</span>
-        <div className="momentum-time-column"><small>MINUTA</small><div className="momentum-time-scroll">
+        <div className="momentum-time-column"><small>{tr('MINUTA', 'MINUTE')}</small><div className="momentum-time-scroll">
           {Array.from({length:60}, (_,i) => <button type="button" key={i} className={draft.m === i ? 'selected' : ''} onClick={() => setDraft(p => ({ ...p, m: i }))}>{pad(i)}</button>)}
         </div></div>
       </div>
       <div className="momentum-time-presets">{['07:00','08:00','09:00','12:00','18:00'].map(t =>
         <button type="button" key={t} onClick={() => { onChange(t); close(); }}>{t}</button>)}</div>
       <div className="momentum-time-actions">
-        {allowClear && <button type="button" className="momentum-control-clear" onClick={() => { onChange(null); close(); }}>Wyczyść</button>}
-        <button type="button" className="momentum-time-apply" onClick={apply}><Check size={15}/> Ustaw {pad(draft.h)}:{pad(draft.m)}</button>
+        {allowClear && <button type="button" className="momentum-control-clear" onClick={() => { onChange(null); close(); }}>{tr('Wyczyść', 'Clear')}</button>}
+        <button type="button" className="momentum-time-apply" onClick={apply}><Check size={15}/> {tr('Ustaw', 'Set')} {pad(draft.h)}:{pad(draft.m)}</button>
       </div>
     </Floating>
   </>;
@@ -97,21 +98,21 @@ export function DurationPicker({ value, onChange }: { value: number; onChange: (
     <button ref={ref} type="button" className={`momentum-control-trigger ${open ? 'is-open' : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(v => !v)}>
       <Timer size={16}/><span>{formatDuration(value)}</span><ChevronDown size={15}/>
     </button>
-    <Floating open={open} trigger={ref} close={close} label="Czas trwania" className="momentum-duration-popover">
-      <div className="momentum-control-heading"><span>PLANOWANY CZAS</span><strong>Jak długo?</strong></div>
+    <Floating open={open} trigger={ref} close={close} label={tr('Czas trwania', 'Duration')} className="momentum-duration-popover">
+      <div className="momentum-control-heading"><span>{tr('PLANOWANY CZAS', 'PLANNED TIME')}</span><strong>{tr('Jak długo?', 'How long?')}</strong></div>
       <div className="momentum-duration-list">{choices.map(v => <button key={v} type="button" className={v === value ? 'selected' : ''}
         onClick={() => { onChange(v); close(); }}><span>{formatDuration(v)}</span>{v === value && <Check size={17}/>}</button>)}</div>
-      <div className="momentum-duration-custom"><span>Dokładnie (co 15 min)</span><div>
-        <button type="button" title="Skróć o 15 minut" onClick={() => onChange(Math.max(15, value-15))}><Minus size={16}/></button>
+      <div className="momentum-duration-custom"><span>{tr('Dokładnie (co 15 min)', 'Exact (in 15 min steps)')}</span><div>
+        <button type="button" title={tr('Skróć o 15 minut', 'Shorten by 15 minutes')} onClick={() => onChange(Math.max(15, value-15))}><Minus size={16}/></button>
         <strong>{value} min</strong>
-        <button type="button" title="Wydłuż o 15 minut" onClick={() => onChange(Math.min(960, value+15))}><Plus size={16}/></button>
+        <button type="button" title={tr('Wydłuż o 15 minut', 'Extend by 15 minutes')} onClick={() => onChange(Math.min(960, value+15))}><Plus size={16}/></button>
       </div></div>
     </Floating>
   </>;
 }
 
 /** XP liczone przez aplikację według stałego klucza (lib/xp.ts) — tylko do odczytu, z krótkim wyjaśnieniem. */
-export function XpPreview({ xp, hint, label = 'Nagroda XP' }: { xp: number; hint: string; label?: string }) {
+export function XpPreview({ xp, hint, label = tr('Nagroda XP', 'XP reward') }: { xp: number; hint: string; label?: string }) {
   return <div className="momentum-xp-preview" role="status" aria-label={`${label}: ${xp} XP. ${hint}`}>
     <span className="momentum-xp-preview-value"><Sparkles size={15}/> +{xp} XP</span>
     <small>{hint}</small>

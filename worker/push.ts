@@ -150,6 +150,24 @@ function findDevice(db: D1Database, keyHash: string): Promise<DeviceRow | null> 
   return db.prepare('SELECT id, owner, endpoint, p256dh, auth FROM push_devices WHERE key_hash = ?1').bind(keyHash).first<DeviceRow>();
 }
 
+type TestLanguage = 'pl' | 'en';
+
+/** Treść powiadomienia testowego w języku aplikacji (Worker nie korzysta z src/lib/i18n). */
+const TEST_TEXTS: Record<TestLanguage, { title: string; body: string }> = {
+  pl: { title: 'Momentum · test z serwera', body: 'Tak przyjdą przypomnienia, gdy aplikacja jest zamknięta.' },
+  en: { title: 'Momentum · server test', body: 'This is how reminders will arrive when the app is closed.' },
+};
+
+/** Język z treści żądania testu ({ "lang": "en" }); brak treści, błędny JSON lub inna wartość → polski (starsze wersje aplikacji). */
+async function readTestLanguage(request: Request): Promise<TestLanguage> {
+  try {
+    const body: unknown = await request.json();
+    return isRecord(body) && body.lang === 'en' ? 'en' : 'pl';
+  } catch {
+    return 'pl';
+  }
+}
+
 function readAccountCode(request: Request): string | null {
   const value = (request.headers.get('X-Momentum-Account') ?? '').trim();
   return /^[0-9A-Z]{20,64}$/.test(value) ? value : null;
@@ -240,8 +258,9 @@ async function sendTest(db: D1Database, keyHash: string, request: Request, url: 
   const vapid = await loadVapid(db, url);
   if (!vapid) return fail(503, 'push-unavailable');
   const now = Date.now();
+  const texts = TEST_TEXTS[await readTestLanguage(request)];
   const outcome = await sendWebPush(device, {
-    title: 'Momentum · test z serwera', body: 'Tak przyjdą przypomnienia, gdy aplikacja jest zamknięta.', tag: `momentum-push-test-${now}`, url: '/',
+    title: texts.title, body: texts.body, tag: `momentum-push-test-${now}`, url: '/',
   }, vapid, { ttl: 300, fetcher: options.fetcher }).catch((): PushResult => ({ status: 0, ok: false, gone: false }));
   if (outcome.gone) {
     await db.prepare('DELETE FROM push_devices WHERE id = ?1').bind(device.id).run();

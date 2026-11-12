@@ -1,11 +1,13 @@
 import { CircleMinus, Sprout, Wallet } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
+import { tr } from '../lib/i18n';
 import type { CategoryConfig, CategoryKey, IconKey } from '../types';
 
+// Nazwy jako gettery — liczone w chwili użycia, w bieżącym języku.
 const FALLBACK_STYLES = {
-  unpaid: { label: 'Bez przychodu', description: '', color: '#ed5e67', tint: '#fff0f1' },
-  potential: { label: 'Potencjalny przychód', description: '', color: '#d59a20', tint: '#fff8e7' },
-  income: { label: 'Przychód', description: '', color: '#17a76c', tint: '#eaf9f1' },
+  unpaid: { get label() { return tr('Bez przychodu', 'No income'); }, description: '', color: '#ed5e67', tint: '#fff0f1' },
+  potential: { get label() { return tr('Potencjalny przychód', 'Potential income'); }, description: '', color: '#d59a20', tint: '#fff8e7' },
+  income: { get label() { return tr('Przychód', 'Income'); }, description: '', color: '#17a76c', tint: '#eaf9f1' },
 } as const;
 
 export const FINANCIAL_ICONS = {
@@ -15,9 +17,9 @@ export const FINANCIAL_ICONS = {
 };
 
 const shortLabels = {
-  unpaid: 'Bez przychodu',
-  potential: 'Potencjał',
-  income: 'Przychód',
+  get unpaid() { return tr('Bez przychodu', 'No income'); },
+  get potential() { return tr('Potencjał', 'Potential'); },
+  get income() { return tr('Przychód', 'Income'); },
 };
 
 export function financialStyle(category: CategoryKey, categories: CategoryConfig) {

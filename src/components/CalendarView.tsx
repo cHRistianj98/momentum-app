@@ -4,6 +4,7 @@ import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { layoutOverlappingEvents } from '../lib/calendarOverlap';
 import { MiniMonthPicker } from './MiniMonthPicker';
 import { fullDate, minuteOfDay, mondayOf, monthTitle, parseDate, shiftDate, shortWeekday, timeFromMinutes, todayKey } from '../lib/date';
+import { locale, tr } from '../lib/i18n';
 import type { CategoryConfig, CategoryKey, IconKey } from '../types';
 
 export interface CalendarBlock {
@@ -441,17 +442,17 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
   const scheduledDates = useMemo(() => new Set(blocks.map(block => block.date)), [blocks]);
   const header = mode === 'day'
     ? fullDate(referenceDate)
-    : `${parseDate(dates[0]).getDate()} ${new Intl.DateTimeFormat('pl-PL', { month: 'short' }).format(parseDate(dates[0]))} – ${parseDate(dates[6]).getDate()} ${monthTitle(dates[6])}`;
+    : `${parseDate(dates[0]).getDate()} ${new Intl.DateTimeFormat(locale(), { month: 'short' }).format(parseDate(dates[0]))} – ${parseDate(dates[6]).getDate()} ${monthTitle(dates[6])}`;
   const today = todayKey();
   // Kompaktowy pasek na telefonie: data jako przycisk wyboru, nawigacja ‹ Dziś › i przełącznik widoku.
   const showsToday = mode === 'day' ? referenceDate === today : dates.includes(today);
-  const shortMonth = (date: string) => new Intl.DateTimeFormat('pl-PL', { month: 'short' }).format(parseDate(date)).replace('.', '');
-  const mobileEyebrow = mode === 'day' ? new Intl.DateTimeFormat('pl-PL', { weekday: 'long' }).format(parseDate(referenceDate)) : 'Tydzień';
+  const shortMonth = (date: string) => new Intl.DateTimeFormat(locale(), { month: 'short' }).format(parseDate(date)).replace('.', '');
+  const mobileEyebrow = mode === 'day' ? new Intl.DateTimeFormat(locale(), { weekday: 'long' }).format(parseDate(referenceDate)) : tr('Tydzień', 'Week');
   const mobileRelative = mode === 'day'
-    ? referenceDate === today ? 'Dziś' : referenceDate === shiftDate(today, 1) ? 'Jutro' : referenceDate === shiftDate(today, -1) ? 'Wczoraj' : ''
-    : showsToday ? 'Bieżący' : '';
+    ? referenceDate === today ? tr('Dziś', 'Today') : referenceDate === shiftDate(today, 1) ? tr('Jutro', 'Tomorrow') : referenceDate === shiftDate(today, -1) ? tr('Wczoraj', 'Yesterday') : ''
+    : showsToday ? tr('Bieżący', 'Current') : '';
   const mobileTitle = mode === 'day'
-    ? new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'long' }).format(parseDate(referenceDate))
+    ? new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long' }).format(parseDate(referenceDate))
     : `${parseDate(dates[0]).getDate()} ${shortMonth(dates[0])} – ${parseDate(dates[6]).getDate()} ${shortMonth(dates[6])}`;
 
   const getTimeFromPosition = (event: React.DragEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>, element: HTMLDivElement): string => {
@@ -477,21 +478,21 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           <div className="cal-mbar-row">
             <MiniMonthPicker selectedDate={referenceDate} scheduledDates={scheduledDates} selection={mode === 'day' ? 'day' : 'week'}
               onSelectWeek={date => onChangeDate(date)} triggerClassName="cal-mbar-title"
-              triggerLabel={mode === 'day' ? 'Wybierz dzień z kalendarza' : 'Wybierz tydzień z kalendarza'}
+              triggerLabel={mode === 'day' ? tr('Wybierz dzień z kalendarza', 'Pick a day from the calendar') : tr('Wybierz tydzień z kalendarza', 'Pick a week from the calendar')}
               triggerContent={<>
                 <span className="cal-mbar-eyebrow">{mobileEyebrow}{mobileRelative && <b>{mobileRelative}</b>}</span>
                 <span className="cal-mbar-date">{mobileTitle}<ChevronDown size={17} aria-hidden="true" /></span>
               </>} />
-            <div className="cal-mbar-nav" role="group" aria-label="Zmień datę">
-              <button type="button" aria-label={mode === 'day' ? 'Poprzedni dzień' : 'Poprzedni tydzień'} onClick={() => change(-1)}><ChevronLeft size={19} /></button>
-              <button type="button" className={`cal-mbar-today ${showsToday ? 'is-current' : ''}`} onClick={() => onChangeDate(today)}>Dziś</button>
-              <button type="button" aria-label={mode === 'day' ? 'Następny dzień' : 'Następny tydzień'} onClick={() => change(1)}><ChevronRight size={19} /></button>
+            <div className="cal-mbar-nav" role="group" aria-label={tr('Zmień datę', 'Change date')}>
+              <button type="button" aria-label={mode === 'day' ? tr('Poprzedni dzień', 'Previous day') : tr('Poprzedni tydzień', 'Previous week')} onClick={() => change(-1)}><ChevronLeft size={19} /></button>
+              <button type="button" className={`cal-mbar-today ${showsToday ? 'is-current' : ''}`} onClick={() => onChangeDate(today)}>{tr('Dziś', 'Today')}</button>
+              <button type="button" aria-label={mode === 'day' ? tr('Następny dzień', 'Next day') : tr('Następny tydzień', 'Next week')} onClick={() => change(1)}><ChevronRight size={19} /></button>
             </div>
           </div>
-          <div className="cal-mbar-switch" role="tablist" aria-label="Widok kalendarza" data-mode={mode}>
+          <div className="cal-mbar-switch" role="tablist" aria-label={tr('Widok kalendarza', 'Calendar view')} data-mode={mode}>
             <span className="cal-mbar-thumb" aria-hidden="true" />
-            <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'active' : ''} onClick={() => onChangeMode('day')}><CalendarDays size={15} /> Dzień</button>
-            <button type="button" role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'active' : ''} onClick={() => onChangeMode('week')}><CalendarRange size={15} /> Tydzień</button>
+            <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'active' : ''} onClick={() => onChangeMode('day')}><CalendarDays size={15} /> {tr('Dzień', 'Day')}</button>
+            <button type="button" role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'active' : ''} onClick={() => onChangeMode('week')}><CalendarRange size={15} /> {tr('Tydzień', 'Week')}</button>
           </div>
         </div>
         <div className="calendar-heading" onTouchStart={e=>{
@@ -504,24 +505,24 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
             const dy=e.changedTouches[0].clientY-start.y;
             if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.6) change(dx<0?1:-1);
           }}>
-          <div className="eyebrow"><CalendarDays size={14} /> TWÓJ HARMONOGRAM</div>
-          <h2>{header}</h2><span className="calendar-mobile-swipe-hint">Przesuń nagłówek, aby zmienić {mode==='day'?'dzień':'tydzień'} <ChevronRight size={12}/></span>
+          <div className="eyebrow"><CalendarDays size={14} /> {tr('TWÓJ HARMONOGRAM', 'YOUR SCHEDULE')}</div>
+          <h2>{header}</h2><span className="calendar-mobile-swipe-hint">{mode==='day' ? tr('Przesuń nagłówek, aby zmienić dzień', 'Swipe the header to change the day') : tr('Przesuń nagłówek, aby zmienić tydzień', 'Swipe the header to change the week')} <ChevronRight size={12}/></span>
         </div>
         <div className="calendar-actions">
           <MiniMonthPicker selectedDate={referenceDate} scheduledDates={scheduledDates} onSelectWeek={date => { onChangeDate(date); onChangeMode('week'); }} />
-          <div className="view-switch" aria-label="Widok kalendarza">
-            <button className={mode === 'day' ? 'active' : ''} onClick={() => onChangeMode('day')}>Dzień</button>
-            <button className={mode === 'week' ? 'active' : ''} onClick={() => onChangeMode('week')}>Tydzień</button>
+          <div className="view-switch" aria-label={tr('Widok kalendarza', 'Calendar view')}>
+            <button className={mode === 'day' ? 'active' : ''} onClick={() => onChangeMode('day')}>{tr('Dzień', 'Day')}</button>
+            <button className={mode === 'week' ? 'active' : ''} onClick={() => onChangeMode('week')}>{tr('Tydzień', 'Week')}</button>
           </div>
-          <button className="btn btn--secondary btn--today" onClick={() => onChangeDate(today)}>Dziś</button>
+          <button className="btn btn--secondary btn--today" onClick={() => onChangeDate(today)}>{tr('Dziś', 'Today')}</button>
           <div className="calendar-arrows">
-            <button aria-label="Poprzedni" onClick={() => change(-1)}><ChevronLeft size={18} /></button>
-            <button aria-label="Następny" onClick={() => change(1)}><ChevronRight size={18} /></button>
+            <button aria-label={tr('Poprzedni', 'Previous')} onClick={() => change(-1)}><ChevronLeft size={18} /></button>
+            <button aria-label={tr('Następny', 'Next')} onClick={() => change(1)}><ChevronRight size={18} /></button>
           </div>
         </div>
       </div>
-      {mode === 'week' && <div className="mobile-week-agenda" aria-label="Tygodniowy przegląd aktywności">
-        <div className="mobile-week-hint">Dotknij daty, aby otworzyć harmonogram dnia</div>
+      {mode === 'week' && <div className="mobile-week-agenda" aria-label={tr('Tygodniowy przegląd aktywności', 'Weekly activity overview')}>
+        <div className="mobile-week-hint">{tr('Dotknij daty, aby otworzyć harmonogram dnia', 'Tap a date to open that day’s schedule')}</div>
         <div className="mobile-week-grid">
           {dates.map(date => {
             const dayBlocks = blocks.filter(block => block.date === date)
@@ -529,7 +530,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
             const visible = dayBlocks.slice(0, 7);
             const remaining = dayBlocks.length - visible.length;
             return <div className={`mobile-week-day ${date === today ? 'mobile-week-day--today' : ''}`} key={date}>
-              <button type="button" className="mobile-week-date" onClick={() => { onChangeDate(date); onChangeMode('day'); }} aria-label={`Otwórz dzień ${fullDate(date)}`}>
+              <button type="button" className="mobile-week-date" onClick={() => { onChangeDate(date); onChangeMode('day'); }} aria-label={tr(`Otwórz dzień ${fullDate(date)}`, `Open ${fullDate(date)}`)}>
                 <span>{shortWeekday(date)}</span><strong>{parseDate(date).getDate()}</strong>
               </button>
               <div className="mobile-week-day-events">
@@ -537,13 +538,13 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                   className={`mobile-week-item ${block.done ? 'mobile-week-item--done' : ''}`}
                   style={{'--week-color': (categories[block.category] ?? categories.unpaid).color} as React.CSSProperties}
                   onClick={() => { onChangeDate(date); onChangeMode('day'); }}
-                  title={`${block.title} • ${block.time} — otwórz plan dnia`}>
+                  title={tr(`${block.title} • ${block.time} — otwórz plan dnia`, `${block.title} • ${block.time} — open the day plan`)}>
                   <span className="mobile-week-item-title">{block.done ? '✓ ' : ''}{block.title}</span>
                 </button>)}
                 {remaining > 0 && <button className="mobile-week-more" type="button" onClick={() => { onChangeDate(date); onChangeMode('day'); }}>+{remaining}</button>}
                 {!dayBlocks.length && <span className="mobile-week-empty">—</span>}
               </div>
-              <button className="mobile-week-open" type="button" aria-label={`Zobacz szczegóły ${fullDate(date)}`} onClick={() => { onChangeDate(date); onChangeMode('day'); }}>•••</button>
+              <button className="mobile-week-open" type="button" aria-label={tr(`Zobacz szczegóły ${fullDate(date)}`, `See details for ${fullDate(date)}`)} onClick={() => { onChangeDate(date); onChangeMode('day'); }}>•••</button>
             </div>;
           })}
         </div>
@@ -553,7 +554,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
         onTouchEnd={gridSwipeEnd} onTouchCancel={() => { gridSwipeRef.current = null; }}>
         <div className={`calendar-body ${mode === 'day' ? 'calendar-body--day' : 'calendar-body--week'}`} style={{ minWidth: mode === 'week' ? 980 : 520 }}>
           <div className="calendar-head" style={{ gridTemplateColumns: `66px repeat(${dates.length}, minmax(0, 1fr))` }}>
-            <div className="timezone">LOKALNIE</div>
+            <div className="timezone">{tr('LOKALNIE', 'LOCAL')}</div>
             {dates.map(d => (
               <div className={`calendar-head-day ${d === today ? 'is-today' : ''}`} key={d}>
                 <span>{shortWeekday(d)}</span><strong>{parseDate(d).getDate()}</strong>
@@ -615,7 +616,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                     setEmptyHover(null);
                     onAddAt(d, getTimeFromPosition(e, e.currentTarget));
                   }}
-                  title="Kliknij puste miejsce, aby dodać zadanie na wybraną godzinę"
+                  title={tr('Kliknij puste miejsce, aby dodać zadanie na wybraną godzinę', 'Click an empty slot to add a task at that time')}
                 >
                   {d === today && nowMinutes >= START && nowMinutes < END && (
                     <div className="now-line" style={{ top: ((nowMinutes - START) / 60) * HOUR_HEIGHT }}><span /></div>
@@ -668,27 +669,27 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                       >
                         <div className="event-body">
                           <TaskVisual icon={block.icon} image={block.image} category={block.category} categories={categories} className="event-visual" size="small" />
-                          <div className="event-text"><strong>{block.title}</strong><small>{block.time} · {displayDuration} min{block.series && <Repeat2 className="event-repeat" size={11} aria-label="Zadanie cykliczne"/>}</small></div>
+                          <div className="event-text"><strong>{block.title}</strong><small>{block.time} · {displayDuration} min{block.series && <Repeat2 className="event-repeat" size={11} aria-label={tr('Zadanie cykliczne', 'Recurring task')}/>}</small></div>
                           {block.kind === 'task' && !block.done && <button
                             type="button"
                             className="event-focus"
-                            aria-label={`Rozpocznij Focus: ${block.title}`}
-                            title="Rozpocznij Focus Mode"
+                            aria-label={tr(`Rozpocznij Focus: ${block.title}`, `Start Focus: ${block.title}`)}
+                            title={tr('Rozpocznij Focus Mode', 'Start Focus Mode')}
                             onPointerDown={e=>e.stopPropagation()}
                             onClick={e=>{e.stopPropagation();onFocusBlock(block);}}
                           ><Play size={12} fill="currentColor" /></button>}
                           <button
                             className={`event-check ${block.done ? 'checked' : ''}`}
-                            aria-label={block.done ? 'Oznacz jako niewykonane' : 'Oznacz jako wykonane'}
-                            title={block.kind === 'routine' && !block.series ? 'Otwórz kroki rutyny' : 'Zmień status'}
+                            aria-label={block.done ? tr('Oznacz jako niewykonane', 'Mark as not done') : tr('Oznacz jako wykonane', 'Mark as done')}
+                            title={block.kind === 'routine' && !block.series ? tr('Otwórz kroki rutyny', 'Open routine steps') : tr('Zmień status', 'Change status')}
                             onPointerDown={e => e.stopPropagation()}
                             onClick={e => { e.stopPropagation(); onToggleBlock(block); }}
                           ><Check size={13} strokeWidth={3} /></button>
                         </div>
                         {height > 105 && <CategoryBadge category={block.category} categories={categories} compact className="event-footer-badge" />}
                         {height >= 72 && height <= 105 && <CategoryBadge category={block.category} categories={categories} compact className="event-footer-badge event-footer-badge--mobile" />}
-                        <button type="button" className="event-move-handle" aria-label={`Przesuń ${block.title} na inną godzinę lub dzień`}
-                          title="Przytrzymaj i przeciągnij" onClick={e=>e.stopPropagation()}>
+                        <button type="button" className="event-move-handle" aria-label={tr(`Przesuń ${block.title} na inną godzinę lub dzień`, `Move ${block.title} to another time or day`)}
+                          title={tr('Przytrzymaj i przeciągnij', 'Press and hold, then drag')} onClick={e=>e.stopPropagation()}>
                           <GripVertical size={15}/>
                         </button>
                         {height > 65 && <GripVertical className="event-grip" size={12} />}
@@ -696,12 +697,12 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                           className="event-resize-handle"
                           role="slider"
                           tabIndex={0}
-                          aria-label={`Zmień długość bloku ${block.title}`}
+                          aria-label={tr(`Zmień długość bloku ${block.title}`, `Change the duration of ${block.title}`)}
                           aria-valuenow={displayDuration}
                           aria-valuemin={15}
                           aria-valuemax={END - minuteOfDay(block.time)}
-                          aria-valuetext={`${displayDuration} minut`}
-                          title="Złap i przeciągnij, aby zmienić czas trwania (co 15 minut)"
+                          aria-valuetext={tr(`${displayDuration} minut`, `${displayDuration} minutes`)}
+                          title={tr('Złap i przeciągnij, aby zmienić czas trwania (co 15 minut)', 'Grab and drag to change the duration (in 15-minute steps)')}
                           draggable={false}
                           onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}
                           onClick={e => e.stopPropagation()}
@@ -721,7 +722,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
                   })}
                   {emptyHover?.date === d && !movePreview && !externalPreview && (
                     <div className="calendar-empty-hint" style={{ top: ((minuteOfDay(emptyHover.time) - START) / 60) * HOUR_HEIGHT }}>
-                      <Plus size={13} /> {emptyHover.time} · Dodaj zadanie
+                      <Plus size={13} /> {emptyHover.time} · {tr('Dodaj zadanie', 'Add task')}
                     </div>
                   )}
                   {rangePreview?.date===d && <div className="calendar-range-preview" style={{top:(rangePreview.start/60)*HOUR_HEIGHT,height:((rangePreview.end-rangePreview.start)/60)*HOUR_HEIGHT}}>
@@ -748,7 +749,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
           </div>
         </div>
       </div>
-      <div className="calendar-footer"><span className="legend-dot" /> Kliknij puste miejsce, aby dodać zadanie. Przeciągnij blok, aby zmienić termin. <span className="footnote">Widok 24 h · czas lokalny</span></div>
+      <div className="calendar-footer"><span className="legend-dot" /> {tr('Kliknij puste miejsce, aby dodać zadanie. Przeciągnij blok, aby zmienić termin.', 'Click an empty slot to add a task. Drag a block to reschedule it.')} <span className="footnote">{tr('Widok 24 h · czas lokalny', '24 h view · local time')}</span></div>
     </section>
   );
 }

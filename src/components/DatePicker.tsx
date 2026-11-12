@@ -2,8 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react';
 import { dateKey, mondayOf, monthTitle, parseDate, shiftDate, todayKey } from '../lib/date';
+import { locale, pick, tr } from '../lib/i18n';
 
-const WEEKDAYS = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
+/** Nagłówki kolumn kalendarza od poniedziałku. */
+const weekdaysFromMonday = () => pick(['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'], ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']);
 const isValidDate = (value: string | null): value is string => !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && dateKey(parseDate(value)) === value;
 const startOfMonth = (key: string) => {
   const d = parseDate(key);
@@ -21,7 +23,7 @@ interface DatePickerProps {
 }
 
 /** Popover in a portal: not clipped by modals with overflow-y: auto. */
-export function DatePicker({ value, onChange, placeholder = 'Wybierz datę' }: DatePickerProps) {
+export function DatePicker({ value, onChange, placeholder = tr('Wybierz datę', 'Choose date') }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(() => startOfMonth(isValidDate(value) ? value : todayKey()));
   const [position, setPosition] = useState({ top: 0, left: 0, above: false, maxHeight: 450 });
@@ -83,38 +85,38 @@ export function DatePicker({ value, onChange, placeholder = 'Wybierz datę' }: D
 
   const select = (date: string | null) => { onChange(date); setOpen(false); triggerRef.current?.focus(); };
   const formatSelected = value && isValidDate(value)
-    ? new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }).format(parseDate(value))
+    ? new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(parseDate(value))
     : placeholder;
 
   return <>
     <button type="button" ref={triggerRef} className={`momentum-date-trigger ${open ? 'is-open' : ''} ${!value ? 'is-empty' : ''}`}
-      aria-label="Wybierz datę zadania" aria-haspopup="dialog" aria-expanded={open}
+      aria-label={tr('Wybierz datę zadania', 'Choose task date')} aria-haspopup="dialog" aria-expanded={open}
       onClick={() => { if (!open) setMonth(startOfMonth(isValidDate(value) ? value : today)); setOpen(v => !v); }}>
       <CalendarDays size={17} aria-hidden="true" />
       <span>{formatSelected}</span>
       <ChevronDown size={15} aria-hidden="true" />
     </button>
     {open && createPortal(
-      <div ref={popoverRef} role="dialog" aria-label="Wybierz datę" className={`momentum-date-popover ${position.above ? 'is-above' : ''}`}
+      <div ref={popoverRef} role="dialog" aria-label={tr('Wybierz datę', 'Choose date')} className={`momentum-date-popover ${position.above ? 'is-above' : ''}`}
         style={{ top: position.top, left: position.left, maxHeight: position.maxHeight }}>
         <div className="momentum-date-header">
-          <div><span className="momentum-date-kicker">ZAPLANUJ ZADANIE</span><strong>{monthTitle(month)}</strong></div>
+          <div><span className="momentum-date-kicker">{tr('ZAPLANUJ ZADANIE', 'SCHEDULE TASK')}</span><strong>{monthTitle(month)}</strong></div>
           <div className="momentum-date-nav">
-            <button type="button" title="Poprzedni miesiąc" aria-label="Poprzedni miesiąc" onClick={() => setMonth(m => nextMonth(m, -1))}><ChevronLeft size={18} /></button>
-            <button type="button" title="Następny miesiąc" aria-label="Następny miesiąc" onClick={() => setMonth(m => nextMonth(m, 1))}><ChevronRight size={18} /></button>
+            <button type="button" title={tr('Poprzedni miesiąc', 'Previous month')} aria-label={tr('Poprzedni miesiąc', 'Previous month')} onClick={() => setMonth(m => nextMonth(m, -1))}><ChevronLeft size={18} /></button>
+            <button type="button" title={tr('Następny miesiąc', 'Next month')} aria-label={tr('Następny miesiąc', 'Next month')} onClick={() => setMonth(m => nextMonth(m, 1))}><ChevronRight size={18} /></button>
           </div>
         </div>
-        <div className="momentum-date-weekdays">{WEEKDAYS.map(d => <span key={d}>{d}</span>)}</div>
+        <div className="momentum-date-weekdays">{weekdaysFromMonday().map(d => <span key={d}>{d}</span>)}</div>
         <div className="momentum-date-grid">{days.map(d => {
           const inMonth = parseDate(d).getMonth() === parseDate(month).getMonth();
           const selected = d === value;
           return <button type="button" key={d} className={`momentum-date-day ${!inMonth ? 'outside' : ''} ${selected ? 'selected' : ''} ${d === today ? 'today' : ''}`}
-            aria-pressed={selected} aria-label={new Intl.DateTimeFormat('pl-PL', { dateStyle: 'full' }).format(parseDate(d))}
+            aria-pressed={selected} aria-label={new Intl.DateTimeFormat(locale(), { dateStyle: 'full' }).format(parseDate(d))}
             onClick={() => select(d)}>{parseDate(d).getDate()}{selected && <Check size={9} aria-hidden="true" />}</button>;
         })}</div>
         <div className="momentum-date-footer">
-          <button type="button" onClick={() => select(null)}><X size={14} /> Wyczyść</button>
-          <button type="button" className="momentum-date-today" onClick={() => { setMonth(startOfMonth(today)); select(today); }}><RotateCcw size={14} /> Dziś</button>
+          <button type="button" onClick={() => select(null)}><X size={14} /> {tr('Wyczyść', 'Clear')}</button>
+          <button type="button" className="momentum-date-today" onClick={() => { setMonth(startOfMonth(today)); select(today); }}><RotateCcw size={14} /> {tr('Dziś', 'Today')}</button>
         </div>
       </div>, document.body)}
   </>;

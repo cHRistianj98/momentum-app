@@ -171,6 +171,8 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
 
 ## Co działa w tej wersji
 
+- **Język polski i angielski** — wybór w *Ustawienia → Język · Language* (zapisany w danych, synchronizowany jak motyw).
+  Nowa instalacja startuje w języku przeglądarki (polski albo angielski). Zadania i rutyny użytkownika nie są tłumaczone.
 - Pulpit z kartami progresu, XP, kalendarzem dnia i panelem zadań.
 - Kalendarz **dzień/tydzień**, nawigacja po datach, kliknięcie pustego slotu tworzy zadanie z godziną.
 - **Przeciąganie bloków zadań** na inną godzinę i dzień na siatce kalendarza; zmiana czasu trwania w edytorze.
@@ -193,6 +195,14 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
 **To jest świadomie frontend-first**: nie ma jeszcze backendu Spring Boot, PostgreSQL, logowania, API Google Calendar/Tasks, synchronizacji wielu urządzeń, serwera powiadomień push ani aplikacji mobilnej. Dane są lokalne w konkretnej przeglądarce. Zdjęcia są zapisywane jako data URI (limit 900 KB), co nadaje się do demo, nie do rozwiązania produkcyjnego.
 
 Długość bloku zmienisz w edytorze zadania albo przeciągając jego dolną krawędź w kalendarzu (co 15 minut). Dla rutyn kalendarz pokazuje wystąpienia według harmonogramu szablonu; pojedynczy termin można przenieść na inny dzień albo usunąć (zob. *Zadania cykliczne*).
+
+## Język interfejsu (PL / EN) — dla programisty
+
+- Teksty pisze się w miejscu użycia w obu językach: `tr('Zapisz', 'Save')`, z wartościami
+  ``tr(`Usunięto „${title}”`, `Removed “${title}”`)``. Odmiana przez liczby: `count(n, ['krok', 'kroki', 'kroków'], ['step', 'steps'])`.
+- Daty i liczby przez `locale()` (`pl-PL` / `en-GB`: zegar 24 h i tydzień od poniedziałku, jak w aplikacji).
+- Nie wołaj `tr()` na poziomie modułu (stała zostałaby w jednym języku) — tabele używają getterów albo `{ pl, en }` + `text()`.
+- Język ustawia `App` przed renderem (`applyLanguage`), a zmiana języka montuje widok od nowa. `AppData.language` brak = polski.
 
 ## Jak działa model danych
 
@@ -236,6 +246,7 @@ momentum-app/
       progression.ts          # rangi i katalog 100 odznak (grupy, metryki postępu)
       xp.ts                   # klucz XP (zadania, Focus, rutyny), poziomy i rejestr zdobytych punktów
       stepTimer.ts            # stoper kroku rutyny (odliczanie poza oknem, auto-odhaczenie, sygnał, wake lock)
+      i18n.ts                 # język interfejsu: tr('pl', 'en'), plural/count, locale() dla dat i liczb
       dayExport.ts            # tekstowy eksport wybranych dni (plan, wykonanie, kroki, kolory kategorii)
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, scalanie, historia wersji)
       syncMerge.ts            # scalanie trójstronne zmian z dwóch urządzeń (czyste funkcje)

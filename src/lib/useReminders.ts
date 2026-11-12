@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppData } from '../types';
+import { tr } from './i18n';
 import { collectReminders, reminderLeadText, resolveNotificationSettings, type ScheduledReminder } from './reminders';
 import {
   getNotificationSupport, loadDeliveredReminders, loadLastReminderCheck, loadNotificationFeed, reminderOpenUrl,
@@ -21,7 +22,7 @@ function feedItemFor(reminder: ScheduledReminder, now: number): NotificationFeed
     sourceId: reminder.sourceId,
     occurrenceDate: reminder.occurrenceDate,
     title: reminder.title,
-    body: `${reminderLeadText(reminder.startAt, now)} · ${reminder.time}${reminder.kind === 'routine' && !reminder.series ? ' · rutyna' : ''}`,
+    body: `${reminderLeadText(reminder.startAt, now)} · ${reminder.time}${reminder.kind === 'routine' && !reminder.series ? tr(' · rutyna', ' · routine') : ''}`,
     createdAt: now,
     startAt: reminder.startAt,
     read: false,
@@ -157,7 +158,11 @@ export function useReminders({ data, setData, onInApp, onOpen }: Options) {
     setSupport(result);
     if (result === 'granted') {
       setEnabled(true);
-      void showSystemNotification({ title: 'Powiadomienia włączone', body: 'Momentum przypomni Ci o zadaniach i rutynach.', tag: 'momentum-enabled', url: '/' });
+      void showSystemNotification({
+        title: tr('Powiadomienia włączone', 'Notifications turned on'),
+        body: tr('Momentum przypomni Ci o zadaniach i rutynach.', 'Momentum will remind you about your tasks and routines.'),
+        tag: 'momentum-enabled', url: '/',
+      });
     }
     return result;
   }, [setEnabled]);
@@ -165,10 +170,12 @@ export function useReminders({ data, setData, onInApp, onOpen }: Options) {
   const sendTest = useCallback(async () => {
     const now = Date.now();
     const shown = await showSystemNotification({
-      title: 'Momentum · test', body: 'Tak wyglądają przypomnienia o zadaniach i rutynach.', tag: `momentum-test-${now}`, url: '/',
+      title: 'Momentum · test', body: tr('Tak wyglądają przypomnienia o zadaniach i rutynach.', 'This is what task and routine reminders look like.'),
+      tag: `momentum-test-${now}`, url: '/',
     });
-    pushFeed([{ id: `system:test@${now}`, kind: 'system', title: 'Powiadomienie testowe',
-      body: shown ? 'Wysłano powiadomienie systemowe.' : 'Brak zgody systemu — widoczne tylko w aplikacji.', createdAt: now, read: false }]);
+    pushFeed([{ id: `system:test@${now}`, kind: 'system', title: tr('Powiadomienie testowe', 'Test notification'),
+      body: shown ? tr('Wysłano powiadomienie systemowe.', 'System notification sent.') : tr('Brak zgody systemu — widoczne tylko w aplikacji.', 'No system permission — shown only in the app.'),
+      createdAt: now, read: false }]);
     return shown;
   }, [pushFeed]);
 

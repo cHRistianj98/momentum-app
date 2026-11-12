@@ -4,6 +4,7 @@ import { readMomentumKey, removeMomentumKey, saveMomentumKey, syncOfflineSnapsho
 import { normalizeReminders, resolveNotificationSettings } from './reminders';
 import { normalizeRepeatRule } from './recurrence';
 import { parseDate } from './date';
+import { isLanguage, tr } from './i18n';
 import type { AppData, CategoryConfig, CategoryKey, Routine, Task, Project } from '../types';
 
 const STORAGE_KEY = 'momentum.v1';
@@ -12,27 +13,28 @@ const STORAGE_KEY = 'momentum.v1';
  * Niezależne od seed.ts wartości zapasowe. Starsze lub niekompletnie
  * zaktualizowane pliki seed.ts mogą nie zawierać nowych kategorii.
  * Migracja musi działać także w takim przypadku.
+ * Nazwy i opisy kategorii nie są edytowalne — zawsze pochodzą stąd, w bieżącym języku (zapisane są tylko kolory).
  */
-const CATEGORY_FALLBACKS: CategoryConfig = {
+const CATEGORY_FALLBACKS = (): CategoryConfig => ({
   unpaid: {
-    label: 'Bez przychodu',
-    description: 'Nie przynosi pieniędzy: siłownia, gotowanie, sprzątanie, odpoczynek, TV.',
+    label: tr('Bez przychodu', 'No income'),
+    description: tr('Nie przynosi pieniędzy: siłownia, gotowanie, sprzątanie, odpoczynek, TV.', 'Earns no money: gym, cooking, cleaning, rest, TV.'),
     color: '#ed5e67',
     tint: '#fff0f0',
   },
   potential: {
-    label: 'Możliwy przyszły przychód',
-    description: 'Tworzenie aplikacji, rozwój zawodowy, kursy, wystawianie ofert na OLX.',
+    label: tr('Możliwy przyszły przychód', 'Potential future income'),
+    description: tr('Tworzenie aplikacji, rozwój zawodowy, kursy, wystawianie ofert na OLX.', 'Building apps, career growth, courses, listing items for sale.'),
     color: '#e7a72f',
     tint: '#fff6df',
   },
   income: {
-    label: 'Przychód',
-    description: 'Płatna praca, opłacone zlecenia, zrealizowana sprzedaż, otrzymane odsetki.',
+    label: tr('Przychód', 'Income'),
+    description: tr('Płatna praca, opłacone zlecenia, zrealizowana sprzedaż, otrzymane odsetki.', 'Paid work, paid commissions, completed sales, interest received.'),
     color: '#16a66a',
     tint: '#e5f8ef',
   },
-};
+});
 
 /** Kategorie z wersji v0.1 (health, chores, leisure) są teraz jedną kategorią unpaid. */
 export function normalizeCategory(value: unknown): CategoryKey {
@@ -45,8 +47,9 @@ export function resolveCategories(value: unknown): CategoryConfig {
     ? value as Record<string, unknown>
     : {};
 
+  const fallbacks = CATEGORY_FALLBACKS();
   const getStyle = (key: CategoryKey) => {
-    const fallback = CATEGORY_FALLBACKS[key];
+    const fallback = fallbacks[key];
     const saved = source[key] && typeof source[key] === 'object'
       ? source[key] as Record<string, unknown>
       : {};
@@ -68,7 +71,7 @@ export function migrateStoredData(value: unknown): AppData | null {
   const data = value as Partial<AppData>;
   if (!Array.isArray(data.tasks) || !Array.isArray(data.routines)) return null;
 
-  return {
+  const migrated: AppData = {
     ...data,
     tasks: data.tasks
       .filter((task): task is Task => Boolean(task && typeof task === 'object'))
@@ -84,6 +87,9 @@ export function migrateStoredData(value: unknown): AppData | null {
     theme: data.theme === 'dark' ? 'dark' : 'light',
     notifications: resolveNotificationSettings(data.notifications),
   };
+  // Nieznany język (np. z ręcznie edytowanej kopii) pomijamy — aplikacja jest wtedy po polsku.
+  if (!isLanguage(migrated.language)) delete migrated.language;
+  return migrated;
 }
 
 /** Przypomnienia z importu lub starszej wersji: tylko poprawne minuty, bez duplikatów. */

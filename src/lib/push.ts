@@ -12,6 +12,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { AppData } from '../types';
 import { fingerprint, generateRecoveryCode, getCloudSyncEngine } from './cloudSync';
+import { getLanguage, tr } from './i18n';
 import { reminderOpenUrl } from './notifications';
 import { collectReminders, reminderLeadText, resolveNotificationSettings } from './reminders';
 
@@ -123,7 +124,7 @@ export function primePush(): Promise<void> {
       const timeout = new Promise<null>(resolve => window.setTimeout(() => resolve(null), 4000));
       registration = await Promise.race([navigator.serviceWorker.ready.catch(() => null), timeout]);
       if (!registration) {
-        if (!loadConfig()) setState({ status: 'unavailable', message: 'Powiadomienia w tle działają w zainstalowanej aplikacji (wersja produkcyjna, HTTPS).' });
+        if (!loadConfig()) setState({ status: 'unavailable', message: tr('Powiadomienia w tle działają w zainstalowanej aplikacji (wersja produkcyjna, HTTPS).', 'Background notifications work in the installed app (production version, HTTPS).') });
         return;
       }
     }
@@ -131,7 +132,7 @@ export function primePush(): Promise<void> {
       try {
         const { status, data } = await callApi('GET', '/api/push/key', null);
         if (status === 200 && typeof data.publicKey === 'string') vapidKey = data.publicKey;
-        else if (state.status === 'inactive') setState({ status: 'unavailable', message: 'Serwer powiadomień jest niedostępny.' });
+        else if (state.status === 'inactive') setState({ status: 'unavailable', message: tr('Serwer powiadomień jest niedostępny.', 'The notification server is unavailable.') });
       } catch { /* offline — spróbujemy przy kolejnym otwarciu */ }
     }
     if (vapidKey && state.status === 'unavailable') setState({ status: loadConfig() ? 'active' : 'inactive', message: null });
@@ -158,7 +159,9 @@ async function registerSubscription(subscription: PushSubscription): Promise<voi
   const { status, data } = await callApi('PUT', '/api/push/device', secret, { endpoint: json.endpoint, keys: json.keys },
     account ? { 'X-Momentum-Account': account } : {});
   if (status !== 200) {
-    throw new Error(status === 429 ? 'Zbyt wiele prób z tej sieci. Spróbuj jutro.' : 'Serwer nie zapisał subskrypcji. Spróbuj ponownie później.');
+    throw new Error(status === 429
+      ? tr('Zbyt wiele prób z tej sieci. Spróbuj jutro.', 'Too many attempts from this network. Try again tomorrow.')
+      : tr('Serwer nie zapisał subskrypcji. Spróbuj ponownie później.', 'The server didn’t save the subscription. Try again later.'));
   }
   const scope = data.scope === 'account' ? 'account' : 'device';
   saveConfig({ version: 1, secret, endpoint: json.endpoint ?? subscription.endpoint, scope, linkedCode: scope === 'account' ? account : null });
@@ -175,7 +178,7 @@ export function subscribeFromGesture(): Promise<void> {
   const key = vapidKey;
   if (!currentRegistration || !key) {
     void primePush();
-    return Promise.reject(new Error('Przygotowuję połączenie z serwerem — spróbuj ponownie za chwilę.'));
+    return Promise.reject(new Error(tr('Przygotowuję połączenie z serwerem — spróbuj ponownie za chwilę.', 'Connecting to the server — try again in a moment.')));
   }
   const subscribing = currentRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
   setState({ status: 'working', message: null });
@@ -184,10 +187,10 @@ export function subscribeFromGesture(): Promise<void> {
     // Subskrypcja z innym kluczem serwera (np. po odtworzeniu bazy): usuń ją; kolejne stuknięcie utworzy nową.
     const staleKey = error instanceof Error && error.name === 'InvalidStateError';
     if (staleKey) void currentRegistration.pushManager.getSubscription().then(old => old?.unsubscribe()).catch(() => undefined);
-    const message = denied ? 'Powiadomienia są zablokowane w ustawieniach systemu.'
-      : staleKey ? 'Odświeżono subskrypcję — stuknij „Włącz” jeszcze raz.'
+    const message = denied ? tr('Powiadomienia są zablokowane w ustawieniach systemu.', 'Notifications are blocked in system settings.')
+      : staleKey ? tr('Odświeżono subskrypcję — stuknij „Włącz” jeszcze raz.', 'Subscription refreshed — tap “Turn on” again.')
       : error instanceof Error && error.name !== 'NotAllowedError' && error.name !== 'AbortError' ? error.message
-      : 'Nie udało się włączyć powiadomień w tle. Spróbuj ponownie.';
+      : tr('Nie udało się włączyć powiadomień w tle. Spróbuj ponownie.', 'Couldn’t turn on background notifications. Try again.');
     setState({ status: loadConfig() ? 'active' : 'inactive', message });
     throw error instanceof Error ? error : new Error(message);
   });
@@ -199,7 +202,7 @@ export async function refreshPushRegistration(): Promise<void> {
   if (!config || !isPushSupported()) return;
   if (Notification.permission !== 'granted') {
     saveConfig(null);
-    setState({ status: 'inactive', scope: null, message: 'Zgoda na powiadomienia została cofnięta w ustawieniach systemu.' });
+    setState({ status: 'inactive', scope: null, message: tr('Zgoda na powiadomienia została cofnięta w ustawieniach systemu.', 'Notification permission was revoked in system settings.') });
     return;
   }
   await primePush();
@@ -208,7 +211,7 @@ export async function refreshPushRegistration(): Promise<void> {
     const subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
       saveConfig(null);
-      setState({ status: 'inactive', scope: null, message: 'Subskrypcja wygasła — włącz powiadomienia w tle ponownie.' });
+      setState({ status: 'inactive', scope: null, message: tr('Subskrypcja wygasła — włącz powiadomienia w tle ponownie.', 'Your subscription expired — turn on background notifications again.') });
       void callApi('DELETE', '/api/push/device', config.secret).catch(() => undefined);
       return;
     }
@@ -230,15 +233,19 @@ export async function disablePush(): Promise<void> {
 
 export async function sendServerTest(): Promise<void> {
   const config = loadConfig();
-  if (!config) throw new Error('Najpierw włącz powiadomienia w tle.');
-  const { status } = await callApi('POST', '/api/push/test', config.secret);
+  if (!config) throw new Error(tr('Najpierw włącz powiadomienia w tle.', 'Turn on background notifications first.'));
+  // Język tekstu testu wybiera serwer (bez pola „lang” — po polsku, jak w starszych wersjach).
+  const { status } = await callApi('POST', '/api/push/test', config.secret, { lang: getLanguage() });
   if (status === 200) return;
   if (status === 404 || status === 410) {
+    const expired = tr('Subskrypcja wygasła — włącz powiadomienia w tle ponownie.', 'Your subscription expired — turn on background notifications again.');
     saveConfig(null);
-    setState({ status: 'inactive', scope: null, message: 'Subskrypcja wygasła — włącz powiadomienia w tle ponownie.' });
-    throw new Error('Subskrypcja wygasła — włącz powiadomienia w tle ponownie.');
+    setState({ status: 'inactive', scope: null, message: expired });
+    throw new Error(expired);
   }
-  throw new Error(status === 429 ? 'Limit testów na dziś został wyczerpany.' : 'Serwer nie wysłał powiadomienia testowego.');
+  throw new Error(status === 429
+    ? tr('Limit testów na dziś został wyczerpany.', 'You’ve reached today’s test limit.')
+    : tr('Serwer nie wysłał powiadomienia testowego.', 'The server didn’t send the test notification.'));
 }
 
 // ---------- lista przypomnień dla serwera ----------
@@ -247,7 +254,7 @@ function buildJobs(data: AppData, now: number): PushJob[] {
     tag: reminder.id,
     at: reminder.fireAt,
     title: reminder.title,
-    body: `${reminderLeadText(reminder.startAt, reminder.fireAt)} · ${reminder.time}${reminder.kind === 'routine' && !reminder.series ? ' · rutyna' : ''}`,
+    body: `${reminderLeadText(reminder.startAt, reminder.fireAt)} · ${reminder.time}${reminder.kind === 'routine' && !reminder.series ? tr(' · rutyna', ' · routine') : ''}`,
     url: reminderOpenUrl(reminder.kind, reminder.sourceId, reminder.occurrenceDate),
     kind: reminder.kind, sourceId: reminder.sourceId, occurrenceDate: reminder.occurrenceDate, startAt: reminder.startAt,
   }));
@@ -279,7 +286,7 @@ export async function uploadPushSchedule(data: AppData, now = Date.now()): Promi
     try { localStorage.setItem(MEMO_KEY, JSON.stringify({ hash, at: now, ttl })); } catch { /* wyślemy ponownie przy kolejnej zmianie */ }
   } else if (status === 404 && credentials.scope === 'device') {
     saveConfig(null);
-    setState({ status: 'inactive', scope: null, message: 'Serwer nie zna już tego urządzenia — włącz powiadomienia w tle ponownie.' });
+    setState({ status: 'inactive', scope: null, message: tr('Serwer nie zna już tego urządzenia — włącz powiadomienia w tle ponownie.', 'The server no longer recognizes this device — turn on background notifications again.') });
   }
 }
 

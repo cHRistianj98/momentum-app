@@ -4,6 +4,7 @@ import { TaskVisual } from './VisualIdentity';
 import type { CalendarBlock } from './CalendarView';
 import type { CategoryConfig } from '../types';
 import { parseDate, todayKey } from '../lib/date';
+import { locale, pick, tr } from '../lib/i18n';
 
 type Props = {
   referenceDate: string;
@@ -33,27 +34,27 @@ export function MobileMonthView({ referenceDate, blocks, categories, onChangeDat
     const d = new Date(month.ref.getFullYear(), month.ref.getMonth()+delta, 1, 12);
     onChangeDate(key(d));
   };
-  return <section className="momentum-month" aria-label="Kalendarz miesięczny">
+  return <section className="momentum-month" aria-label={tr('Kalendarz miesięczny', 'Monthly calendar')}>
     <div className="momentum-month-toolbar">
-      <button type="button" className="momentum-month-title" onClick={() => onChangeDate(todayKey())} title="Wróć do bieżącego miesiąca">
-        {new Intl.DateTimeFormat('pl-PL',{month:'long',year:'numeric'}).format(month.ref)}
+      <button type="button" className="momentum-month-title" onClick={() => onChangeDate(todayKey())} title={tr('Wróć do bieżącego miesiąca', 'Back to the current month')}>
+        {new Intl.DateTimeFormat(locale(),{month:'long',year:'numeric'}).format(month.ref)}
       </button>
-      <div className="momentum-month-arrows"><button type="button" aria-label="Poprzedni miesiąc" onClick={()=>changeMonth(-1)}><ChevronLeft size={18}/></button><button type="button" aria-label="Następny miesiąc" onClick={()=>changeMonth(1)}><ChevronRight size={18}/></button></div>
+      <div className="momentum-month-arrows"><button type="button" aria-label={tr('Poprzedni miesiąc', 'Previous month')} onClick={()=>changeMonth(-1)}><ChevronLeft size={18}/></button><button type="button" aria-label={tr('Następny miesiąc', 'Next month')} onClick={()=>changeMonth(1)}><ChevronRight size={18}/></button></div>
     </div>
-    <div className="momentum-month-weekdays">{['Pon','Wt','Śr','Czw','Pt','Sob','Nd'].map(d=><span key={d}>{d}</span>)}</div>
+    <div className="momentum-month-weekdays">{pick(['Pon','Wt','Śr','Czw','Pt','Sob','Nd'], ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']).map(d=><span key={d}>{d}</span>)}</div>
     <div className="momentum-month-grid">
       {month.dates.map(date=> {
         const list=byDate.get(date) ?? [];
         const isCurrent=parseDate(date).getMonth()===month.ref.getMonth();
         const visible=list.slice(0,4);
         return <div className={`momentum-month-cell ${isCurrent?'':'is-outside'} ${date===todayKey()?'is-today':''}`} key={date}>
-          <button type="button" className="momentum-month-date" onClick={()=>onOpenDate(date)} aria-label={`Otwórz ${date}`}>{parseDate(date).getDate()}</button>
+          <button type="button" className="momentum-month-date" onClick={()=>onOpenDate(date)} aria-label={tr(`Otwórz ${date}`, `Open ${date}`)}>{parseDate(date).getDate()}</button>
           <div className="momentum-month-events">{visible.map(b=> <button type="button" key={b.id} className={`momentum-month-event ${b.done?'is-done':''}`} style={{'--mini-color':categories[b.category]?.color ?? '#7666e8','--mini-tint':categories[b.category]?.tint ?? '#eeeaff'} as React.CSSProperties} onClick={()=>onOpenDate(date)} title={`${b.time} ${b.title}`}>
             <TaskVisual icon={b.icon} image={b.image} category={b.category} categories={categories} size="mini" className="momentum-month-icon"/><span>{b.title}</span>
           </button>)}{list.length>visible.length&&<button type="button" className="momentum-month-more" onClick={()=>onOpenDate(date)}>+{list.length-visible.length}</button>}</div>
         </div>;
       })}
     </div>
-    <p className="momentum-month-help">Dotknij dnia lub zadania, aby przejść do planu dnia.</p>
+    <p className="momentum-month-help">{tr('Dotknij dnia lub zadania, aby przejść do planu dnia.', 'Tap a day or task to open the day plan.')}</p>
   </section>;
 }

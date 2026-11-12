@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, ChevronRight, ClipboardCopy, Download, Share2, X } from 'lucide-react';
 import { buildDailyReality, type ActualOverrides } from '../lib/planReality';
 import { buildDayExport, parseDayExportOptions, type DayExportOptions } from '../lib/dayExport';
-import { mondayOf, parseDate, shiftDate, todayKey } from '../lib/date';
+import { mondayOf, parseDate, shiftDate, todayKey, weekdayShortLabels } from '../lib/date';
+import { locale, pick, tr, useLanguage } from '../lib/i18n';
 import { weekDates } from '../lib/weeklyReview';
 import { readMomentumKey, saveMomentumKey } from '../lib/offlineDatabase';
 import { resolveCategories } from '../lib/storage';
@@ -11,18 +12,17 @@ import type { AppData } from '../types';
 import type { FocusRecord } from '../lib/focus';
 
 const OPTIONS_KEY = 'momentum.day-export.v1';
-const WEEKDAY_SHORT = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
-const OPTION_LABELS: [keyof DayExportOptions, string][] = [
-  ['includeOpen', 'Niewykonane'],
-  ['includeSteps', 'Kroki i podzadania'],
-  ['includeNotes', 'Notatki'],
-  ['includePrompt', 'Prośba o ocenę dla AI'],
+const optionLabels = (): [keyof DayExportOptions, string][] => [
+  ['includeOpen', tr('Niewykonane', 'Not done')],
+  ['includeSteps', tr('Kroki i podzadania', 'Steps and subtasks')],
+  ['includeNotes', tr('Notatki', 'Notes')],
+  ['includePrompt', tr('Prośba o ocenę dla AI', 'Ask AI for a review')],
 ];
 
 function weekLabel(start: string): string {
   const first = parseDate(start);
   const last = parseDate(shiftDate(start, 6));
-  const long = (date: Date, withYear: boolean) => new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'long', ...(withYear ? { year: 'numeric' } : {}) }).format(date);
+  const long = (date: Date, withYear: boolean) => new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', ...(withYear ? { year: 'numeric' } : {}) }).format(date);
   return first.getMonth() === last.getMonth() ? `${first.getDate()}–${long(last, true)}` : `${long(first, false)} – ${long(last, true)}`;
 }
 /** Domyślnie wszystkie dni tygodnia do dziś włącznie (przyszłych nie da się wybrać). */
@@ -64,10 +64,11 @@ export function DayExportDialog({ data, focusHistory, overrides, initialWeek, on
   const [status, setStatus] = useState<'idle' | 'copied' | 'manual' | 'shared'>('idle');
   const dialogRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const language = useLanguage();
   const days = useMemo(() => weekDates(weekStart), [weekStart]);
-  const categories = useMemo(() => resolveCategories(data.categories), [data.categories]);
+  const categories = useMemo(() => resolveCategories(data.categories), [data.categories, language]);
   const weekStats = useMemo(() => buildDailyReality(data, focusHistory, overrides, days), [data, focusHistory, overrides, days]);
-  const text = useMemo(() => buildDayExport({ data, categories, dates: selected, options, focusHistory, overrides }), [data, categories, selected, options, focusHistory, overrides]);
+  const text = useMemo(() => buildDayExport({ data, categories, dates: selected, options, focusHistory, overrides }), [data, categories, selected, options, focusHistory, overrides, language]);
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
   const sortedSelection = [...selected].sort();
 
@@ -127,7 +128,7 @@ export function DayExportDialog({ data, focusHistory, overrides, initialWeek, on
   }
   async function share() {
     if (!text || !canShare) return;
-    try { await navigator.share({ title: 'Momentum — eksport dni', text }); setStatus('shared'); }
+    try { await navigator.share({ title: tr('Momentum — eksport dni', 'Momentum — day export'), text }); setStatus('shared'); }
     catch { /* Anulowanie arkusza udostępniania to nie błąd. */ }
   }
   function download() {
@@ -145,55 +146,57 @@ export function DayExportDialog({ data, focusHistory, overrides, initialWeek, on
   }
 
   const todayInWeek = days.includes(today);
+  const weekdayShort = weekdayShortLabels();
   return createPortal(<div className="modal-backdrop dx-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div ref={dialogRef} className="modal dx-modal" role="dialog" aria-modal="true" aria-labelledby="dx-title" tabIndex={-1}>
       <div className="modal-heading dx-heading">
-        <div><span className="eyebrow eyebrow--indigo">TEKST DO SKOPIOWANIA</span><h2 id="dx-title">Eksport dni</h2></div>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20}/></button>
+        <div><span className="eyebrow eyebrow--indigo">{tr('TEKST DO SKOPIOWANIA', 'TEXT TO COPY')}</span><h2 id="dx-title">{tr('Eksport dni', 'Day export')}</h2></div>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label={tr('Zamknij', 'Close')}><X size={20}/></button>
       </div>
-      <p className="dx-intro">Zaznacz dni — powstanie tekst z planem i wykonaniem, krokami rutyn i kolorem kategorii. Gotowy do wklejenia np. do ChatGPT albo Gemini.</p>
+      <p className="dx-intro">{tr('Zaznacz dni — powstanie tekst z planem i wykonaniem, krokami rutyn i kolorem kategorii. Gotowy do wklejenia np. do ChatGPT albo Gemini.',
+        'Select days to get a text with your plan and what you actually did, routine steps and category colors. Ready to paste into e.g. ChatGPT or Gemini.')}</p>
 
       <div className="dx-week">
-        <button type="button" className="dx-week-step" onClick={() => changeWeek(-1)} aria-label="Poprzedni tydzień"><ChevronLeft size={18}/></button>
+        <button type="button" className="dx-week-step" onClick={() => changeWeek(-1)} aria-label={tr('Poprzedni tydzień', 'Previous week')}><ChevronLeft size={18}/></button>
         <strong>{weekLabel(weekStart)}</strong>
-        <button type="button" className="dx-week-step" onClick={() => changeWeek(1)} disabled={weekStart >= currentMonday} aria-label="Następny tydzień"><ChevronRight size={18}/></button>
+        <button type="button" className="dx-week-step" onClick={() => changeWeek(1)} disabled={weekStart >= currentMonday} aria-label={tr('Następny tydzień', 'Next week')}><ChevronRight size={18}/></button>
       </div>
-      <div className="dx-days" role="group" aria-label="Dni do eksportu">{days.map((date, index) => {
+      <div className="dx-days" role="group" aria-label={tr('Dni do eksportu', 'Days to export')}>{days.map((date, index) => {
         const stat = weekStats[index];
         const value = parseDate(date);
         const active = selected.includes(date);
         return <button key={date} type="button" className={`dx-day ${active ? 'is-active' : ''} ${date === today ? 'is-today' : ''}`} aria-pressed={active} disabled={date > today}
-          onClick={() => toggleDay(date)} title={stat.plannedCount ? `Ukończone ${stat.completedCount} z ${stat.plannedCount}` : 'Brak zaplanowanych pozycji'}>
-          <small>{WEEKDAY_SHORT[value.getDay()]}</small>
-          <strong>{value.getDate()}.{String(value.getMonth() + 1).padStart(2, '0')}</strong>
+          onClick={() => toggleDay(date)} title={stat.plannedCount ? tr(`Ukończone ${stat.completedCount} z ${stat.plannedCount}`, `Completed ${stat.completedCount} of ${stat.plannedCount}`) : tr('Brak zaplanowanych pozycji', 'Nothing planned')}>
+          <small>{weekdayShort[value.getDay()]}</small>
+          <strong>{value.getDate()}{pick('.', '/')}{String(value.getMonth() + 1).padStart(2, '0')}</strong>
           <span>{stat.plannedCount ? `${stat.completedCount}/${stat.plannedCount}` : '—'}</span>
           {active && <i aria-hidden="true"><Check size={10} strokeWidth={3.2}/></i>}
         </button>;
       })}</div>
       <div className="dx-quick">
-        <button type="button" onClick={() => choose(days)}>Cały tydzień</button>
-        <button type="button" onClick={() => choose(days.slice(0, 5))}>Pn–Pt</button>
-        {todayInWeek && <button type="button" onClick={() => choose([today])}>Dziś</button>}
-        <button type="button" onClick={() => choose([])}>Wyczyść</button>
+        <button type="button" onClick={() => choose(days)}>{tr('Cały tydzień', 'Whole week')}</button>
+        <button type="button" onClick={() => choose(days.slice(0, 5))}>{tr('Pn–Pt', 'Mon–Fri')}</button>
+        {todayInWeek && <button type="button" onClick={() => choose([today])}>{tr('Dziś', 'Today')}</button>}
+        <button type="button" onClick={() => choose([])}>{tr('Wyczyść', 'Clear')}</button>
       </div>
-      <div className="dx-options" role="group" aria-label="Co uwzględnić">{OPTION_LABELS.map(([key, label]) =>
+      <div className="dx-options" role="group" aria-label={tr('Co uwzględnić', 'What to include')}>{optionLabels().map(([key, label]) =>
         <button key={key} type="button" className={`dx-option ${options[key] ? 'is-on' : ''}`} aria-pressed={options[key]}
           onClick={() => { setOptions(current => ({ ...current, [key]: !current[key] })); setStatus('idle'); }}>
           <span aria-hidden="true">{options[key] && <Check size={11} strokeWidth={3.2}/>}</span>{label}
         </button>)}
       </div>
 
-      <div ref={previewRef} className={`dx-preview ${text ? '' : 'is-empty'}`} tabIndex={0} aria-label="Podgląd eksportu">{text || 'Zaznacz co najmniej jeden dzień, żeby zobaczyć tekst.'}</div>
+      <div ref={previewRef} className={`dx-preview ${text ? '' : 'is-empty'}`} tabIndex={0} aria-label={tr('Podgląd eksportu', 'Export preview')}>{text || tr('Zaznacz co najmniej jeden dzień, żeby zobaczyć tekst.', 'Select at least one day to see the text.')}</div>
 
-      {status === 'manual' && <p className="dx-status is-warn" role="status">Nie udało się skopiować automatycznie — tekst w podglądzie jest zaznaczony, skopiuj go ręcznie.</p>}
+      {status === 'manual' && <p className="dx-status is-warn" role="status">{tr('Nie udało się skopiować automatycznie — tekst w podglądzie jest zaznaczony, skopiuj go ręcznie.', 'Couldn’t copy automatically — the text in the preview is selected, so copy it manually.')}</p>}
       <div className="dx-actions">
         <button type="button" className={`btn btn--primary dx-copy ${status === 'copied' ? 'is-done' : ''}`} disabled={!text} onClick={() => void copy()}>
-          {status === 'copied' ? <><Check size={16}/> Skopiowano</> : <><ClipboardCopy size={16}/> Kopiuj tekst</>}
+          {status === 'copied' ? <><Check size={16}/> {tr('Skopiowano', 'Copied')}</> : <><ClipboardCopy size={16}/> {tr('Kopiuj tekst', 'Copy text')}</>}
         </button>
-        {canShare && <button type="button" className="btn btn--secondary" disabled={!text} onClick={() => void share()}><Share2 size={15}/> {status === 'shared' ? 'Wysłano' : 'Udostępnij'}</button>}
-        <button type="button" className="btn btn--secondary" disabled={!text} onClick={download} title="Pobierz jako plik tekstowy"><Download size={15}/> .txt</button>
+        {canShare && <button type="button" className="btn btn--secondary" disabled={!text} onClick={() => void share()}><Share2 size={15}/> {status === 'shared' ? tr('Wysłano', 'Shared') : tr('Udostępnij', 'Share')}</button>}
+        <button type="button" className="btn btn--secondary" disabled={!text} onClick={download} title={tr('Pobierz jako plik tekstowy', 'Download as a text file')}><Download size={15}/> .txt</button>
       </div>
-      <small className="dx-foot">{sortedSelection.length ? `Wybrane dni: ${sortedSelection.length}` : 'Nie wybrano dni'} · tekst nie opuszcza urządzenia, dopóki go nie wkleisz lub nie udostępnisz.</small>
+      <small className="dx-foot">{sortedSelection.length ? tr(`Wybrane dni: ${sortedSelection.length}`, `Selected days: ${sortedSelection.length}`) : tr('Nie wybrano dni', 'No days selected')} · {tr('tekst nie opuszcza urządzenia, dopóki go nie wkleisz lub nie udostępnisz.', 'the text stays on your device until you paste or share it.')}</small>
     </div>
   </div>, document.body);
 }

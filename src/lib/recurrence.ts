@@ -1,4 +1,5 @@
 import { dateKey, mondayOf, parseDate, shiftDate } from './date';
+import { locale, pick, plural, tr } from './i18n';
 import type { RepeatRule, Routine, RoutineLog } from '../types';
 
 /**
@@ -11,9 +12,11 @@ export const MAX_REPEAT_INTERVAL = 52;
 /** Kolejność od poniedziałku; wartości to Date.getDay() (0 = niedziela). */
 export const WEEKDAYS_FROM_MONDAY = [1, 2, 3, 4, 5, 6, 0];
 export const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
-const DAY_SHORT = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'so'];
-/** Biernik: „co piątek”, „co środę”. */
-const DAY_ACCUSATIVE = ['niedzielę', 'poniedziałek', 'wtorek', 'środę', 'czwartek', 'piątek', 'sobotę'];
+/** Skróty dni w opisie harmonogramu: „pn, śr, pt” / “Mon, Wed, Fri”. */
+const dayShort = () => pick(['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'so'], ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+/** Biernik: „co piątek”, „co środę” / “every Friday”. */
+const dayAccusative = () => pick(['niedzielę', 'poniedziałek', 'wtorek', 'środę', 'czwartek', 'piątek', 'sobotę'],
+  ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
 
 export function isTaskSeries(routine: Pick<Routine, 'kind'> | null | undefined): boolean {
   return routine?.kind === 'task';
@@ -108,50 +111,59 @@ export function skippedOccurrences(routine: Routine, logs: Record<string, Routin
   return dates.sort();
 }
 
-function plural(count: number, one: string, few: string, many: string): string {
-  if (count === 1) return one;
-  const last = count % 10;
-  const lastTwo = count % 100;
-  return last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? few : many;
+/** Zestaw dni z własną nazwą („codziennie”, „w dni robocze”, „w weekendy”) albo null. */
+function namedWeekdays(weekdays: number[]): string | null {
+  const days = new Set(weekdays);
+  if (days.size === 7) return tr('codziennie', 'every day');
+  if (days.size === 5 && [1, 2, 3, 4, 5].every(day => days.has(day))) return tr('w dni robocze', 'on weekdays');
+  if (days.size === 2 && days.has(0) && days.has(6)) return tr('w weekendy', 'on weekends');
+  return null;
 }
 
 function weekdayList(weekdays: number[]): string {
   const days = new Set(weekdays);
-  if (days.size === 7) return 'codziennie';
-  if (days.size === 5 && [1, 2, 3, 4, 5].every(day => days.has(day))) return 'w dni robocze';
-  if (days.size === 2 && days.has(0) && days.has(6)) return 'w weekendy';
-  return WEEKDAYS_FROM_MONDAY.filter(day => days.has(day)).map(day => DAY_SHORT[day]).join(', ');
+  const short = dayShort();
+  return namedWeekdays(weekdays) ?? WEEKDAYS_FROM_MONDAY.filter(day => days.has(day)).map(day => short[day]).join(', ');
 }
 
-const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('pl-PL') + text.slice(1);
+const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase(locale()) + text.slice(1);
 
-/** Opis harmonogramu po polsku, np. „Co tydzień: pn, śr, pt”, „Codziennie”, „Co miesiąc, 5. dnia”. */
+/** Opis harmonogramu, np. „Co tydzień: pn, śr, pt”, „Codziennie”, „Co miesiąc, 5. dnia” / “Every week: Mon, Wed, Fri”. */
 export function describeRepeat(routine: Pick<Routine, 'weekdays' | 'repeat'>): string {
   const rule = routine.repeat;
   if (!rule) return capitalize(weekdayList(routine.weekdays));
   const interval = safeInterval(rule.interval);
-  if (rule.every === 'day') return interval === 1 ? 'Codziennie' : `Co ${interval} dni`;
+  if (rule.every === 'day') return interval === 1 ? tr('Codziennie', 'Every day') : tr(`Co ${interval} dni`, `Every ${interval} days`);
   if (rule.every === 'week') {
     const days = [...new Set(routine.weekdays)];
     if (interval === 1) {
-      if (days.length === 1) return `Co ${DAY_ACCUSATIVE[days[0]]}`;
+      if (days.length === 1) {
+        const day = dayAccusative()[days[0]];
+        return tr(`Co ${day}`, `Every ${day}`);
+      }
+      // Nazwane zestawy dni („Codziennie”, „W dni robocze”, „W weekendy”) zamiast „Co tydzień: …”.
+      const named = namedWeekdays(days);
+      if (named) return capitalize(named);
       const list = weekdayList(days);
-      return list === 'codziennie' || list.startsWith('w ') ? capitalize(list) : `Co tydzień: ${list}`;
+      return tr(`Co tydzień: ${list}`, `Every week: ${list}`);
     }
-    return `Co ${interval} ${plural(interval, 'tydzień', 'tygodnie', 'tygodni')}: ${weekdayList(days)}`;
+    const weeks = plural(interval, ['tydzień', 'tygodnie', 'tygodni'], ['week', 'weeks']);
+    const list = weekdayList(days);
+    return tr(`Co ${interval} ${weeks}: ${list}`, `Every ${interval} ${weeks}: ${list}`);
   }
   const day = Number(rule.start.slice(8, 10));
-  const every = interval === 1 ? 'Co miesiąc' : `Co ${interval} ${plural(interval, 'miesiąc', 'miesiące', 'miesięcy')}`;
-  return `${every}, ${day}. dnia${day > 28 ? ' (lub ostatniego)' : ''}`;
+  const months = plural(interval, ['miesiąc', 'miesiące', 'miesięcy'], ['month', 'months']);
+  const every = interval === 1 ? tr('Co miesiąc', 'Every month') : tr(`Co ${interval} ${months}`, `Every ${interval} ${months}`);
+  return tr(`${every}, ${day}. dnia${day > 28 ? ' (lub ostatniego)' : ''}`, `${every} on day ${day}${day > 28 ? ' (or the last day)' : ''}`);
 }
 
-/** Krótka etykieta dnia względem dziś: „dziś”, „jutro”, „pt, 13 lis”. */
+/** Krótka etykieta dnia względem dziś: „dziś”, „jutro”, „pt, 13 lis” / “today”, “tomorrow”, “Fri 13 Nov”. */
 export function shortDayLabel(date: string, today: string): string {
   const diff = daysBetween(today, date);
-  if (diff === 0) return 'dziś';
-  if (diff === 1) return 'jutro';
-  if (diff === -1) return 'wczoraj';
-  return new Intl.DateTimeFormat('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' }).format(parseDate(date)).replace(/\./g, '');
+  if (diff === 0) return tr('dziś', 'today');
+  if (diff === 1) return tr('jutro', 'tomorrow');
+  if (diff === -1) return tr('wczoraj', 'yesterday');
+  return new Intl.DateTimeFormat(locale(), { weekday: 'short', day: 'numeric', month: 'short' }).format(parseDate(date)).replace(/\./g, '');
 }
 
 /** Reprezentant `delta` modulo `period` o najmniejszym module. */

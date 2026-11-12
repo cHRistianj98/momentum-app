@@ -12,7 +12,8 @@ import { ReminderPicker } from './ReminderPicker';
 import { MoveOccurrenceModal, OccurrenceBar, SkippedOccurrenceBar, SkippedOccurrences } from './MoveOccurrenceModal';
 import { TASK_PRESETS } from '../lib/seed';
 import { ALL_WEEKDAYS, WEEKDAYS_FROM_MONDAY, describeRepeat, shortDayLabel } from '../lib/recurrence';
-import { fullDate, parseDate, shiftDate, todayKey } from '../lib/date';
+import { fullDate, parseDate, shiftDate, todayKey, weekdayLongLabels, weekdayShortLabels } from '../lib/date';
+import { locale, tr } from '../lib/i18n';
 import { XP_RULES, taskXp } from '../lib/xp';
 import type { CategoryConfig, Project, RepeatUnit, Routine, Task } from '../types';
 import { newSubtask } from '../lib/projects';
@@ -80,15 +81,13 @@ const EMPTY: Omit<Task, 'id' | 'createdAt'> = {
 };
 
 type RepeatMode = 'none' | RepeatUnit;
-const REPEAT_PRESETS: { id: string; label: string; every: RepeatMode; interval: number }[] = [
-  { id: 'none', label: 'Jednorazowo', every: 'none', interval: 1 },
-  { id: 'day', label: 'Codziennie', every: 'day', interval: 1 },
-  { id: 'week', label: 'Co tydzień', every: 'week', interval: 1 },
-  { id: 'week2', label: 'Co 2 tygodnie', every: 'week', interval: 2 },
-  { id: 'month', label: 'Co miesiąc', every: 'month', interval: 1 },
+const repeatPresets = (): { id: string; label: string; every: RepeatMode; interval: number }[] => [
+  { id: 'none', label: tr('Jednorazowo', 'One-time'), every: 'none', interval: 1 },
+  { id: 'day', label: tr('Codziennie', 'Every day'), every: 'day', interval: 1 },
+  { id: 'week', label: tr('Co tydzień', 'Every week'), every: 'week', interval: 1 },
+  { id: 'week2', label: tr('Co 2 tygodnie', 'Every 2 weeks'), every: 'week', interval: 2 },
+  { id: 'month', label: tr('Co miesiąc', 'Every month'), every: 'month', interval: 1 },
 ];
-const DAY_CHIPS: Record<number, string> = { 1: 'Pn', 2: 'Wt', 3: 'Śr', 4: 'Cz', 5: 'Pt', 6: 'So', 0: 'Nd' };
-const DAY_NAMES: Record<number, string> = { 1: 'poniedziałek', 2: 'wtorek', 3: 'środa', 4: 'czwartek', 5: 'piątek', 6: 'sobota', 0: 'niedziela' };
 const weekdayOf = (date: string) => parseDate(date).getDay();
 /** Domyślna godzina nowej serii: najbliższa pełna godzina. */
 function nextFullHour(): string {
@@ -96,9 +95,10 @@ function nextFullHour(): string {
 }
 /** „od dziś”, „od jutra”, „od pt, 13 lis”. */
 function sinceLabel(date: string, today: string): string {
-  if (date === today) return 'od dziś';
-  if (date === shiftDate(today, 1)) return 'od jutra';
-  return `od ${shortDayLabel(date, today)}`;
+  if (date === today) return tr('od dziś', 'starting today');
+  if (date === shiftDate(today, 1)) return tr('od jutra', 'starting tomorrow');
+  const day = shortDayLabel(date, today);
+  return tr(`od ${day}`, `starting ${day}`);
 }
 
 type PickerOption = { value: string; label: string };
@@ -136,7 +136,7 @@ function ProjectPicker({ label, value, options, disabled = false, onChange }: {
       <button type="button" className="momentum-project-picker-trigger" disabled={disabled}
         aria-haspopup="listbox" aria-expanded={open}
         onClick={() => setOpen(current => !current)}>
-        <span className="momentum-project-picker-current">{selected?.label ?? 'Wybierz'}</span>
+        <span className="momentum-project-picker-current">{selected?.label ?? tr('Wybierz', 'Choose')}</span>
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       {open && <div className="momentum-project-picker-list" role="listbox" aria-label={label}>
@@ -197,7 +197,7 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
   // Tylko ten jeden termin; ukończone wystąpienie ma już XP w historii, więc pytamy o potwierdzenie.
   function skipThisOccurrence() {
     if (!series || !occurrence) return;
-    if (occurrence.done && !window.confirm(`To wystąpienie „${series.title}” jest już ukończone. Usunąć je razem z XP za ten dzień?`)) return;
+    if (occurrence.done && !window.confirm(tr(`To wystąpienie „${series.title}” jest już ukończone. Usunąć je razem z XP za ten dzień?`, `This occurrence of “${series.title}” is already completed. Delete it along with the XP for that day?`))) return;
     onSkipOccurrence(series.id, occurrence.sourceDate);
   }
 
@@ -260,122 +260,125 @@ export function TaskModal({ task, series, occurrence, nextSourceDate, initialDat
 
   function onImage(file: File | undefined) {
     if (!file) return;
-    if (!file.type.startsWith('image/')) { setImageError('Wybierz plik graficzny.'); return; }
-    if (file.size > 900_000) { setImageError('Zdjęcie powinno mieć mniej niż 900 KB (zapis lokalny).'); return; }
+    if (!file.type.startsWith('image/')) { setImageError(tr('Wybierz plik graficzny.', 'Choose an image file.')); return; }
+    if (file.size > 900_000) { setImageError(tr('Zdjęcie powinno mieć mniej niż 900 KB (zapis lokalny).', 'The photo should be smaller than 900 KB (it’s stored locally).')); return; }
     const reader = new FileReader();
     reader.onload = () => { if (typeof reader.result === 'string') { change('image', reader.result); setImageError(''); } };
     reader.readAsDataURL(file);
   }
 
-  const heading = series ? 'Zadanie cykliczne' : task ? (recurring ? 'Zamień na cykliczne' : 'Edytuj zadanie') : recurring ? 'Nowe zadanie cykliczne' : 'Nowe zadanie';
+  const heading = series ? tr('Zadanie cykliczne', 'Recurring task') : task ? (recurring ? tr('Zamień na cykliczne', 'Make recurring') : tr('Edytuj zadanie', 'Edit task')) : recurring ? tr('Nowe zadanie cykliczne', 'New recurring task') : tr('Nowe zadanie', 'New task');
   const hideTaskOnlyFields = recurring;
   const lostTaskLinks = Boolean(task && recurring && (task.projectId || task.subtasks?.length));
+  const dayChips = weekdayShortLabels();
+  const dayNames = weekdayLongLabels();
 
   return (
     <div className="modal-backdrop task-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal task-modal" role="dialog" aria-modal="true" aria-label={heading}>
         <div className="task-modal-scroll">
-        <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={form.icon} image={form.image} category={form.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">{series ? <><Repeat2 size={12}/> {occurrence ? fullDate(occurrence.date).toLocaleUpperCase('pl-PL') : 'CAŁA SERIA'}</> : 'TWOJE ZADANIA'}</span><h2>{heading}</h2><CategoryBadge category={form.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label="Zamknij"><X size={20} /></button></div>
-        {!task && !series && <div className="presets"><span>Dodaj szybko:</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
+        <div className="modal-heading modal-heading--identity"><div className="modal-heading-identity"><TaskVisual icon={form.icon} image={form.image} category={form.category} categories={categories} size="large" className="modal-heading-art"/><div><span className="eyebrow">{series ? <><Repeat2 size={12}/> {occurrence ? fullDate(occurrence.date).toLocaleUpperCase(locale()) : tr('CAŁA SERIA', 'WHOLE SERIES')}</> : tr('TWOJE ZADANIA', 'YOUR TASKS')}</span><h2>{heading}</h2><CategoryBadge category={form.category} categories={categories} compact/></div></div><button className="icon-btn" onClick={onClose} aria-label={tr('Zamknij', 'Close')}><X size={20} /></button></div>
+        {!task && !series && <div className="presets"><span>{tr('Dodaj szybko:', 'Quick add:')}</span>{TASK_PRESETS.slice(0, 5).map(p => <button key={p.title} onClick={() => setForm(f => ({ ...f, title: p.title, icon: p.icon, category: p.category, duration: p.duration }))}><TaskIcon name={p.icon} size={14} />{p.title}</button>)}</div>}
         <div className="modal-fields">
-          {series && occurrence?.skipped && onRestoreOccurrence && <SkippedOccurrenceBar date={occurrence.date} hint="Pola poniżej zmieniają całą serię." onRestore={() => onRestoreOccurrence(occurrence.sourceDate)}/>}
-          {series && occurrence && !occurrence.skipped && onMoveOccurrence && <OccurrenceBar label="To wystąpienie" date={occurrence.date} time={occurrence.time}
-            movedFrom={movedOccurrence ? { date: occurrence.sourceDate, time: series.time } : null} note="Pola poniżej zmieniają całą serię." onMove={() => setMoving(true)} onDelete={skipThisOccurrence}/>}
-          {task && !recurring && form.date && onMoveTask && <OccurrenceBar label="Termin" date={form.date} time={form.time} onMove={() => setMoving(true)}/>}
-          <label className="field"><span>Nazwa zadania <i>*</i></span><input ref={titleRef} placeholder="Np. 45 minut pracy nad aplikacją" value={form.title} onChange={e => change('title', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} maxLength={90}/></label>
-          <label className="field"><span>Opis / notatka</span><textarea placeholder="O czym warto pamiętać?" rows={2} value={form.description} onChange={e => change('description', e.target.value)} /></label>
-          <div className="field"><span>Kategoria finansowa</span><CategoryChoices categories={categories} value={form.category} onChange={v=>change('category',v)}/></div>
-          {!hideTaskOnlyFields && <div className="field"><span><FolderKanban size={14}/> Projekt i kamień milowy</span>
+          {series && occurrence?.skipped && onRestoreOccurrence && <SkippedOccurrenceBar date={occurrence.date} hint={tr('Pola poniżej zmieniają całą serię.', 'The fields below change the whole series.')} onRestore={() => onRestoreOccurrence(occurrence.sourceDate)}/>}
+          {series && occurrence && !occurrence.skipped && onMoveOccurrence && <OccurrenceBar label={tr('To wystąpienie', 'This occurrence')} date={occurrence.date} time={occurrence.time}
+            movedFrom={movedOccurrence ? { date: occurrence.sourceDate, time: series.time } : null} note={tr('Pola poniżej zmieniają całą serię.', 'The fields below change the whole series.')} onMove={() => setMoving(true)} onDelete={skipThisOccurrence}/>}
+          {task && !recurring && form.date && onMoveTask && <OccurrenceBar label={tr('Termin', 'Scheduled for')} date={form.date} time={form.time} onMove={() => setMoving(true)}/>}
+          <label className="field"><span>{tr('Nazwa zadania', 'Task name')} <i>*</i></span><input ref={titleRef} placeholder={tr('Np. 45 minut pracy nad aplikacją', 'E.g. 45 minutes of work on the app')} value={form.title} onChange={e => change('title', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); }} maxLength={90}/></label>
+          <label className="field"><span>{tr('Opis / notatka', 'Description / note')}</span><textarea placeholder={tr('O czym warto pamiętać?', 'Anything worth remembering?')} rows={2} value={form.description} onChange={e => change('description', e.target.value)} /></label>
+          <div className="field"><span>{tr('Kategoria finansowa', 'Financial category')}</span><CategoryChoices categories={categories} value={form.category} onChange={v=>change('category',v)}/></div>
+          {!hideTaskOnlyFields && <div className="field"><span><FolderKanban size={14}/> {tr('Projekt i kamień milowy', 'Project & milestone')}</span>
             <div className="two-fields project-task-links">
-              <ProjectPicker label="Projekt" value={form.projectId ?? ''}
-                options={[{ value: '', label: 'Bez projektu' }, ...projects.filter(project => !project.archived || project.id === form.projectId).map(project => ({ value: project.id, label: project.title }))]}
+              <ProjectPicker label={tr('Projekt', 'Project')} value={form.projectId ?? ''}
+                options={[{ value: '', label: tr('Bez projektu', 'No project') }, ...projects.filter(project => !project.archived || project.id === form.projectId).map(project => ({ value: project.id, label: project.title }))]}
                 onChange={projectId => setForm(current => ({ ...current, projectId: projectId || null, milestoneId: null }))} />
-              <ProjectPicker label="Etap" disabled={!selectedProject} value={form.milestoneId ?? ''}
-                options={[{ value: '', label: 'Bez kamienia milowego' }, ...(selectedProject?.milestones ?? []).map(milestone => ({ value: milestone.id, label: milestone.title }))]}
+              <ProjectPicker label={tr('Etap', 'Milestone')} disabled={!selectedProject} value={form.milestoneId ?? ''}
+                options={[{ value: '', label: tr('Bez kamienia milowego', 'No milestone') }, ...(selectedProject?.milestones ?? []).map(milestone => ({ value: milestone.id, label: milestone.title }))]}
                 onChange={milestoneId => change('milestoneId', milestoneId || null)} />
             </div>
-            {selectedProject&&<small className="project-form-hint"><Link2 size={12}/> Ukończenie zadania automatycznie zwiększy postęp projektu.</small>}
+            {selectedProject&&<small className="project-form-hint"><Link2 size={12}/> {tr('Ukończenie zadania automatycznie zwiększy postęp projektu.', 'Completing this task will automatically increase the project’s progress.')}</small>}
           </div>}
-          {!hideTaskOnlyFields && <div className="field"><span><Check size={14}/> Podzadania / checklista</span>
-            <div className="project-task-subtasks">{(form.subtasks??[]).map(item=><div key={item.id} className="project-task-subtask"><label><input type="checkbox" checked={item.done} onChange={e=>change('subtasks',(form.subtasks??[]).map(value=>value.id===item.id?{...value,done:e.target.checked}:value))}/><span className={item.done?'project-done-text':''}>{item.title}</span></label><button type="button" title="Usuń podzadanie" onClick={()=>change('subtasks',(form.subtasks??[]).filter(value=>value.id!==item.id))}><X size={14}/></button></div>)}</div>
-            <form className="project-task-add-subtask" onSubmit={e=>{e.preventDefault();if(!subtaskText.trim())return;change('subtasks',[...(form.subtasks??[]),newSubtask(subtaskText)]);setSubtaskText('');}}><input value={subtaskText} onChange={e=>setSubtaskText(e.target.value)} maxLength={110} placeholder="Np. Napisać testy..."/><button type="submit" disabled={!subtaskText.trim()}><Plus size={15}/> Dodaj</button></form>
+          {!hideTaskOnlyFields && <div className="field"><span><Check size={14}/> {tr('Podzadania / checklista', 'Subtasks / checklist')}</span>
+            <div className="project-task-subtasks">{(form.subtasks??[]).map(item=><div key={item.id} className="project-task-subtask"><label><input type="checkbox" checked={item.done} onChange={e=>change('subtasks',(form.subtasks??[]).map(value=>value.id===item.id?{...value,done:e.target.checked}:value))}/><span className={item.done?'project-done-text':''}>{item.title}</span></label><button type="button" title={tr('Usuń podzadanie', 'Delete subtask')} onClick={()=>change('subtasks',(form.subtasks??[]).filter(value=>value.id!==item.id))}><X size={14}/></button></div>)}</div>
+            <form className="project-task-add-subtask" onSubmit={e=>{e.preventDefault();if(!subtaskText.trim())return;change('subtasks',[...(form.subtasks??[]),newSubtask(subtaskText)]);setSubtaskText('');}}><input value={subtaskText} onChange={e=>setSubtaskText(e.target.value)} maxLength={110} placeholder={tr('Np. Napisać testy...', 'E.g. Write tests...')}/><button type="submit" disabled={!subtaskText.trim()}><Plus size={15}/> {tr('Dodaj', 'Add')}</button></form>
           </div>}
-          <div className="two-fields"><div className="field"><span>{recurring ? 'Od dnia' : 'Data'}</span><DatePicker value={form.date} onChange={changeDate}/></div><div className="field"><span>Godzina</span><TimePicker disabled={!form.date} allowClear={!recurring} value={form.time} onChange={time => change('time', recurring ? time ?? form.time : time)}/></div></div>
+          <div className="two-fields"><div className="field"><span>{recurring ? tr('Od dnia', 'Start date') : tr('Data', 'Date')}</span><DatePicker value={form.date} onChange={changeDate}/></div><div className="field"><span>{tr('Godzina', 'Time')}</span><TimePicker disabled={!form.date} allowClear={!recurring} value={form.time} onChange={time => change('time', recurring ? time ?? form.time : time)}/></div></div>
           <div className="field repeat-field">
-            <span><Repeat2 size={14}/> Powtarzanie</span>
-            <div className="repeat-options" role="radiogroup" aria-label="Powtarzanie">
-              {REPEAT_PRESETS.filter(preset => !(series && preset.every === 'none')).map(preset => {
+            <span><Repeat2 size={14}/> {tr('Powtarzanie', 'Repeat')}</span>
+            <div className="repeat-options" role="radiogroup" aria-label={tr('Powtarzanie', 'Repeat')}>
+              {repeatPresets().filter(preset => !(series && preset.every === 'none')).map(preset => {
                 const active = repeat.every === preset.every && (preset.every === 'none' || repeat.interval === preset.interval);
                 return <button type="button" key={preset.id} role="radio" aria-checked={active} className={active ? 'is-active' : ''} onClick={() => chooseRepeat(preset.every, preset.interval)}>{preset.label}</button>;
               })}
             </div>
-            {repeat.every === 'week' && <div className="repeat-weekdays" role="group" aria-label="Dni tygodnia">
-              {WEEKDAYS_FROM_MONDAY.map(day => <button type="button" key={day} className={weekdays.includes(day) ? 'is-active' : ''} aria-pressed={weekdays.includes(day)} aria-label={DAY_NAMES[day]} onClick={() => toggleWeekday(day)}>{DAY_CHIPS[day]}</button>)}
+            {repeat.every === 'week' && <div className="repeat-weekdays" role="group" aria-label={tr('Dni tygodnia', 'Days of the week')}>
+              {WEEKDAYS_FROM_MONDAY.map(day => <button type="button" key={day} className={weekdays.includes(day) ? 'is-active' : ''} aria-pressed={weekdays.includes(day)} aria-label={dayNames[day]} onClick={() => toggleWeekday(day)}>{dayChips[day]}</button>)}
             </div>}
             {recurring
               ? <small className="repeat-summary"><Repeat2 size={13}/> {repeatSummary}</small>
-              : <small className="repeat-hint">Np. siłownia w pn, śr i pt — jak zwykłe zadanie, tylko powtarzane. Bez listy kroków.</small>}
-            {recurring && until && <small className="repeat-note repeat-note--ended"><Flag size={13}/> <span>Seria zakończona — ostatnie wystąpienie {shortDayLabel(until, today)}.</span> <button type="button" onClick={() => setUntil(undefined)}>Wznów serię</button></small>}
+              : <small className="repeat-hint">{tr('Np. siłownia w pn, śr i pt — jak zwykłe zadanie, tylko powtarzane. Bez listy kroków.', 'E.g. the gym on Mon, Wed and Fri — just like a regular task, only repeated. No list of steps.')}</small>}
+            {recurring && until && <small className="repeat-note repeat-note--ended"><Flag size={13}/> <span>{tr(`Seria zakończona — ostatnie wystąpienie ${shortDayLabel(until, today)}.`, `Series ended — last occurrence: ${shortDayLabel(until, today)}.`)}</span> <button type="button" onClick={() => setUntil(undefined)}>{tr('Wznów serię', 'Resume series')}</button></small>}
             {series && recurring && onRestoreOccurrence && <SkippedOccurrences dates={skippedDates} onRestore={onRestoreOccurrence}/>}
-            {movedOccurrence && occurrence && !onMoveOccurrence && <small className="repeat-note"><CalendarClock size={13}/> <span>To wystąpienie przeniesiono na {fullDate(occurrence.date)}, {occurrence.time}. Zmiany godziny poniżej dotyczą całej serii.</span></small>}
-            {lostTaskLinks && <small className="repeat-note"><FolderKanban size={13}/> <span>Zadanie cykliczne nie ma podzadań ani projektu — zostaną pominięte.</span></small>}
+            {movedOccurrence && occurrence && !onMoveOccurrence && <small className="repeat-note"><CalendarClock size={13}/> <span>{tr(`To wystąpienie przeniesiono na ${fullDate(occurrence.date)}, ${occurrence.time}. Zmiany godziny poniżej dotyczą całej serii.`, `This occurrence was moved to ${fullDate(occurrence.date)}, ${occurrence.time}. Time changes below apply to the whole series.`)}</span></small>}
+            {lostTaskLinks && <small className="repeat-note"><FolderKanban size={13}/> <span>{tr('Zadanie cykliczne nie ma podzadań ani projektu — zostaną pominięte.', 'A recurring task has no subtasks or project — they will be dropped.')}</span></small>}
           </div>
           <ReminderPicker value={form.reminders ?? []} onChange={reminders => change('reminders', reminders)} time={form.time}
-            inactiveHint={!recurring && (!form.date || !form.time) ? 'Przypomnienia zaczną działać po ustawieniu daty i godziny.' : undefined}
+            inactiveHint={!recurring && (!form.date || !form.time) ? tr('Przypomnienia zaczną działać po ustawieniu daty i godziny.', 'Reminders will start working once you set a date and time.') : undefined}
             systemEnabled={notificationsEnabled} onEnableSystem={onEnableNotifications}/>
-          <div className="two-fields"><div className="field"><span>Czas trwania <Clock3 size={13} /></span><DurationPicker value={form.duration} onChange={duration => change('duration',duration)}/></div><div className="field"><span>Nagroda <span className="xp-text">✦ XP</span></span><XpPreview xp={taskXp(form.duration, form.category)} label="XP za ukończenie"
-            hint={`Liczone automatycznie: ${String(XP_RULES.taskPer15[form.category]).replace('.', ',')} XP za każde 15 min (${categories[form.category]?.label ?? 'kategoria'}) + ${XP_RULES.completion} za ukończenie; czas ponad 2 h liczy się w połowie. Focus Mode doda premię za realny czas pracy.`}/></div></div>
+          <div className="two-fields"><div className="field"><span>{tr('Czas trwania', 'Duration')} <Clock3 size={13} /></span><DurationPicker value={form.duration} onChange={duration => change('duration',duration)}/></div><div className="field"><span>{tr('Nagroda', 'Reward')} <span className="xp-text">✦ XP</span></span><XpPreview xp={taskXp(form.duration, form.category)} label={tr('XP za ukończenie', 'XP for completion')}
+            hint={tr(`Liczone automatycznie: ${String(XP_RULES.taskPer15[form.category]).replace('.', ',')} XP za każde 15 min (${categories[form.category]?.label ?? 'kategoria'}) + ${XP_RULES.completion} za ukończenie; czas ponad 2 h liczy się w połowie. Focus Mode doda premię za realny czas pracy.`,
+              `Calculated automatically: ${XP_RULES.taskPer15[form.category]} XP for every 15 min (${categories[form.category]?.label ?? 'category'}) + ${XP_RULES.completion} for completion; time over 2 h counts at half rate. Focus Mode adds a bonus for actual work time.`)}/></div></div>
           <div className="field">
-            <span>Ikona i zdjęcie</span>
+            <span>{tr('Ikona i zdjęcie', 'Icon & photo')}</span>
             <div className="image-icon-row">
-              <button type="button" className="selected-icon" onClick={()=>setPicker(p=>p==='icons'?null:'icons')} aria-expanded={picker==='icons'}><TaskIcon name={form.icon} size={24}/><span>Wybierz ikonę</span></button>
-              <button type="button" className="selected-icon" onClick={()=>setPicker(p=>p==='photos'?null:'photos')} aria-expanded={picker==='photos'}><ImagePlus size={24}/><span>{PHOTO_OPTIONS.length} zdjęć</span></button>
-              <label className="image-upload"><Camera size={20}/><span>Własne zdjęcie</span><input type="file" hidden accept="image/*" onChange={e=>onImage(e.target.files?.[0])}/></label>
-              {form.image&&<div className="image-thumbnail"><img src={form.image} alt="Wybrana miniatura zadania"/><button type="button" title="Usuń zdjęcie" onClick={()=>change('image',undefined)}><X size={13}/></button></div>}
+              <button type="button" className="selected-icon" onClick={()=>setPicker(p=>p==='icons'?null:'icons')} aria-expanded={picker==='icons'}><TaskIcon name={form.icon} size={24}/><span>{tr('Wybierz ikonę', 'Choose icon')}</span></button>
+              <button type="button" className="selected-icon" onClick={()=>setPicker(p=>p==='photos'?null:'photos')} aria-expanded={picker==='photos'}><ImagePlus size={24}/><span>{tr(`${PHOTO_OPTIONS.length} zdjęć`, `${PHOTO_OPTIONS.length} photos`)}</span></button>
+              <label className="image-upload"><Camera size={20}/><span>{tr('Własne zdjęcie', 'Your own photo')}</span><input type="file" hidden accept="image/*" onChange={e=>onImage(e.target.files?.[0])}/></label>
+              {form.image&&<div className="image-thumbnail"><img src={form.image} alt={tr('Wybrana miniatura zadania', 'Selected task thumbnail')}/><button type="button" title={tr('Usuń zdjęcie', 'Remove photo')} onClick={()=>change('image',undefined)}><X size={13}/></button></div>}
             </div>
             {imageError&&<small className="field-error"><Camera size={12}/>{imageError}</small>}
             {picker==='icons'&&<IconPicker value={form.icon} onSelect={icon=>{change('icon',icon);setPicker(null);}}/>}
             {picker==='photos'&&<PhotoPicker value={form.image} onSelect={image=>{change('image',image);setPicker(null);}}/>}
           </div>
         </div>
-        {task && !recurring && <div className="task-focus-row"><div><Timer size={17}/><span><strong>Focus Mode</strong><small>Realnie przepracowano: {Math.floor(focusSeconds/3600)>0?`${Math.floor(focusSeconds/3600)} h `:''}{Math.floor((focusSeconds%3600)/60)} min</small></span></div><button className="btn btn--focus" type="button" onClick={()=>onFocus(task.id)}><Play size={15} fill="currentColor"/> Rozpocznij Focus</button></div>}
+        {task && !recurring && <div className="task-focus-row"><div><Timer size={17}/><span><strong>Focus Mode</strong><small>{tr('Realnie przepracowano: ', 'Time actually worked: ')}{Math.floor(focusSeconds/3600)>0?`${Math.floor(focusSeconds/3600)} h `:''}{Math.floor((focusSeconds%3600)/60)} min</small></span></div><button className="btn btn--focus" type="button" onClick={()=>onFocus(task.id)}><Play size={15} fill="currentColor"/> {tr('Rozpocznij Focus', 'Start Focus')}</button></div>}
         </div>
         <div className="modal-bottom task-modal-footer task-footer">
           {series ? <>
             <div className="series-delete-wrap" ref={deleteRef}>
-              <button type="button" className="task-footer-delete" aria-label="Usuń zadanie cykliczne" title="Usuń" aria-haspopup="menu" aria-expanded={deleteMenu}
-                onClick={() => setDeleteMenu(open => !open)}><Trash2 size={18} /><span className="task-footer-long">Usuń</span></button>
-              {deleteMenu && <div className="series-delete-menu" role="menu" aria-label="Co usunąć?">
+              <button type="button" className="task-footer-delete" aria-label={tr('Usuń zadanie cykliczne', 'Delete recurring task')} title={tr('Usuń', 'Delete')} aria-haspopup="menu" aria-expanded={deleteMenu}
+                onClick={() => setDeleteMenu(open => !open)}><Trash2 size={18} /><span className="task-footer-long">{tr('Usuń', 'Delete')}</span></button>
+              {deleteMenu && <div className="series-delete-menu" role="menu" aria-label={tr('Co usunąć?', 'What do you want to delete?')}>
                 {occurrence && !occurrence.skipped && <button type="button" role="menuitem" onClick={() => { setDeleteMenu(false); skipThisOccurrence(); }}>
-                  <CalendarX2 size={17}/><span><strong>Tylko to wystąpienie</strong><small>{fullDate(occurrence.date)} — reszta serii bez zmian.</small></span>
+                  <CalendarX2 size={17}/><span><strong>{tr('Tylko to wystąpienie', 'Only this occurrence')}</strong><small>{tr(`${fullDate(occurrence.date)} — reszta serii bez zmian.`, `${fullDate(occurrence.date)} — the rest of the series stays unchanged.`)}</small></span>
                 </button>}
                 {endFrom && <button type="button" role="menuitem" onClick={() => { setDeleteMenu(false); onEndSeries(series.id, endFrom); }}>
-                  <Flag size={17}/><span><strong>Zakończ serię</strong><small>{occurrence ? 'To i kolejne wystąpienia znikną' : `Od ${shortDayLabel(endFrom, today)} kolejne wystąpienia znikną`}. Historia zostaje.</small></span>
+                  <Flag size={17}/><span><strong>{tr('Zakończ serię', 'End series')}</strong><small>{occurrence ? tr('To i kolejne wystąpienia znikną', 'This and all later occurrences will be removed') : tr(`Od ${shortDayLabel(endFrom, today)} kolejne wystąpienia znikną`, `Occurrences from ${shortDayLabel(endFrom, today)} onwards will be removed`)}{tr('. Historia zostaje.', '. Your history is kept.')}</small></span>
                 </button>}
-                <button type="button" role="menuitem" className="is-danger" onClick={() => { setDeleteMenu(false); if (window.confirm(`Usunąć zadanie cykliczne „${series.title}” wraz z całą historią wykonań?`)) onDeleteSeries(series.id); }}>
-                  <Trash2 size={17}/><span><strong>Usuń całą serię</strong><small>Razem z historią i zdobytym XP.</small></span>
+                <button type="button" role="menuitem" className="is-danger" onClick={() => { setDeleteMenu(false); if (window.confirm(tr(`Usunąć zadanie cykliczne „${series.title}” wraz z całą historią wykonań?`, `Delete the recurring task “${series.title}” along with its entire completion history?`))) onDeleteSeries(series.id); }}>
+                  <Trash2 size={17}/><span><strong>{tr('Usuń całą serię', 'Delete entire series')}</strong><small>{tr('Razem z historią i zdobytym XP.', 'Including its history and earned XP.')}</small></span>
                 </button>
               </div>}
             </div>
             {occurrence && <button type="button" className={`task-footer-status ${form.done ? 'is-done' : ''}`} onClick={() => save(!form.done)}
-              title={form.done ? 'Oznacz to wystąpienie jako niewykonane' : 'Oznacz to wystąpienie jako ukończone'}>
+              title={form.done ? tr('Oznacz to wystąpienie jako niewykonane', 'Mark this occurrence as not done') : tr('Oznacz to wystąpienie jako ukończone', 'Mark this occurrence as done')}>
               {form.done ? <RotateCcw size={17} /> : <CheckCircle2 size={17} />}
-              <span className="task-footer-long">{form.done ? 'Oznacz jako niewykonane' : 'Oznacz jako ukończone'}</span>
-              <span className="task-footer-short">{form.done ? 'Przywróć' : 'Ukończ'}</span>
+              <span className="task-footer-long">{form.done ? tr('Oznacz jako niewykonane', 'Mark as not done') : tr('Oznacz jako ukończone', 'Mark as done')}</span>
+              <span className="task-footer-short">{form.done ? tr('Przywróć', 'Reopen') : tr('Ukończ', 'Complete')}</span>
             </button>}
           </> : task ? <>
-            <button type="button" className="task-footer-delete" aria-label="Usuń zadanie" title="Usuń zadanie"
-              onClick={() => { if (window.confirm('Usunąć to zadanie?')) onDelete(task.id); }}><Trash2 size={18} /><span className="task-footer-long">Usuń</span></button>
+            <button type="button" className="task-footer-delete" aria-label={tr('Usuń zadanie', 'Delete task')} title={tr('Usuń zadanie', 'Delete task')}
+              onClick={() => { if (window.confirm(tr('Usunąć to zadanie?', 'Delete this task?'))) onDelete(task.id); }}><Trash2 size={18} /><span className="task-footer-long">{tr('Usuń', 'Delete')}</span></button>
             <button type="button" className={`task-footer-status ${form.done ? 'is-done' : ''}`} onClick={() => save(!form.done)}
-              title={form.done ? 'Oznacz jako niewykonane' : 'Oznacz jako ukończone'}>
+              title={form.done ? tr('Oznacz jako niewykonane', 'Mark as not done') : tr('Oznacz jako ukończone', 'Mark as done')}>
               {form.done ? <RotateCcw size={17} /> : <CheckCircle2 size={17} />}
-              <span className="task-footer-long">{form.done ? 'Oznacz jako niewykonane' : 'Oznacz jako ukończone'}</span>
-              <span className="task-footer-short">{form.done ? 'Przywróć' : 'Ukończ'}</span>
+              <span className="task-footer-long">{form.done ? tr('Oznacz jako niewykonane', 'Mark as not done') : tr('Oznacz jako ukończone', 'Mark as done')}</span>
+              <span className="task-footer-short">{form.done ? tr('Przywróć', 'Reopen') : tr('Ukończ', 'Complete')}</span>
             </button>
-          </> : <span className="modal-tip task-footer-tip">{recurring ? 'Kolejne terminy pojawią się w kalendarzu.' : 'Możesz zapisać zadanie bez podawania daty.'}</span>}
-          <button type="button" className="btn btn--ghost task-footer-cancel" onClick={onClose}>Anuluj</button>
+          </> : <span className="modal-tip task-footer-tip">{recurring ? tr('Kolejne terminy pojawią się w kalendarzu.', 'Upcoming dates will appear in the calendar.') : tr('Możesz zapisać zadanie bez podawania daty.', 'You can save a task without a date.')}</span>}
+          <button type="button" className="btn btn--ghost task-footer-cancel" onClick={onClose}>{tr('Anuluj', 'Cancel')}</button>
           <button type="button" className="btn btn--primary task-footer-save" disabled={!form.title.trim()} onClick={() => save()}>
-            <Check size={16} />{task || series ? <><span className="task-footer-long">Zapisz zmiany</span><span className="task-footer-short">Zapisz</span></> : 'Dodaj zadanie'}
+            <Check size={16} />{task || series ? <><span className="task-footer-long">{tr('Zapisz zmiany', 'Save changes')}</span><span className="task-footer-short">{tr('Zapisz', 'Save')}</span></> : tr('Dodaj zadanie', 'Add task')}
           </button>
         </div>
       </div>

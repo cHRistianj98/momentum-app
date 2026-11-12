@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RoutineStep } from '../types';
+import { tr } from './i18n';
 import { orderRoutineSteps, placeRoutineStep, reorderRoutineStep, unnestRoutineStep } from './routineHierarchy';
 
 type DropHint = {
@@ -145,14 +146,14 @@ export function useRoutineStepDrag(steps: RoutineStep[], onChange: (steps: Routi
         setDrop(next);
       };
       if (dx < -45 && moving.parentId) {
-        display(ordered, { id: moving.id, action: 'unnest', label: 'Odłącz od rodzica' });
+        display(ordered, { id: moving.id, action: 'unnest', label: tr('Odłącz od rodzica', 'Detach from parent step') });
         return;
       }
       if (dx > 45) {
         const parent = hoveredStep?.parentId ? ordered.find(s => s.id === hoveredStep.parentId) : hoveredStep;
         if (parent && parent.id !== moving.id && !ordered.some(s => s.parentId === moving.id)) {
-          display(ordered, { id: moving.id, action: 'nest', targetId: parent.id, label: `Podzadanie: ${parent.title || 'krok'}` });
-        } else display(ordered, { id: moving.id, action: 'none', label: 'Przesuń w prawo na krok nadrzędny' });
+          display(ordered, { id: moving.id, action: 'nest', targetId: parent.id, label: tr(`Podzadanie: ${parent.title || 'krok'}`, `Subtask of: ${parent.title || 'step'}`) });
+        } else display(ordered, { id: moving.id, action: 'none', label: tr('Przesuń w prawo na krok nadrzędny', 'Drag right onto a parent step') });
         return;
       }
 
@@ -160,7 +161,7 @@ export function useRoutineStepDrag(steps: RoutineStep[], onChange: (steps: Routi
         ? ordered.filter(s => s.parentId === moving.parentId && s.id !== moving.id)
         : ordered.filter(s => !s.parentId && s.id !== moving.id);
       if (!siblings.length) {
-        display(ordered, { id: moving.id, action: 'none', label: 'Brak kroków do przestawienia' });
+        display(ordered, { id: moving.id, action: 'none', label: tr('Brak kroków do przestawienia', 'No steps to reorder') });
         return;
       }
       const firstBelow = siblings.find(step => {
@@ -172,8 +173,8 @@ export function useRoutineStepDrag(steps: RoutineStep[], onChange: (steps: Routi
       const next = reorderRoutineStep(ordered, moving.id, target.id, position);
       const changed = next.some((step, index) => step.id !== ordered[index]?.id);
       display(next, changed
-        ? { id: moving.id, action: 'reorder', targetId: target.id, markerId: target.id, position, label: 'Puść, aby zapisać kolejność' }
-        : { id: moving.id, action: 'none', label: 'Przesuń krok w górę lub w dół' });
+        ? { id: moving.id, action: 'reorder', targetId: target.id, markerId: target.id, position, label: tr('Puść, aby zapisać kolejność', 'Release to save the order') }
+        : { id: moving.id, action: 'none', label: tr('Przesuń krok w górę lub w dół', 'Drag the step up or down') });
     };
 
     const scrollNearEdge = () => {

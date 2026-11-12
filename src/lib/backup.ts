@@ -1,4 +1,5 @@
 import type { AppData } from '../types';
+import { tr } from './i18n';
 
 /** Exportujemy cały namespace Momentum: taski, projekty, rutyny, Focus, statystyki, odznaki i plany. */
 export const MOMENTUM_STORAGE_PREFIX = 'momentum.';
@@ -50,22 +51,22 @@ export function snapshotMomentumStorage(storage: BackupStorage): Record<string, 
 function parseAppData(raw: string): Record<string, unknown> {
   let parsed: unknown;
   try { parsed = JSON.parse(raw) as unknown; }
-  catch { throw new Error('Kopia zawiera nieprawidłowe dane aplikacji (momentum.v1).'); }
+  catch { throw new Error(tr('Kopia zawiera nieprawidłowe dane aplikacji (momentum.v1).', 'The backup contains invalid app data (momentum.v1).')); }
   if (!isRecord(parsed) || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.routines)) {
-    throw new Error('W kopii brakuje prawidłowych zadań lub rutyn Momentum.');
+    throw new Error(tr('W kopii brakuje prawidłowych zadań lub rutyn Momentum.', 'The backup is missing valid Momentum tasks or routines.'));
   }
   if (parsed.projects !== undefined && !Array.isArray(parsed.projects)) {
-    throw new Error('Lista projektów w kopii ma nieprawidłowy format.');
+    throw new Error(tr('Lista projektów w kopii ma nieprawidłowy format.', 'The project list in the backup has an invalid format.'));
   }
-  for (const [name, values] of [
-    ['zadań', parsed.tasks], ['rutyn', parsed.routines], ['projektów', parsed.projects ?? []],
-  ] as [string, unknown[]][]) {
+  for (const [name, nameEn, values] of [
+    ['zadań', 'task', parsed.tasks], ['rutyn', 'routine', parsed.routines], ['projektów', 'project', parsed.projects ?? []],
+  ] as [string, string, unknown[]][]) {
     if (!values.every(value => isRecord(value) && typeof value.id === 'string' && typeof value.title === 'string')) {
-      throw new Error(`Lista ${name} w kopii zawiera nieprawidłowe elementy.`);
+      throw new Error(tr(`Lista ${name} w kopii zawiera nieprawidłowe elementy.`, `The ${nameEn} list in the backup contains invalid items.`));
     }
   }
   if (parsed.routineLogs !== undefined && !isRecord(parsed.routineLogs)) {
-    throw new Error('Historia rutyn w kopii jest nieprawidłowa.');
+    throw new Error(tr('Historia rutyn w kopii jest nieprawidłowa.', 'The routine history in the backup is invalid.'));
   }
   return parsed;
 }
@@ -89,27 +90,27 @@ export function encodeMomentumBackup(backup: MomentumBackup): string {
 
 export function parseMomentumBackup(raw: string): { backup: MomentumBackup; preview: BackupPreview } {
   if (new Blob([raw]).size > MAX_BACKUP_BYTES) {
-    throw new Error('Plik jest zbyt duży. Maksymalny rozmiar kopii wynosi 10 MB.');
+    throw new Error(tr('Plik jest zbyt duży. Maksymalny rozmiar kopii wynosi 10 MB.', 'The file is too large. The maximum backup size is 10 MB.'));
   }
   let parsed: unknown;
   try { parsed = JSON.parse(raw) as unknown; }
-  catch { throw new Error('Plik nie jest poprawnym dokumentem JSON.'); }
+  catch { throw new Error(tr('Plik nie jest poprawnym dokumentem JSON.', 'The file isn’t a valid JSON document.')); }
   if (!isRecord(parsed) || parsed.format !== BACKUP_FORMAT || parsed.schemaVersion !== BACKUP_VERSION || !isRecord(parsed.storage)) {
-    throw new Error('To nie jest obsługiwana kopia Momentum (format v1).');
+    throw new Error(tr('To nie jest obsługiwana kopia Momentum (format v1).', 'This isn’t a supported Momentum backup (format v1).'));
   }
   if (typeof parsed.createdAt !== 'string' || !Number.isFinite(Date.parse(parsed.createdAt))) {
-    throw new Error('Kopia nie zawiera prawidłowej daty utworzenia.');
+    throw new Error(tr('Kopia nie zawiera prawidłowej daty utworzenia.', 'The backup doesn’t contain a valid creation date.'));
   }
 
   const storage: Record<string, string> = {};
   for (const [key, value] of Object.entries(parsed.storage)) {
     if (!/^momentum\.[a-zA-Z0-9._:-]+$/.test(key) || typeof value !== 'string') {
-      throw new Error('Kopia zawiera nieprawidłowy klucz lub wartość zapisu.');
+      throw new Error(tr('Kopia zawiera nieprawidłowy klucz lub wartość zapisu.', 'The backup contains an invalid storage key or value.'));
     }
     storage[key] = value;
   }
   if (!Object.prototype.hasOwnProperty.call(storage, MOMENTUM_DATA_KEY)) {
-    throw new Error('Kopia nie zawiera głównych danych Momentum.');
+    throw new Error(tr('Kopia nie zawiera głównych danych Momentum.', 'The backup doesn’t contain the main Momentum data.'));
   }
   const appData = parseAppData(storage[MOMENTUM_DATA_KEY]);
   let focusSessions = 0;
@@ -118,7 +119,7 @@ export function parseMomentumBackup(raw: string): { backup: MomentumBackup; prev
     try {
       const focus: unknown = JSON.parse(focusRaw);
       if (isRecord(focus) && Array.isArray(focus.history)) focusSessions = focus.history.length;
-    } catch { throw new Error('Historia Focus Mode w kopii nie jest poprawnym JSON.'); }
+    } catch { throw new Error(tr('Historia Focus Mode w kopii nie jest poprawnym JSON.', 'The Focus Mode history in the backup isn’t valid JSON.')); }
   }
   return {
     backup: { format: BACKUP_FORMAT, schemaVersion: BACKUP_VERSION, createdAt: parsed.createdAt, storage },
@@ -147,9 +148,14 @@ export function restoreMomentumBackup(storage: BackupStorage, backup: MomentumBa
       for (const key of readMomentumKeys(storage)) storage.removeItem(key);
       for (const [key, value] of Object.entries(previous)) storage.setItem(key, value);
     } catch {
-      throw new Error('Import nie powiódł się i nie udało się automatycznie przywrócić poprzedniego zapisu. Użyj wcześniej pobranej kopii JSON.');
+      throw new Error(tr(
+        'Import nie powiódł się i nie udało się automatycznie przywrócić poprzedniego zapisu. Użyj wcześniej pobranej kopii JSON.',
+        'The import failed and the previous data couldn’t be restored automatically. Use a JSON backup you downloaded earlier.',
+      ));
     }
-    throw new Error(error instanceof Error ? `Import został cofnięty: ${error.message}` : 'Import został cofnięty: błąd zapisu danych.');
+    throw new Error(error instanceof Error
+      ? tr(`Import został cofnięty: ${error.message}`, `The import was rolled back: ${error.message}`)
+      : tr('Import został cofnięty: błąd zapisu danych.', 'The import was rolled back: data write error.'));
   }
 }
 

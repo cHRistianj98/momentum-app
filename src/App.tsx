@@ -35,19 +35,21 @@ import { getOfflineDatabaseStatus, readMomentumKey, saveMomentumKey } from './li
 import { buildAchievements, resolveNextRank, resolveRank, type AchievementView } from './lib/progression';
 import { buildXpLedger, focusXp, levelInfo, occurrenceXp, routineXp, sumXp, taskXp } from './lib/xp';
 import { playStepTimerSound, resetStepTimer, useStepTimerRuntime } from './lib/stepTimer';
+import { LANGUAGES, applyLanguage, count, formatNumber, isLanguage, plural, tr, type Language } from './lib/i18n';
 import { useReminders } from './lib/useReminders';
 import { useCloudSync } from './lib/useCloudSync';
 import { usePushNotifications } from './lib/push';
 import { parseOpenTarget, type NotificationFeedItem, type OpenTarget } from './lib/notifications';
 import type { CategoryKey, IconKey, Page, Routine, Task, Project } from './types';
 
+// Etykiety jako gettery — tekst w bieżącym języku powstaje przy renderze, nie przy imporcie modułu.
 const NAV: { id: Page; label: string; icon: typeof CalendarDays }[] = [
-  { id: 'overview', label: 'Pulpit', icon: LayoutDashboard },
-  { id: 'calendar', label: 'Kalendarz', icon: CalendarDays },
-  { id: 'tasks', label: 'Moje zadania', icon: CheckCircle2 },
-  { id: 'routines', label: 'Rutyny', icon: RotateCcw },
-  { id: 'projects', label: 'Projekty i cele', icon: FolderKanban },
-  { id: 'insights', label: 'Statystyki', icon: BarChart3 },
+  { id: 'overview', get label() { return tr('Pulpit', 'Dashboard'); }, icon: LayoutDashboard },
+  { id: 'calendar', get label() { return tr('Kalendarz', 'Calendar'); }, icon: CalendarDays },
+  { id: 'tasks', get label() { return tr('Moje zadania', 'My tasks'); }, icon: CheckCircle2 },
+  { id: 'routines', get label() { return tr('Rutyny', 'Routines'); }, icon: RotateCcw },
+  { id: 'projects', get label() { return tr('Projekty i cele', 'Projects & goals'); }, icon: FolderKanban },
+  { id: 'insights', get label() { return tr('Statystyki', 'Insights'); }, icon: BarChart3 },
   { id: 'review', label: 'Weekly Review', icon: CalendarDays },
 ];
 const CATEGORY_KEYS: CategoryKey[] = ['unpaid','potential','income'];
@@ -66,8 +68,8 @@ type TodoEntry = { type: 'task'; task: Task } | ({ type: 'series' } & SeriesToda
 function seriesMoveHint(routine: Routine | undefined, date: string, time: string): string | undefined {
   const rule = isTaskSeries(routine) ? routine?.repeat : undefined;
   if (!rule || rule.every === 'week') return undefined;
-  if (rule.every === 'month') return `Cała seria: ${Number(date.slice(8, 10))}. dnia miesiąca o ${time}. `;
-  return rule.interval > 1 ? `Cała seria przesunie się na nowy dzień, o ${time}. ` : `Cała seria: codziennie o ${time}. `;
+  if (rule.every === 'month') return tr(`Cała seria: ${Number(date.slice(8, 10))}. dnia miesiąca o ${time}. `, `Whole series: day ${Number(date.slice(8, 10))} of every month at ${time}. `);
+  return rule.interval > 1 ? tr(`Cała seria przesunie się na nowy dzień, o ${time}. `, `The whole series moves to the new day at ${time}. `) : tr(`Cała seria: codziennie o ${time}. `, `Whole series: every day at ${time}. `);
 }
 
 function H({ children }: { children: React.ReactNode }) { return <span className="heading-spark">{children}</span>; }
@@ -82,8 +84,11 @@ function unskipped(log: RoutineLog): RoutineLog {
 
 function App() {
   const [data, setData] = useAppData();
+  // Język ustawiamy przed renderem dzieci — tr() w całym drzewie i w funkcjach pomocniczych zwraca już nowy tekst.
+  const language: Language = isLanguage(data.language) ? data.language : 'pl';
+  applyLanguage(language);
   const routineImportRef = useRef<HTMLInputElement>(null);
-  const categories = useMemo(() => resolveCategories(data.categories), [data.categories]);
+  const categories = useMemo(() => resolveCategories(data.categories), [data.categories, language]);
   const [page, setPage] = useState<Page>('overview');
   const [referenceDate, setReferenceDate] = useState(todayKey());
   const [calendarMode, setCalendarMode] = useState<'day' | 'week'>('week');
@@ -121,11 +126,11 @@ function App() {
   const openTarget = (target: OpenTarget) => {
     if (target.kind === 'task') {
       if (data.tasks.some(task => task.id === target.id)) { setRoutineDialog(null); setTaskDialog({ id: target.id }); }
-      else setToast('To zadanie zostało już usunięte.');
+      else setToast(tr('To zadanie zostało już usunięte.', 'This task has already been deleted.'));
       return;
     }
     const routine = data.routines.find(item => item.id === target.id);
-    if (!routine) { setToast('Ta rutyna została już usunięta.'); return; }
+    if (!routine) { setToast(tr('Ta rutyna została już usunięta.', 'This routine has already been deleted.')); return; }
     if (isTaskSeries(routine)) {
       setRoutineDialog(null);
       setTaskDialog({ seriesId: routine.id, occurrenceDate: target.date });
@@ -180,11 +185,11 @@ function App() {
   const notificationsActive = reminders.settings.enabled && reminders.support === 'granted';
   const enableNotifications = () => {
     void reminders.enable().then(result => {
-      if (result === 'granted') setToast('Powiadomienia włączone');
-      else if (result === 'ios-install') setToast('Najpierw dodaj Momentum do ekranu początkowego: Udostępnij → Do ekranu początkowego.');
-      else if (result === 'denied') setToast('Powiadomienia są zablokowane w ustawieniach systemu.');
-      else if (result === 'insecure') setToast('Powiadomienia wymagają połączenia HTTPS (wersja produkcyjna).');
-      else if (result === 'unsupported') setToast('Ta przeglądarka nie obsługuje powiadomień.');
+      if (result === 'granted') setToast(tr('Powiadomienia włączone', 'Notifications turned on'));
+      else if (result === 'ios-install') setToast(tr('Najpierw dodaj Momentum do ekranu początkowego: Udostępnij → Do ekranu początkowego.', 'First add Momentum to your Home Screen: Share → Add to Home Screen.'));
+      else if (result === 'denied') setToast(tr('Powiadomienia są zablokowane w ustawieniach systemu.', 'Notifications are blocked in your system settings.'));
+      else if (result === 'insecure') setToast(tr('Powiadomienia wymagają połączenia HTTPS (wersja produkcyjna).', 'Notifications require an HTTPS connection (production version).'));
+      else if (result === 'unsupported') setToast(tr('Ta przeglądarka nie obsługuje powiadomień.', 'This browser doesn’t support notifications.'));
     });
   };
   function applyDefaultReminders() {
@@ -198,7 +203,7 @@ function App() {
         return routine.active && !routine.reminders?.length && defaults.length ? { ...routine, reminders: [...defaults] } : routine;
       }),
     }));
-    setToast('Dodano domyślne przypomnienia');
+    setToast(tr('Dodano domyślne przypomnienia', 'Default reminders added'));
   }
   const today = todayKey();
   // Niedzielny raport pojawia się raz w tygodniu, gdy aplikacja jest otwarta.
@@ -276,7 +281,7 @@ function App() {
     while (dates.has(cursor) && streak<365) {streak++;cursor=shiftDate(cursor,-1);}
     return streak;
   },[data,today]);
-  const computedAchievements = useMemo(() => buildAchievements(data, totalXp, daysStreak, { focusHistory: focus.history, today }), [data, totalXp, daysStreak, focus.history, today]);
+  const computedAchievements = useMemo(() => buildAchievements(data, totalXp, daysStreak, { focusHistory: focus.history, today }), [data, totalXp, daysStreak, focus.history, today, language]);
   const achievements = useMemo(() => computedAchievements.map(achievement => {
     const preserved = earnedAchievementIds.includes(achievement.id);
     return {...achievement, unlocked: achievement.unlocked || preserved, progress: preserved ? Math.max(achievement.progress, achievement.target) : achievement.progress};
@@ -290,8 +295,8 @@ function App() {
     try { saveMomentumKey('momentum.earned-achievements', JSON.stringify(earnedAchievementIds)); }
     catch { /* localStorage unavailable or full: keep achievements in memory */ }
   }, [earnedAchievementIds]);
-  const currentRank = useMemo(() => resolveRank(totalXp), [totalXp]);
-  const nextRank = useMemo(() => resolveNextRank(totalXp), [totalXp]);
+  const currentRank = useMemo(() => resolveRank(totalXp), [totalXp, language]);
+  const nextRank = useMemo(() => resolveNextRank(totalXp), [totalXp, language]);
 
   useEffect(() => {
     if (!toast) return;
@@ -307,7 +312,7 @@ function App() {
     const willCheck = visible && !log?.completed && !log?.checkedStepIds.includes(timer.stepId);
     playStepTimerSound();
     if (willCheck) checkRoutineStep(timer.routineId, timer.sourceDate, timer.stepId, timer.date);
-    setToast(willCheck ? `Czas minął — krok „${timer.title}” zaliczony` : `Czas minął — „${timer.title}”`);
+    setToast(willCheck ? tr(`Czas minął — krok „${timer.title}” zaliczony`, `Time’s up — step “${timer.title}” checked off`) : tr(`Czas minął — „${timer.title}”`, `Time’s up — “${timer.title}”`));
   });
 
   useEffect(() => {
@@ -339,7 +344,7 @@ function App() {
       saveMomentumKey(storageKey, JSON.stringify([...seen]));
       saveMomentumKey(catalogKey, '1');
       saveMomentumKey(rulesKey, '1');
-      if (covered.length) setToast(current => current || `100 odznak w kolekcji! ${covered.length} nowych już masz — zajrzyj do Statystyk.`);
+      if (covered.length) setToast(current => current || tr(`100 odznak w kolekcji! ${covered.length} nowych już masz — zajrzyj do Statystyk.`, `100 badges in the collection! You already have ${count(covered.length, ['nową', 'nowe', 'nowych'], ['new one', 'new ones'])} — take a look at Insights.`));
       return;
     }
     if (readMomentumKey(rulesKey) !== '1') {
@@ -349,7 +354,7 @@ function App() {
       covered.forEach(achievement => seen.add(achievement.id));
       saveMomentumKey(storageKey, JSON.stringify([...seen]));
       saveMomentumKey(rulesKey, '1');
-      setToast(current => current || `Nowy system XP: punkty przeliczone z całej historii${covered.length ? ` · ${covered.length} nowych odznak` : ''}. Zdobyte odznaki zostają.`);
+      setToast(current => current || tr(`Nowy system XP: punkty przeliczone z całej historii${covered.length ? ` · ${covered.length} nowych odznak` : ''}. Zdobyte odznaki zostają.`, `New XP system: points recalculated from your whole history${covered.length ? ` · ${count(covered.length, ['nowa odznaka', 'nowe odznaki', 'nowych odznak'], ['new badge', 'new badges'])}` : ''}. Badges you’ve earned stay yours.`));
       return;
     }
     const fresh = achievements.filter(achievement => achievement.unlocked && !seen.has(achievement.id));
@@ -381,11 +386,11 @@ function App() {
 
   function startFocus(taskId: string) {
     const task = data.tasks.find(item => item.id === taskId);
-    if (!task) { setToast('Nie znaleziono zadania.'); return; }
+    if (!task) { setToast(tr('Nie znaleziono zadania.', 'Task not found.')); return; }
     if (focus.active && focus.active.taskId !== taskId) {
       setTaskDialog(null);
       setFocusOpen(true);
-      setToast('Najpierw zakończ trwającą sesję Focus.');
+      setToast(tr('Najpierw zakończ trwającą sesję Focus.', 'Finish the current Focus session first.'));
       return;
     }
     focus.start(task.id, task.title, task.duration);
@@ -407,30 +412,30 @@ function App() {
     }
     setFocusOpen(false);
     setToast(shouldComplete
-      ? `Focus zakończony · ${formatFocusClock(record.focusSeconds)} pracy${award ? ` · +${award} XP` : ''}`
-      : `Zapisano ${formatFocusClock(record.focusSeconds)} pracy bez oznaczania zadania${award ? ` · +${award} XP za skupienie` : '.'}`);
+      ? tr(`Focus zakończony · ${formatFocusClock(record.focusSeconds)} pracy${award ? ` · +${award} XP` : ''}`, `Focus finished · ${formatFocusClock(record.focusSeconds)} of work${award ? ` · +${award} XP` : ''}`)
+      : tr(`Zapisano ${formatFocusClock(record.focusSeconds)} pracy bez oznaczania zadania${award ? ` · +${award} XP za skupienie` : '.'}`, `Saved ${formatFocusClock(record.focusSeconds)} of work without marking the task as done${award ? ` · +${award} XP for focus` : '.'}`));
   }
 
   function toggleTask(id: string) {
     const task=data.tasks.find(t=>t.id===id);
     if (!task) return;
     setData(prev=>({...prev,tasks:prev.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)}));
-    setToast(task.done ? 'Zadanie przywrócone do realizacji' : `Świetnie! +${taskXp(task.duration, task.category)} XP za „${task.title}”`);
+    setToast(task.done ? tr('Zadanie przywrócone do realizacji', 'Task reopened') : tr(`Świetnie! +${taskXp(task.duration, task.category)} XP za „${task.title}”`, `Great! +${taskXp(task.duration, task.category)} XP for “${task.title}”`));
   }
   function saveProject(project: Project) {
     setData(prev => ({...prev, projects: prev.projects.some(item => item.id === project.id)
       ? prev.projects.map(item => item.id === project.id ? project : item)
       : [...prev.projects, project]}));
-    setToast('Projekt zapisany');
+    setToast(tr('Projekt zapisany', 'Project saved'));
   }
   function deleteProject(id: string) {
     setData(prev => ({...prev, projects: prev.projects.filter(project => project.id !== id),
       tasks: prev.tasks.map(task => task.projectId === id ? {...task, projectId: null, milestoneId: null} : task)}));
-    setToast('Projekt usunięty; powiązane zadania zachowane');
+    setToast(tr('Projekt usunięty; powiązane zadania zachowane', 'Project deleted; linked tasks kept'));
   }
   function linkTaskToProject(taskId: string, projectId: string, milestoneId?: string) {
     setData(prev => ({...prev,tasks:prev.tasks.map(task => task.id === taskId ? {...task,projectId,milestoneId:milestoneId??null} : task)}));
-    setToast('Zadanie przypisane do projektu');
+    setToast(tr('Zadanie przypisane do projektu', 'Task linked to the project'));
   }
   function saveTask(task: Task) {
     const existing=data.tasks.find(t=>t.id===task.id);
@@ -441,14 +446,14 @@ function App() {
     setData(prev=>({...prev,tasks:existing?prev.tasks.map(t=>t.id===task.id?task:t):[...prev.tasks,task]}));
     setTaskDialog(null);
     setToast(existing && !existing.done && task.done
-      ? `Zadanie ukończone! +${taskXp(task.duration, task.category)} XP za „${task.title}”`
+      ? tr(`Zadanie ukończone! +${taskXp(task.duration, task.category)} XP za „${task.title}”`, `Task completed! +${taskXp(task.duration, task.category)} XP for “${task.title}”`)
       : existing && existing.done && !task.done
-        ? 'Zadanie przywrócone do realizacji'
-        : existing ? 'Zmiany w zadaniu zapisane' : 'Nowe zadanie dodane');
+        ? tr('Zadanie przywrócone do realizacji', 'Task reopened')
+        : existing ? tr('Zmiany w zadaniu zapisane', 'Task changes saved') : tr('Nowe zadanie dodane', 'New task added'));
   }
   function deleteTask(id: string) {
     setData(prev=>({...prev,tasks:prev.tasks.filter(t=>t.id!==id)}));
-    setTaskDialog(null);setToast('Zadanie usunięte');
+    setTaskDialog(null);setToast(tr('Zadanie usunięte', 'Task deleted'));
   }
   function updateTaskSchedule(id: string, date: string, time: string) {
     const duration = data.tasks.find(t => t.id === id)?.duration ?? 45;
@@ -457,7 +462,7 @@ function App() {
     const startMinutes = Math.max(0, Math.min(hours * 60 + minutes, latestStart));
     const plannedTime = `${String(Math.floor(startMinutes / 60)).padStart(2,'0')}:${String(startMinutes % 60).padStart(2,'0')}`;
     setData(prev=>({...prev,tasks:prev.tasks.map(t=>t.id===id?{...t,date,time:plannedTime}:t)}));
-    setToast(`Przeniesiono zadanie na ${plannedTime}`);
+    setToast(tr(`Przeniesiono zadanie na ${plannedTime}`, `Task moved to ${plannedTime}`));
   }
   function saveRoutine(routine: Routine) {
     // Pole `xp` tylko dla zgodności ze starszymi wersjami: bazowe XP rutyny bez premii za regularność.
@@ -470,7 +475,7 @@ function App() {
           ? [key,{...log,checkedStepIds:checkedWithParentPropagation(routine.steps,log.checkedStepIds)}]
           : [key,log])),
     }));
-    setEditorDialog(null);setRoutineDialog(null);setToast('Rutyna zapisana');
+    setEditorDialog(null);setRoutineDialog(null);setToast(tr('Rutyna zapisana', 'Routine saved'));
   }
   async function importRoutineFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -486,8 +491,10 @@ function App() {
         ?? routinesOnly.find(r => normalize(r.title) === normalize(incoming.title))
         ?? (/porann/i.test(incoming.title) ? routinesOnly.find(r => /porann/i.test(r.title)) : undefined);
       const message = existing
-        ? `Zastąpić szablon „${existing.title}” nową rutyną „${incoming.title}” (${incoming.steps.length} kroków, ${incoming.time}, ${incoming.duration} min)?\n\nPozostałe dane i historia zostają zachowane. Zrób wcześniej backup JSON.`
-        : `Dodać rutynę „${incoming.title}” (${incoming.steps.length} kroków, ${incoming.time}, ${incoming.duration} min)?\n\nPozostałe dane nie zostaną zmienione.`;
+        ? tr(`Zastąpić szablon „${existing.title}” nową rutyną „${incoming.title}” (${incoming.steps.length} kroków, ${incoming.time}, ${incoming.duration} min)?\n\nPozostałe dane i historia zostają zachowane. Zrób wcześniej backup JSON.`,
+          `Replace the template “${existing.title}” with the new routine “${incoming.title}” (${count(incoming.steps.length, ['krok', 'kroki', 'kroków'], ['step', 'steps'])}, ${incoming.time}, ${incoming.duration} min)?\n\nThe rest of your data and history will be kept. Make a JSON backup first.`)
+        : tr(`Dodać rutynę „${incoming.title}” (${incoming.steps.length} kroków, ${incoming.time}, ${incoming.duration} min)?\n\nPozostałe dane nie zostaną zmienione.`,
+          `Add the routine “${incoming.title}” (${count(incoming.steps.length, ['krok', 'kroki', 'kroków'], ['step', 'steps'])}, ${incoming.time}, ${incoming.duration} min)?\n\nThe rest of your data won’t be changed.`);
       if (!window.confirm(message)) return;
       const merged = existing ? replaceRoutineKeepingIdentity(existing, incoming)
         : data.routines.some(r => r.id === incoming.id) ? { ...incoming, id: crypto.randomUUID() } : incoming;
@@ -497,15 +504,15 @@ function App() {
           ? previous.routines.map(r => r.id === existing.id ? merged : r)
           : [...previous.routines, merged],
       }));
-      setToast(`Wczytano rutynę: ${merged.title} (${merged.steps.length} kroków)`);
+      setToast(tr(`Wczytano rutynę: ${merged.title} (${merged.steps.length} kroków)`, `Routine imported: ${merged.title} (${count(merged.steps.length, ['krok', 'kroki', 'kroków'], ['step', 'steps'])})`));
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Nie udało się wczytać rutyny.');
+      window.alert(error instanceof Error ? error.message : tr('Nie udało się wczytać rutyny.', 'Couldn’t import the routine.'));
     }
   }
   function deleteRoutine(id: string) {
     resetStepTimer(id);
     setData(prev=>({...prev,routines:prev.routines.filter(r=>r.id!==id),routineLogs:Object.fromEntries(Object.entries(prev.routineLogs).filter(([key])=>!key.startsWith(`${id}:`)))}));
-    setEditorDialog(null);setRoutineDialog(null);setToast('Rutyna usunięta');
+    setEditorDialog(null);setRoutineDialog(null);setToast(tr('Rutyna usunięta', 'Routine deleted'));
   }
   function updateRoutineLog(id: string, date: string, fn: (log: ReturnType<typeof emptyLog>) => ReturnType<typeof emptyLog>) {
     const key=`${id}:${date}`;
@@ -549,7 +556,7 @@ function App() {
     updateRoutineLog(id,date,l=>({...unskipped(l),completed:true,completedAt:new Date().toISOString()}));
     resetStepTimer(id, date);
     setRoutineDialog(null);
-    setToast(`Rutyna zakończona! +${occurrenceXp(routine, data.routineLogs, date)} XP`);
+    setToast(tr(`Rutyna zakończona! +${occurrenceXp(routine, data.routineLogs, date)} XP`, `Routine completed! +${occurrenceXp(routine, data.routineLogs, date)} XP`));
   }
   // ---------- Zadania cykliczne: rutyny bez kroków (kind: 'task'), odhaczane jednym dotknięciem ----------
   function saveSeries(input: Routine, options: SeriesSaveOptions = {}) {
@@ -575,11 +582,11 @@ function App() {
       };
     });
     setTaskDialog(null);
-    setToast(replaceTaskId ? `Zadanie jest teraz cykliczne · ${describeRepeat(routine)}`
-      : setDone?.done ? `Świetnie! +${occurrenceXp(routine, data.routineLogs, setDone.sourceDate)} XP za „${routine.title}”`
-      : setDone ? 'Wystąpienie przywrócone do realizacji'
-      : existing ? 'Zmiany w zadaniu cyklicznym zapisane'
-      : `Dodano zadanie cykliczne · ${describeRepeat(routine)}`);
+    setToast(replaceTaskId ? tr(`Zadanie jest teraz cykliczne · ${describeRepeat(routine)}`, `The task is now recurring · ${describeRepeat(routine)}`)
+      : setDone?.done ? tr(`Świetnie! +${occurrenceXp(routine, data.routineLogs, setDone.sourceDate)} XP za „${routine.title}”`, `Great! +${occurrenceXp(routine, data.routineLogs, setDone.sourceDate)} XP for “${routine.title}”`)
+      : setDone ? tr('Wystąpienie przywrócone do realizacji', 'Occurrence reopened')
+      : existing ? tr('Zmiany w zadaniu cyklicznym zapisane', 'Recurring task changes saved')
+      : tr(`Dodano zadanie cykliczne · ${describeRepeat(routine)}`, `Recurring task added · ${describeRepeat(routine)}`));
   }
   function toggleSeriesOccurrence(routineId: string, sourceDate: string) {
     const routine = data.routines.find(r => r.id === routineId);
@@ -588,7 +595,7 @@ function App() {
     updateRoutineLog(routineId, sourceDate, log => done
       ? { ...log, completed: false, completedAt: undefined }
       : { ...unskipped(log), completed: true, completedAt: new Date().toISOString() });
-    setToast(done ? 'Wystąpienie przywrócone do realizacji' : `Świetnie! +${occurrenceXp(routine, data.routineLogs, sourceDate)} XP za „${routine.title}”`);
+    setToast(done ? tr('Wystąpienie przywrócone do realizacji', 'Occurrence reopened') : tr(`Świetnie! +${occurrenceXp(routine, data.routineLogs, sourceDate)} XP za „${routine.title}”`, `Great! +${occurrenceXp(routine, data.routineLogs, sourceDate)} XP for “${routine.title}”`));
   }
   function skipOccurrence(routineId: string, sourceDate: string) {
     const routine = data.routines.find(r => r.id === routineId);
@@ -600,8 +607,8 @@ function App() {
     resetStepTimer(routineId, sourceDate);
     setTaskDialog(null);
     setRoutineDialog(null);
-    showToast(`Usunięto „${routine.title}” (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)}) — reszta ${isTaskSeries(routine) ? 'serii' : 'rutyny'} bez zmian`,
-      { label: 'Cofnij', run: () => restoreOccurrence(routineId, sourceDate, previous) });
+    showToast(tr(`Usunięto „${routine.title}” (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)}) — reszta ${isTaskSeries(routine) ? 'serii' : 'rutyny'} bez zmian`, `Removed “${routine.title}” (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)}) — the rest of the ${isTaskSeries(routine) ? 'series' : 'routine'} is unchanged`),
+      { label: tr('Cofnij', 'Undo'), run: () => restoreOccurrence(routineId, sourceDate, previous) });
   }
   /** Przywraca usunięte wystąpienie: z „Cofnij” dokładnie poprzedni stan, z listy usuniętych — termin z harmonogramu. */
   function restoreOccurrence(routineId: string, sourceDate: string, previous?: RoutineLog) {
@@ -615,7 +622,7 @@ function App() {
       else if (routineLogs[key]?.skipped) delete routineLogs[key];
       return { ...prev, routineLogs };
     });
-    showToast(`„${routine.title}” wraca do planu (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)})`);
+    showToast(tr(`„${routine.title}” wraca do planu (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)})`, `“${routine.title}” is back in the plan (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)})`));
   }
   function endSeries(routineId: string, fromSourceDate: string) {
     const routine = data.routines.find(r => r.id === routineId);
@@ -632,12 +639,12 @@ function App() {
       routineLogs: Object.fromEntries(Object.entries(prev.routineLogs).filter(([key]) => keepLog(key))),
     }));
     setTaskDialog(null);
-    setToast(`Seria „${routine.title}” zakończona. Historia i XP zostają.`);
+    setToast(tr(`Seria „${routine.title}” zakończona. Historia i XP zostają.`, `Series “${routine.title}” ended. History and XP are kept.`));
   }
   function deleteSeries(id: string) {
     setData(prev => ({ ...prev, routines: prev.routines.filter(r => r.id !== id), routineLogs: Object.fromEntries(Object.entries(prev.routineLogs).filter(([key]) => !key.startsWith(`${id}:`))) }));
     setTaskDialog(null);
-    setToast('Zadanie cykliczne usunięte');
+    setToast(tr('Zadanie cykliczne usunięte', 'Recurring task deleted'));
   }
   function seriesOccurrence(routine: Routine, sourceDate: string): SeriesOccurrence {
     const log: RoutineLog | undefined = data.routineLogs[`${routine.id}:${sourceDate}`];
@@ -648,7 +655,7 @@ function App() {
     if (nextDuration === block.duration) return;
     if (block.kind === 'task') {
       setData(prev => ({...prev, tasks: prev.tasks.map(t => t.id === block.sourceId ? {...t, duration: nextDuration} : t)}));
-      setToast(`Czas „${block.title}” zmieniony na ${formatDuration(nextDuration)}`);
+      setToast(tr(`Czas „${block.title}” zmieniony na ${formatDuration(nextDuration)}`, `Duration of “${block.title}” changed to ${formatDuration(nextDuration)}`));
     } else {
       // Rutyna ma wiele wystąpień — wybór zakresu zmiany należy do użytkownika.
       setPendingResize({ block, nextDuration });
@@ -669,7 +676,7 @@ function App() {
         if (nextDuration !== template.duration) updated.durationOverride = nextDuration;
         return {...prev, routineLogs: {...prev.routineLogs, [key]: updated}};
       });
-      setToast(block.series ? `Zmieniono czas tylko tego wystąpienia (${shortDayLabel(block.date, today)})` : `Zmieniono czas rutyny tylko na ${block.date}`);
+      setToast(block.series ? tr(`Zmieniono czas tylko tego wystąpienia (${shortDayLabel(block.date, today)})`, `Duration changed for this occurrence only (${shortDayLabel(block.date, today)})`) : tr(`Zmieniono czas rutyny tylko na ${block.date}`, `Routine duration changed for ${block.date} only`));
     } else {
       setData(prev => ({
         ...prev,
@@ -681,7 +688,7 @@ function App() {
           return [key, updated];
         })),
       }));
-      setToast(`Zmieniono czas wszystkich wystąpień „${block.title}”`);
+      setToast(tr(`Zmieniono czas wszystkich wystąpień „${block.title}”`, `Duration changed for all occurrences of “${block.title}”`));
     }
     setPendingResize(null);
   }
@@ -716,15 +723,15 @@ function App() {
     // Otwarte okno rutyny pokazuje odtąd nowy dzień (kroki dnia, nagłówek).
     setRoutineDialog(current => current && current.id === routineId && (current.occurrenceDate ?? current.date) === sourceDate ? { ...current, date } : current);
     setToast(date === sourceDate && time === routine.time
-      ? `„${routine.title}” wraca na pierwotny termin`
-      : `Przeniesiono „${routine.title}” na ${shortDayLabel(date, today)}, ${time} — reszta ${isTaskSeries(routine) ? 'serii' : 'rutyny'} bez zmian`);
+      ? tr(`„${routine.title}” wraca na pierwotny termin`, `“${routine.title}” is back at its original time`)
+      : tr(`Przeniesiono „${routine.title}” na ${shortDayLabel(date, today)}, ${time} — reszta ${isTaskSeries(routine) ? 'serii' : 'rutyny'} bez zmian`, `Moved “${routine.title}” to ${shortDayLabel(date, today)}, ${time} — the rest of the ${isTaskSeries(routine) ? 'series' : 'routine'} is unchanged`));
   }
   /** Zwykłe zadanie: nowy dzień (i godzina) bez otwierania edycji pól. */
   function moveTaskTo(id: string, date: string, time: string | null) {
     const task = data.tasks.find(t => t.id === id);
     if (!task) return;
     setData(prev => ({ ...prev, tasks: prev.tasks.map(t => t.id === id ? { ...t, date, time } : t) }));
-    setToast(`Przeniesiono „${task.title}” na ${shortDayLabel(date, today)}${time ? `, ${time}` : ''}`);
+    setToast(tr(`Przeniesiono „${task.title}” na ${shortDayLabel(date, today)}${time ? `, ${time}` : ''}`, `Moved “${task.title}” to ${shortDayLabel(date, today)}${time ? `, ${time}` : ''}`));
   }
   /** Godziny innych wystąpień tej samej rutyny/serii w danym dniu (bez przenoszonego). */
   const otherOccurrenceTimes = (routineId: string, sourceDate: string) => (date: string): string[] => {
@@ -745,7 +752,7 @@ function App() {
     const sourceDate = block.occurrenceDate ?? block.date;
     if (scope === 'single') {
       applyOccurrenceMove(block.sourceId, sourceDate, date, time);
-      setToast(`Przeniesiono tylko wystąpienie „${block.title}”`);
+      setToast(tr(`Przeniesiono tylko wystąpienie „${block.title}”`, `Moved only this occurrence of “${block.title}”`));
     } else {
       // Dni tygodnia przesuwają się jak dotąd; reguła z interwałem (co 2 tyg., co miesiąc) przesuwa też początek serii.
       setData(prev => ({
@@ -759,7 +766,7 @@ function App() {
           return [key, updated];
         })),
       }));
-      setToast(block.series ? `Zaktualizowano harmonogram całej serii „${block.title}”` : `Zaktualizowano harmonogram całej rutyny „${block.title}”`);
+      setToast(block.series ? tr(`Zaktualizowano harmonogram całej serii „${block.title}”`, `Schedule updated for the whole series “${block.title}”`) : tr(`Zaktualizowano harmonogram całej rutyny „${block.title}”`, `Schedule updated for the whole routine “${block.title}”`));
     }
     setPendingRoutineMove(null);
   }
@@ -837,51 +844,52 @@ function App() {
     saveTask({id:crypto.randomUUID(),title,description:'',category,icon,date:null,time:null,duration,xp:taskXp(duration,category),done:false,createdAt:new Date().toISOString()});
   }
 
-  return <div className="app-shell">
+  // Zmiana języka montuje widok od nowa, więc wszystkie komponenty pokazują teksty w nowym języku.
+  return <div className="app-shell" key={language}>
     <aside className={`sidebar ${mobileNav ? 'sidebar--open':''}`}>
-      <div className="brand"><div className="brand-mark"><Zap size={23} fill="currentColor" /></div><div><div className="brand-name">momentum<span>.</span></div><div className="brand-subtitle">MAKE EVERY DAY COUNT</div></div><button className="mobile-close" onClick={()=>setMobileNav(false)}><X size={20}/></button></div>
-      <div className="sidebar-section-label">WORKSPACE</div>
-      <nav className="main-nav" aria-label="Nawigacja">
+      <div className="brand"><div className="brand-mark"><Zap size={23} fill="currentColor" /></div><div><div className="brand-name">momentum<span>.</span></div><div className="brand-subtitle">{tr('KAŻDY DZIEŃ SIĘ LICZY', 'MAKE EVERY DAY COUNT')}</div></div><button className="mobile-close" onClick={()=>setMobileNav(false)}><X size={20}/></button></div>
+      <div className="sidebar-section-label">{tr('PRZESTRZEŃ ROBOCZA', 'WORKSPACE')}</div>
+      <nav className="main-nav" aria-label={tr('Nawigacja', 'Navigation')}>
         {NAV.map(n=><button key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={()=>goPage(n.id)}><n.icon size={19} strokeWidth={1.9}/><span>{n.label}</span>{n.id==='tasks'&&openTaskCount>0&&<span className="nav-count">{openTaskCount}</span>}</button>)}
         {/* Ustawienia tuż pod Weekly Review — na telefonie zawsze widoczne bez przewijania menu. */}
-        <button type="button" className="nav-item nav-item--settings" aria-haspopup="dialog" onClick={openSettingsFromNav}><Settings2 size={19} strokeWidth={1.9}/><span>Ustawienia</span></button>
+        <button type="button" className="nav-item nav-item--settings" aria-haspopup="dialog" onClick={openSettingsFromNav}><Settings2 size={19} strokeWidth={1.9}/><span>{tr('Ustawienia', 'Settings')}</span></button>
       </nav>
       <div className="sidebar-divider"/>
-      <div className="sidebar-label-row"><span className="sidebar-section-label">TWOJE KATEGORIE</span><button className="tiny-icon-btn" aria-label="Dostosuj kategorie" onClick={openSettingsFromNav}><Settings2 size={15}/></button></div>
+      <div className="sidebar-label-row"><span className="sidebar-section-label">{tr('TWOJE KATEGORIE', 'YOUR CATEGORIES')}</span><button className="tiny-icon-btn" aria-label={tr('Dostosuj kategorie', 'Customize categories')} onClick={openSettingsFromNav}><Settings2 size={15}/></button></div>
       <div className="category-sidebar">{CATEGORY_KEYS.map(c=><div key={c} className="sidebar-category"><span className="category-dot" style={{background:categories[c].color}}/>{categories[c].label}</div>)}</div>
       <div className="sidebar-spacer"/>
-      <div className="sidebar-level-card"><div className="level-card-top"><div className="level-orb"><Trophy size={20}/></div><div><span>TWÓJ POZIOM</span><strong>Level {currentLevel}</strong></div><Sparkles size={17} className="level-twinkle"/></div><div className="level-progress"><div style={{width:`${level.progress*100}%`}} /></div><div className="level-card-sub"><span>{level.into.toLocaleString('pl-PL')} / {level.size.toLocaleString('pl-PL')} XP</span><span>Do awansu <ArrowUpRight size={13}/></span></div></div>
-      <div className="sidebar-foot">Momentum v0.5.2 <span>✦</span> Made for progress</div>
+      <div className="sidebar-level-card"><div className="level-card-top"><div className="level-orb"><Trophy size={20}/></div><div><span>{tr('TWÓJ POZIOM', 'YOUR LEVEL')}</span><strong>{tr(`Poziom ${currentLevel}`, `Level ${currentLevel}`)}</strong></div><Sparkles size={17} className="level-twinkle"/></div><div className="level-progress"><div style={{width:`${level.progress*100}%`}} /></div><div className="level-card-sub"><span>{formatNumber(level.into)} / {formatNumber(level.size)} XP</span><span>{tr('Do awansu', 'To level up')} <ArrowUpRight size={13}/></span></div></div>
+      <div className="sidebar-foot">Momentum v0.5.2 <span>✦</span> {tr('Stworzone dla progresu', 'Made for progress')}</div>
     </aside>
-    {mobileNav && <button className="sidebar-scrim" aria-label="Zamknij menu" onClick={()=>setMobileNav(false)}/>}
+    {mobileNav && <button className="sidebar-scrim" aria-label={tr('Zamknij menu', 'Close menu')} onClick={()=>setMobileNav(false)}/>}
     <div className="app-workspace">
-      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-btn" aria-label="Otwórz menu" onClick={()=>setMobileNav(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>Workspace</span><ChevronRight size={14}/><strong>{NAV.find(n=>n.id===page)?.label}</strong></div></div><div className="topbar-right"><label className="global-search"><Search size={17}/><input ref={searchRef} aria-label="Szukaj zadań" placeholder="Szukaj zadań..." value={search} onChange={e=>{setSearch(e.target.value);if(e.target.value)goPage('tasks');}}/><span>⌘ K</span></label><button className="icon-btn theme-btn" aria-label="Przełącz motyw" title="Zmień motyw" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={19}/>:<Sun size={19}/>}</button><NotificationCenter api={reminders} data={data} onOpenItem={openNotificationItem} onOpenSettings={()=>setSettingsOpen(true)} onOpenPanel={closeReminderBanner}/></div></header>
+      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-btn" aria-label={tr('Otwórz menu', 'Open menu')} onClick={()=>setMobileNav(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>{tr('Przestrzeń robocza', 'Workspace')}</span><ChevronRight size={14}/><strong>{NAV.find(n=>n.id===page)?.label}</strong></div></div><div className="topbar-right"><label className="global-search"><Search size={17}/><input ref={searchRef} aria-label={tr('Szukaj zadań', 'Search tasks')} placeholder={tr('Szukaj zadań...', 'Search tasks...')} value={search} onChange={e=>{setSearch(e.target.value);if(e.target.value)goPage('tasks');}}/><span>⌘ K</span></label><button className="icon-btn theme-btn" aria-label={tr('Przełącz motyw', 'Toggle theme')} title={tr('Zmień motyw', 'Change theme')} onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={19}/>:<Sun size={19}/>}</button><NotificationCenter api={reminders} data={data} onOpenItem={openNotificationItem} onOpenSettings={()=>setSettingsOpen(true)} onOpenPanel={closeReminderBanner}/></div></header>
       <main className="main-content">
         {page==='overview' && <div className="overview-page">
-          <div className="overview-block overview-block--heading"><div className="welcome-heading"><div><div className="eyebrow eyebrow--indigo">TWOJA PRZESTRZEŃ DO DZIAŁANIA <Sparkles size={13}/></div><h1>Twój dzień. <H>Twój progres.</H></h1><p>Każdy mały krok przybliża Cię do większego celu. Działaj po swojemu.</p></div><button className="btn btn--primary add-top" onClick={()=>setTaskDialog({date:today})}><Plus size={18}/> Nowe zadanie</button></div></div>
-          <div className="overview-block overview-block--schedule"><div className="content-split overview-schedule-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode="day" onChangeMode={m=>{if(m==='week')goPage('calendar');setCalendarMode(m);}} onAddAt={(date,time,duration)=>setTaskDialog({date,time,duration})} onOpenBlock={openBlock} onFocusBlock={block=>startFocus(block.sourceId)} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock} compact/></div></div><div className="overview-block overview-block--todo"><div className="overview-todo-heading"><h2>Do zrobienia i rutyny</h2><button type="button" onClick={()=>goPage('tasks')}>Wszystkie zadania <ArrowRight size={15}/></button></div><RightPanel upcoming={todoEntries} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} routineXpFor={r=>occurrenceXp(r,data.routineLogs,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onSeries={entry=>openSeries(entry.routine.id,entry.occurrenceDate)} onToggleSeries={entry=>toggleSeriesOccurrence(entry.routine.id,entry.occurrenceDate)} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div>
-          <div className="overview-block overview-block--review"><button type="button" className="wr-dashboard-link" onClick={()=>goPage('review')}><span className="wr-dashboard-icon"><CalendarDays size={20}/></span><span><strong>Twój tygodniowy przegląd jest pod ręką</strong><small>Wykonane zadania, rutyny, zmierzony czas i plan kolejnego tygodnia.</small></span><ArrowRight size={18}/></button></div>
-          <div className="overview-block overview-block--stats"><div className="stats-grid"><StatCard label="Ukończone dzisiaj" main={`${completedToday} / ${totalToday}`} detail={`${completionPct}% dzisiejszego planu`} icon={CheckCircle2} iconClass="mint" progress={completionPct}/><StatCard label="Czas w skupieniu" main={formatDuration(focusMinutes)} detail="Ukończone bloki czasowe" icon={Focus} iconClass="purple"/><StatCard label="Zdobyte doświadczenie" main={`+${xpToday} XP`} detail={`Poziom ${currentLevel} · ${level.toNext.toLocaleString('pl-PL')} XP do awansu`} icon={Zap} iconClass="amber"/></div></div>
-          <div className="overview-block overview-block--hero"><section className="welcome-banner"><div className="welcome-banner-content"><div className="banner-tag"><span/> TWOJA PODRÓŻ TRWA</div><h2>Masz dziś wszystko,<br/>żeby zrobić coś wielkiego<span>.</span></h2><p>Skup się na tym, co ma znaczenie. Resztą zajmie się Momentum.</p><button onClick={()=>{goPage('calendar');setCalendarMode('day');setReferenceDate(today);}}>Zaplanuj swój dzień <ArrowRight size={16}/></button></div><div className="hero-illustration" aria-hidden="true"><div className="hero-orbit hero-orbit--1"/><div className="hero-orbit hero-orbit--2"/><div className="hero-main-orb"><Zap size={76} strokeWidth={1.3} fill="currentColor"/></div><div className="hero-star star-a">✦</div><div className="hero-star star-b">✧</div><div className="hero-mini-card"><span>✦</span> +{xpToday} XP today <ArrowUpRight size={15}/></div><div className="hero-chip">LEVEL {currentLevel}</div></div></section></div>
+          <div className="overview-block overview-block--heading"><div className="welcome-heading"><div><div className="eyebrow eyebrow--indigo">{tr('TWOJA PRZESTRZEŃ DO DZIAŁANIA', 'YOUR SPACE TO GET THINGS DONE')} <Sparkles size={13}/></div><h1>{tr('Twój dzień. ', 'Your day. ')}<H>{tr('Twój progres.', 'Your progress.')}</H></h1><p>{tr('Każdy mały krok przybliża Cię do większego celu. Działaj po swojemu.', 'Every small step brings you closer to a bigger goal. Do it your way.')}</p></div><button className="btn btn--primary add-top" onClick={()=>setTaskDialog({date:today})}><Plus size={18}/> {tr('Nowe zadanie', 'New task')}</button></div></div>
+          <div className="overview-block overview-block--schedule"><div className="content-split overview-schedule-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode="day" onChangeMode={m=>{if(m==='week')goPage('calendar');setCalendarMode(m);}} onAddAt={(date,time,duration)=>setTaskDialog({date,time,duration})} onOpenBlock={openBlock} onFocusBlock={block=>startFocus(block.sourceId)} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock} compact/></div></div><div className="overview-block overview-block--todo"><div className="overview-todo-heading"><h2>{tr('Do zrobienia i rutyny', 'To do & routines')}</h2><button type="button" onClick={()=>goPage('tasks')}>{tr('Wszystkie zadania', 'All tasks')} <ArrowRight size={15}/></button></div><RightPanel upcoming={todoEntries} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} routineXpFor={r=>occurrenceXp(r,data.routineLogs,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onSeries={entry=>openSeries(entry.routine.id,entry.occurrenceDate)} onToggleSeries={entry=>toggleSeriesOccurrence(entry.routine.id,entry.occurrenceDate)} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div>
+          <div className="overview-block overview-block--review"><button type="button" className="wr-dashboard-link" onClick={()=>goPage('review')}><span className="wr-dashboard-icon"><CalendarDays size={20}/></span><span><strong>{tr('Twój tygodniowy przegląd jest pod ręką', 'Your weekly review is always at hand')}</strong><small>{tr('Wykonane zadania, rutyny, zmierzony czas i plan kolejnego tygodnia.', 'Completed tasks, routines, tracked time and a plan for the week ahead.')}</small></span><ArrowRight size={18}/></button></div>
+          <div className="overview-block overview-block--stats"><div className="stats-grid"><StatCard label={tr('Ukończone dzisiaj', 'Completed today')} main={`${completedToday} / ${totalToday}`} detail={tr(`${completionPct}% dzisiejszego planu`, `${completionPct}% of today’s plan`)} icon={CheckCircle2} iconClass="mint" progress={completionPct}/><StatCard label={tr('Czas w skupieniu', 'Focus time')} main={formatDuration(focusMinutes)} detail={tr('Ukończone bloki czasowe', 'Completed time blocks')} icon={Focus} iconClass="purple"/><StatCard label={tr('Zdobyte doświadczenie', 'Experience earned')} main={`+${xpToday} XP`} detail={tr(`Poziom ${currentLevel} · ${formatNumber(level.toNext)} XP do awansu`, `Level ${currentLevel} · ${formatNumber(level.toNext)} XP to level up`)} icon={Zap} iconClass="amber"/></div></div>
+          <div className="overview-block overview-block--hero"><section className="welcome-banner"><div className="welcome-banner-content"><div className="banner-tag"><span/> {tr('TWOJA PODRÓŻ TRWA', 'YOUR JOURNEY CONTINUES')}</div><h2>{tr('Masz dziś wszystko,', 'Today you have everything')}<br/>{tr('żeby zrobić coś wielkiego', 'you need to do something great')}<span>.</span></h2><p>{tr('Skup się na tym, co ma znaczenie. Resztą zajmie się Momentum.', 'Focus on what matters. Momentum will take care of the rest.')}</p><button onClick={()=>{goPage('calendar');setCalendarMode('day');setReferenceDate(today);}}>{tr('Zaplanuj swój dzień', 'Plan your day')} <ArrowRight size={16}/></button></div><div className="hero-illustration" aria-hidden="true"><div className="hero-orbit hero-orbit--1"/><div className="hero-orbit hero-orbit--2"/><div className="hero-main-orb"><Zap size={76} strokeWidth={1.3} fill="currentColor"/></div><div className="hero-star star-a">✦</div><div className="hero-star star-b">✧</div><div className="hero-mini-card"><span>✦</span> {tr(`+${xpToday} XP dziś`, `+${xpToday} XP today`)} <ArrowUpRight size={15}/></div><div className="hero-chip">{tr(`POZIOM ${currentLevel}`, `LEVEL ${currentLevel}`)}</div></div></section></div>
         </div>}
-        {page==='calendar'&&<><MobileMonthView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} onOpenDate={date=>{setReferenceDate(date);goPage('overview');setCalendarMode('day');}}/><PageHeading kicker="TWÓJ CZAS MA ZNACZENIE" title="Kalendarz" accent=" & timeblocking" description="Zaplanuj dzień, przeciągaj zadania między godzinami i obserwuj swój progres. Kliknij puste miejsce, aby dodać blok."/><div className="calendar-page-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode={calendarMode} onChangeMode={setCalendarMode} onAddAt={(date,time,duration)=>setTaskDialog({date,time,duration})} onOpenBlock={openBlock} onFocusBlock={block=>startFocus(block.sourceId)} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock}/><RightPanel upcoming={todoEntries} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} routineXpFor={r=>occurrenceXp(r,data.routineLogs,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onSeries={entry=>openSeries(entry.routine.id,entry.occurrenceDate)} onToggleSeries={entry=>toggleSeriesOccurrence(entry.routine.id,entry.occurrenceDate)} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div></>}
-        {page==='tasks'&&<><PageHeading kicker="MAŁE KROKI, WIELKIE EFEKTY" title="Moje" accent=" zadania" description="Wszystkie Twoje zadania w jednym miejscu. Zaplanuj je lub zrealizuj od razu." action={<button className="btn btn--primary" onClick={()=>setTaskDialog({})}><Plus size={18}/> Dodaj zadanie</button>}/><div className="tasks-page"><div className="task-filters">{([{id:'all',label:'Wszystkie'},{id:'today',label:'Na dzisiaj'},{id:'completed',label:'Ukończone'}] as const).map(f=><button key={f.id} className={taskFilter===f.id?'active':''} onClick={()=>setTaskFilter(f.id)}>{f.label}</button>)}</div><TaskGroups tasks={data.tasks.filter(t=>matchesSearch(t.title)&&(taskFilter==='all'||(taskFilter==='today'&&t.date===today)||(taskFilter==='completed'&&t.done)))} seriesToday={visibleSeriesToday} seriesList={seriesList} categories={categories} projects={data.projects} onEdit={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onOpenSeries={openSeries} onToggleSeries={entry=>toggleSeriesOccurrence(entry.routine.id,entry.occurrenceDate)} onAdd={()=>setTaskDialog({})}/></div></>}
-        {page==='routines'&&<><PageHeading kicker="KONSEKWENCJA TWORZY NAWYKI" title="Twoje" accent=" rutyny" description="Jeden prosty rytuał, wiele małych zwycięstw. Kończ wszystkie kroki jednym kliknięciem." action={<button className="btn btn--primary" onClick={()=>setEditorDialog({})}><Plus size={18}/> Nowa rutyna</button>}/><div className="routine-import-bar"><input ref={routineImportRef} type="file" accept=".json,application/json" hidden onChange={importRoutineFile}/><button type="button" className="btn btn--secondary" onClick={()=>routineImportRef.current?.click()}><Upload size={16}/> Wczytaj rutynę z pliku</button><small>Import dotyczy tylko jednej rutyny — pozostałe dane nie zostaną zastąpione.</small></div><div className="routines-intro"><div><span>✦ CODZIENNY RYTM</span><h3>Nie musisz robić wszystkiego naraz.</h3><p>Zaznacz kolejne kroki, a po zakończeniu rutyny zaktualizujemy kalendarz i XP automatycznie.</p></div><div className="routine-intro-ornament">☼</div></div><div className="routine-cards">{data.routines.filter(r=>!isTaskSeries(r)).map(r=>{const source=sourceForToday(r.id);const log=logFor(r.id,source);const todaysSteps=routineStepsOnDate(r.steps,today);return <RoutineCard key={r.id} routine={r} log={log} xp={occurrenceXp(r,data.routineLogs,source)} stepsToday={todaysSteps.length} checkedToday={todaysSteps.filter(s=>log.checkedStepIds.includes(s.id)).length} occursToday={dueRoutines.some(item=>item.id===r.id)} categories={categories} onOpen={()=>setRoutineDialog({id:r.id,date:today,occurrenceDate:source})}/>;})}<button className="routine-card routine-card--add" onClick={()=>setEditorDialog({})}><span><Plus size={27}/></span><strong>Stwórz własną rutynę</strong><p>Dodaj kroki i harmonogram — XP policzymy sami.</p></button></div></>}
-        {page==='projects'&&<><div className="projects-mobile-heading"><PageHeading kicker="WIELKIE CELE · MAŁE KROKI" title="Projekty" accent=" & cele" description="Łącz zadania, kamienie milowe i checklisty w jedną drogę do celu."/></div><ProjectsView projects={data.projects} tasks={data.tasks} categories={categories} onSaveProject={saveProject} onDeleteProject={deleteProject} onToggleTask={toggleTask} onOpenTask={id=>setTaskDialog({id})} onCreateTask={(projectId,milestoneId)=>setTaskDialog({projectId,milestoneId})} onLinkTask={linkTaskToProject}/></>}
-        {page==='review'&&<><PageHeading kicker="CO TYDZIEŃ O KROK DALEJ" title="Weekly" accent=" Review" description="Podsumuj ostatni tydzień, zobacz, co zadziałało, i zaplanuj następny bez presji."/><WeeklyReview data={data} focusHistory={focus.history} onOpenNextWeek={monday=>{setReferenceDate(monday);setCalendarMode('week');goPage('calendar');}}/></>}
-        {page==='insights'&&<><PageHeading kicker="POSTĘP TO SUMA MAŁYCH KROKÓW" title="Twoje" accent=" statystyki" description="Zobacz, gdzie inwestujesz swój czas i jak rośnie Twoja regularność."/><InsightsView data={data} totalXp={totalXp} level={level} xpLedger={xpLedger} streak={daysStreak} achievements={achievements} rank={currentRank} nextRank={nextRank} focusHistory={focus.history}/></>}
-        <footer className="main-footer"><span>✦ Momentum — małe kroki, wielki progres.</span><span>Wersja demonstracyjna · dane lokalne</span></footer>
+        {page==='calendar'&&<><MobileMonthView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} onOpenDate={date=>{setReferenceDate(date);goPage('overview');setCalendarMode('day');}}/><PageHeading kicker={tr('TWÓJ CZAS MA ZNACZENIE', 'YOUR TIME MATTERS')} title={tr('Kalendarz', 'Calendar')} accent={tr(' & bloki czasu', ' & time blocking')} description={tr('Zaplanuj dzień, przeciągaj zadania między godzinami i obserwuj swój progres. Kliknij puste miejsce, aby dodać blok.', 'Plan your day, drag tasks between hours and watch your progress. Click an empty slot to add a block.')}/><div className="calendar-page-layout"><CalendarView referenceDate={referenceDate} onChangeDate={setReferenceDate} blocks={calendarBlocks} categories={categories} mode={calendarMode} onChangeMode={setCalendarMode} onAddAt={(date,time,duration)=>setTaskDialog({date,time,duration})} onOpenBlock={openBlock} onFocusBlock={block=>startFocus(block.sourceId)} onToggleBlock={toggleBlock} onDropBlock={moveRoutine} onResizeBlock={resizeBlock}/><RightPanel upcoming={todoEntries} routines={dueRoutines} logFor={r=>logFor(r.id,sourceForToday(r.id))} routineXpFor={r=>occurrenceXp(r,data.routineLogs,sourceForToday(r.id))} categories={categories} onTask={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onSeries={entry=>openSeries(entry.routine.id,entry.occurrenceDate)} onToggleSeries={entry=>toggleSeriesOccurrence(entry.routine.id,entry.occurrenceDate)} onAdd={()=>setTaskDialog({date:today})} onRoutine={r=>setRoutineDialog({id:r.id,date:today,occurrenceDate:sourceForToday(r.id)})} onPreset={addPreset}/></div></>}
+        {page==='tasks'&&<><PageHeading kicker={tr('MAŁE KROKI, WIELKIE EFEKTY', 'SMALL STEPS, BIG RESULTS')} title={tr('Moje', 'My')} accent={tr(' zadania', ' tasks')} description={tr('Wszystkie Twoje zadania w jednym miejscu. Zaplanuj je lub zrealizuj od razu.', 'All your tasks in one place. Schedule them or get them done right away.')} action={<button className="btn btn--primary" onClick={()=>setTaskDialog({})}><Plus size={18}/> {tr('Dodaj zadanie', 'Add task')}</button>}/><div className="tasks-page"><div className="task-filters">{([{id:'all',label:tr('Wszystkie', 'All')},{id:'today',label:tr('Na dzisiaj', 'Today')},{id:'completed',label:tr('Ukończone', 'Completed')}] as const).map(f=><button key={f.id} className={taskFilter===f.id?'active':''} onClick={()=>setTaskFilter(f.id)}>{f.label}</button>)}</div><TaskGroups tasks={data.tasks.filter(t=>matchesSearch(t.title)&&(taskFilter==='all'||(taskFilter==='today'&&t.date===today)||(taskFilter==='completed'&&t.done)))} seriesToday={visibleSeriesToday} seriesList={seriesList} categories={categories} projects={data.projects} onEdit={t=>setTaskDialog({id:t.id})} onToggle={toggleTask} onOpenSeries={openSeries} onToggleSeries={entry=>toggleSeriesOccurrence(entry.routine.id,entry.occurrenceDate)} onAdd={()=>setTaskDialog({})}/></div></>}
+        {page==='routines'&&<><PageHeading kicker={tr('KONSEKWENCJA TWORZY NAWYKI', 'CONSISTENCY BUILDS HABITS')} title={tr('Twoje', 'Your')} accent={tr(' rutyny', ' routines')} description={tr('Jeden prosty rytuał, wiele małych zwycięstw. Kończ wszystkie kroki jednym kliknięciem.', 'One simple ritual, many small wins. Finish all the steps with a single click.')} action={<button className="btn btn--primary" onClick={()=>setEditorDialog({})}><Plus size={18}/> {tr('Nowa rutyna', 'New routine')}</button>}/><div className="routine-import-bar"><input ref={routineImportRef} type="file" accept=".json,application/json" hidden onChange={importRoutineFile}/><button type="button" className="btn btn--secondary" onClick={()=>routineImportRef.current?.click()}><Upload size={16}/> {tr('Wczytaj rutynę z pliku', 'Import routine from file')}</button><small>{tr('Import dotyczy tylko jednej rutyny — pozostałe dane nie zostaną zastąpione.', 'The import covers a single routine only — the rest of your data won’t be replaced.')}</small></div><div className="routines-intro"><div><span>{tr('✦ CODZIENNY RYTM', '✦ DAILY RHYTHM')}</span><h3>{tr('Nie musisz robić wszystkiego naraz.', 'You don’t have to do everything at once.')}</h3><p>{tr('Zaznacz kolejne kroki, a po zakończeniu rutyny zaktualizujemy kalendarz i XP automatycznie.', 'Check off the steps one by one — once you finish the routine, we’ll update your calendar and XP automatically.')}</p></div><div className="routine-intro-ornament">☼</div></div><div className="routine-cards">{data.routines.filter(r=>!isTaskSeries(r)).map(r=>{const source=sourceForToday(r.id);const log=logFor(r.id,source);const todaysSteps=routineStepsOnDate(r.steps,today);return <RoutineCard key={r.id} routine={r} log={log} xp={occurrenceXp(r,data.routineLogs,source)} stepsToday={todaysSteps.length} checkedToday={todaysSteps.filter(s=>log.checkedStepIds.includes(s.id)).length} occursToday={dueRoutines.some(item=>item.id===r.id)} categories={categories} onOpen={()=>setRoutineDialog({id:r.id,date:today,occurrenceDate:source})}/>;})}<button className="routine-card routine-card--add" onClick={()=>setEditorDialog({})}><span><Plus size={27}/></span><strong>{tr('Stwórz własną rutynę', 'Create your own routine')}</strong><p>{tr('Dodaj kroki i harmonogram — XP policzymy sami.', 'Add steps and a schedule — we’ll calculate the XP for you.')}</p></button></div></>}
+        {page==='projects'&&<><div className="projects-mobile-heading"><PageHeading kicker={tr('WIELKIE CELE · MAŁE KROKI', 'BIG GOALS · SMALL STEPS')} title={tr('Projekty', 'Projects')} accent={tr(' & cele', ' & goals')} description={tr('Łącz zadania, kamienie milowe i checklisty w jedną drogę do celu.', 'Combine tasks, milestones and checklists into one path to your goal.')}/></div><ProjectsView projects={data.projects} tasks={data.tasks} categories={categories} onSaveProject={saveProject} onDeleteProject={deleteProject} onToggleTask={toggleTask} onOpenTask={id=>setTaskDialog({id})} onCreateTask={(projectId,milestoneId)=>setTaskDialog({projectId,milestoneId})} onLinkTask={linkTaskToProject}/></>}
+        {page==='review'&&<><PageHeading kicker={tr('CO TYDZIEŃ O KROK DALEJ', 'ONE STEP FURTHER EVERY WEEK')} title="Weekly" accent=" Review" description={tr('Podsumuj ostatni tydzień, zobacz, co zadziałało, i zaplanuj następny bez presji.', 'Look back on the past week, see what worked and plan the next one without pressure.')}/><WeeklyReview data={data} focusHistory={focus.history} onOpenNextWeek={monday=>{setReferenceDate(monday);setCalendarMode('week');goPage('calendar');}}/></>}
+        {page==='insights'&&<><PageHeading kicker={tr('POSTĘP TO SUMA MAŁYCH KROKÓW', 'PROGRESS IS THE SUM OF SMALL STEPS')} title={tr('Twoje', 'Your')} accent={tr(' statystyki', ' insights')} description={tr('Zobacz, gdzie inwestujesz swój czas i jak rośnie Twoja regularność.', 'See where your time goes and how your consistency grows.')}/><InsightsView data={data} totalXp={totalXp} level={level} xpLedger={xpLedger} streak={daysStreak} achievements={achievements} rank={currentRank} nextRank={nextRank} focusHistory={focus.history}/></>}
+        <footer className="main-footer"><span>{tr('✦ Momentum — małe kroki, wielki progres.', '✦ Momentum — small steps, big progress.')}</span><span>{tr('Wersja demonstracyjna · dane lokalne', 'Demo version · local data')}</span></footer>
       </main>
     </div>
     {pendingRoutineMove&&<RoutineMoveConfirmModal title={pendingRoutineMove.block.title}
       previousDate={pendingRoutineMove.block.date} previousTime={pendingRoutineMove.block.time}
       targetDate={pendingRoutineMove.date} targetTime={pendingRoutineMove.time}
       shiftsWeekdays={new Date(`${pendingRoutineMove.block.occurrenceDate ?? pendingRoutineMove.block.date}T12:00:00`).getDay() !== new Date(`${pendingRoutineMove.date}T12:00:00`).getDay()}
-      eyebrow={pendingRoutineMove.block.series ? 'ZADANIE CYKLICZNE' : undefined}
+      eyebrow={pendingRoutineMove.block.series ? tr('ZADANIE CYKLICZNE', 'RECURRING TASK') : undefined}
       allHint={seriesMoveHint(data.routines.find(r => r.id === pendingRoutineMove.block.sourceId), pendingRoutineMove.date, pendingRoutineMove.time)}
       onOnlyThis={()=>confirmRoutineMove('single')} onAll={()=>confirmRoutineMove('all')} onCancel={()=>setPendingRoutineMove(null)}/>}
     {pendingResize&&<ResizeConfirmModal title={pendingResize.block.title} date={pendingResize.block.date} time={pendingResize.block.time} previousDuration={pendingResize.block.duration} nextDuration={pendingResize.nextDuration}
-      {...(pendingResize.block.series ? { eyebrow: 'ZADANIE CYKLICZNE', allHint: 'Zmień czas trwania wszystkich wystąpień i usuń wcześniejsze wyjątki długości.' } : {})}
+      {...(pendingResize.block.series ? { eyebrow: tr('ZADANIE CYKLICZNE', 'RECURRING TASK'), allHint: tr('Zmień czas trwania wszystkich wystąpień i usuń wcześniejsze wyjątki długości.', 'Change the duration of all occurrences and remove earlier duration exceptions.') } : {})}
       onOnlyThis={()=>confirmResize('single')} onAll={()=>confirmResize('all')} onCancel={()=>setPendingResize(null)}/>}
     {taskDialog&&(()=>{
       const series = taskDialog.seriesId ? data.routines.find(r=>r.id===taskDialog.seriesId) : undefined;
@@ -905,42 +913,42 @@ function App() {
       onClose={()=>setRoutineDialog(null)}/>:null;})()}
     {editorDialog&&(()=>{const edited=editorDialog.id?data.routines.find(r=>r.id===editorDialog.id):undefined;return <RoutineEditor routine={edited} categories={categories} defaultReminders={reminders.settings.routineDefaults} notificationsEnabled={notificationsActive} onEnableNotifications={enableNotifications} onSave={saveRoutine} onDelete={deleteRoutine} onClose={()=>setEditorDialog(null)}
       skippedDates={edited?skippedOccurrences(edited,data.routineLogs,today):[]} onRestoreOccurrence={edited?sourceDate=>restoreOccurrence(edited.id,sourceDate):undefined}/>;})()}
-    {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label="Ustawienia"><div className="modal-heading"><div><span className="eyebrow">DOSTOSUJ MOMENTUM</span><h2>Ustawienia</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label="Zamknij"><X size={20}/></button></div><p className="settings-desc">Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title="Wybierz kolor"><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>Wygląd aplikacji</strong><small>Przełącz jasny i ciemny motyw.</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?'Ciemny':'Jasny'}</button></label><div className="settings-divider"/><NotificationSettingsPanel api={reminders} push={push} data={data} onChange={settings=>setData(prev=>({...prev,notifications:settings}))} onApplyDefaults={applyDefaultReminders}/><div className="settings-divider"/><CloudSyncPanel api={cloudSync} data={data}/><div className="settings-divider"/><DataBackup data={data}/><div className="settings-divider"/><div className="danger-zone"><div><strong>Wyczyść dane demo</strong><small>Przywróci przykładowe zadania, rutyny i kolory.</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm('Zresetować wszystkie dane do początkowych?')){void eraseStoredData().then(()=>window.location.reload()).catch(()=>window.alert('Nie udało się zresetować danych. Spróbuj ponownie.'));}}}><Trash2 size={15}/> Resetuj</button></div><div className="modal-bottom"><small>{getOfflineDatabaseStatus() === 'ready' ? 'Dane lokalne: IndexedDB + kopia zgodności. Zapisuj backup JSON poza telefonem.' : 'Zapis lokalny: localStorage. IndexedDB niedostępne — zrób backup JSON.'}</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>Gotowe</button></div></div></div>}
-    {weeklyNudge && <div className="wr-notice" role="dialog" aria-label="Tygodniowe podsumowanie">
+    {settingsOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false);}}><div className="modal settings-modal" role="dialog" aria-modal="true" aria-label={tr('Ustawienia', 'Settings')}><div className="modal-heading"><div><span className="eyebrow">{tr('DOSTOSUJ MOMENTUM', 'CUSTOMIZE MOMENTUM')}</span><h2>{tr('Ustawienia', 'Settings')}</h2></div><button className="icon-btn" onClick={()=>setSettingsOpen(false)} aria-label={tr('Zamknij', 'Close')}><X size={20}/></button></div><p className="settings-desc">{tr('Trzy kategorie określają związek aktywności z przychodem — nie jej wartość dla zdrowia czy samopoczucia. Możesz zmieniać ich kolory.', 'The three categories describe how an activity relates to income — not its value for your health or well-being. You can change their colors.')}</p><div className="settings-colors">{CATEGORY_KEYS.map(c=><div className="settings-color-row" key={c}><label className="color-input-wrap" title={tr('Wybierz kolor', 'Pick a color')}><input type="color" value={categories[c].color} onChange={e=>setData(prev=>({...prev,categories:{...prev.categories,[c]:{...categories[c],color:e.target.value}}}))}/></label><div><strong>{categories[c].label}</strong><span>{categories[c].description}</span></div><span>{categories[c].color.toUpperCase()}</span></div>)}</div><div className="settings-divider"/><label className="theme-setting"><div><strong>{tr('Wygląd aplikacji', 'Appearance')}</strong><small>{tr('Przełącz jasny i ciemny motyw.', 'Switch between the light and dark theme.')}</small></div><button className="btn btn--secondary" onClick={()=>setData(p=>({...p,theme:p.theme==='light'?'dark':'light'}))}>{data.theme==='light'?<Moon size={16}/>:<Sun size={16}/>} {data.theme==='light'?tr('Ciemny', 'Dark'):tr('Jasny', 'Light')}</button></label><div className="settings-divider"/><div className="theme-setting language-setting"><div><strong>Język · Language</strong><small>{tr('Teksty aplikacji, daty i przypomnienia. Twoje zadania i rutyny zostają bez zmian.','App texts, dates and reminders. Your tasks and routines stay as they are.')}</small></div><div className="language-switch" role="radiogroup" aria-label="Język · Language">{LANGUAGES.map(option=><button key={option.id} type="button" role="radio" aria-checked={language===option.id} className={language===option.id?'is-active':''} onClick={()=>setData(prev=>({...prev,language:option.id}))}>{option.label}</button>)}</div></div><div className="settings-divider"/><NotificationSettingsPanel api={reminders} push={push} data={data} onChange={settings=>setData(prev=>({...prev,notifications:settings}))} onApplyDefaults={applyDefaultReminders}/><div className="settings-divider"/><CloudSyncPanel api={cloudSync} data={data}/><div className="settings-divider"/><DataBackup data={data}/><div className="settings-divider"/><div className="danger-zone"><div><strong>{tr('Wyczyść dane demo', 'Clear demo data')}</strong><small>{tr('Przywróci przykładowe zadania, rutyny i kolory.', 'Restores the sample tasks, routines and colors.')}</small></div><button className="btn btn--danger" onClick={()=>{if(window.confirm(tr('Zresetować wszystkie dane do początkowych?', 'Reset all data to the initial state?'))){void eraseStoredData().then(()=>window.location.reload()).catch(()=>window.alert(tr('Nie udało się zresetować danych. Spróbuj ponownie.', 'Couldn’t reset the data. Please try again.')));}}}><Trash2 size={15}/> {tr('Resetuj', 'Reset')}</button></div><div className="modal-bottom"><small>{getOfflineDatabaseStatus() === 'ready' ? tr('Dane lokalne: IndexedDB + kopia zgodności. Zapisuj backup JSON poza telefonem.', 'Local data: IndexedDB + a compatibility copy. Keep a JSON backup off your phone.') : tr('Zapis lokalny: localStorage. IndexedDB niedostępne — zrób backup JSON.', 'Saved locally: localStorage. IndexedDB is unavailable — make a JSON backup.')}</small><button className="btn btn--primary" onClick={()=>setSettingsOpen(false)}>{tr('Gotowe', 'Done')}</button></div></div></div>}
+    {weeklyNudge && <div className="wr-notice" role="dialog" aria-label={tr('Tygodniowe podsumowanie', 'Weekly summary')}>
       <span className="wr-notice-icon"><Trophy size={22}/></span>
-      <div><span className="eyebrow eyebrow--indigo">NIEDZIELNY PRZEGLĄD</span><strong>Twój tydzień w pigułce</strong><small>Postępy, rutyny, czas i pomysły na następne dni.</small><button type="button" onClick={()=>{setWeeklyNudge(false);goPage('review');}}>Zobacz raport <ArrowRight size={14}/></button></div>
-      <button type="button" className="wr-notice-close" onClick={()=>setWeeklyNudge(false)} title="Zamknij" aria-label="Zamknij powiadomienie"><X size={17}/></button>
+      <div><span className="eyebrow eyebrow--indigo">{tr('NIEDZIELNY PRZEGLĄD', 'SUNDAY REVIEW')}</span><strong>{tr('Twój tydzień w pigułce', 'Your week at a glance')}</strong><small>{tr('Postępy, rutyny, czas i pomysły na następne dni.', 'Progress, routines, time and ideas for the days ahead.')}</small><button type="button" onClick={()=>{setWeeklyNudge(false);goPage('review');}}>{tr('Zobacz raport', 'View report')} <ArrowRight size={14}/></button></div>
+      <button type="button" className="wr-notice-close" onClick={()=>setWeeklyNudge(false)} title={tr('Zamknij', 'Close')} aria-label={tr('Zamknij powiadomienie', 'Close notification')}><X size={17}/></button>
     </div>}
-    {focus.active && !focusOpen && <><FocusDock title={focus.active.taskTitle} seconds={Math.floor(focus.elapsed.focusMs/1000)} phase={focus.active.phase} onOpen={()=>setFocusOpen(true)}/><button type="button" className="focus-dock-stop" onClick={()=>finishFocus(false)} title="Zakończ Focus bez kończenia zadania" aria-label="Wyłącz aktywną sesję Focus">Wyłącz Focus ×</button></>}
+    {focus.active && !focusOpen && <><FocusDock title={focus.active.taskTitle} seconds={Math.floor(focus.elapsed.focusMs/1000)} phase={focus.active.phase} onOpen={()=>setFocusOpen(true)}/><button type="button" className="focus-dock-stop" onClick={()=>finishFocus(false)} title={tr('Zakończ Focus bez kończenia zadania', 'End Focus without completing the task')} aria-label={tr('Wyłącz aktywną sesję Focus', 'Stop the active Focus session')}>{tr('Wyłącz Focus ×', 'Stop Focus ×')}</button></>}
     {focus.active && focusOpen && (()=>{const focusTask=data.tasks.find(task=>task.id===focus.active?.taskId);return <FocusMode task={focusTask} session={focus.active} history={focus.history} focusMs={focus.elapsed.focusMs} breakMs={focus.elapsed.breakMs} breakElapsedMs={focus.breakElapsed}
       completionXp={focusTask && !focusTask.done ? taskXp(focusTask.duration, focusTask.category) : 0} focusXp={focusTask ? focusXp(focus.elapsed.focusMs/1000, focusTask.category) : 0}
       categories={categories} onPhase={focus.setPhase} onFinish={finishFocus} onClose={()=>setFocusOpen(false)}/>;})()}
     {activeAchievement&&<AchievementPopup achievement={activeAchievement} onClose={()=>setActiveAchievement(null)}/>}
     {reminderBanner&&<ReminderBanner item={reminderBanner} series={isTaskSeries(data.routines.find(r=>r.id===reminderBanner.sourceId))} onClose={closeReminderBanner} onOpen={()=>{reminders.markRead(reminderBanner.id);openNotificationItem(reminderBanner);setReminderBanner(null);}}/>}
     {!settingsOpen&&<CloudSyncBanner api={cloudSync} onResolve={openCloudSyncSettings}/>}
-    {toast&&<div className="toast" role="status"><span><Sparkles size={17}/></span>{toast}{toastAction?.message===toast&&<button type="button" className="toast-action" onClick={()=>{const action=toastAction;setToast('');setToastAction(null);action.run();}}>{toastAction.label}</button>}<button onClick={()=>setToast('')} aria-label="Zamknij"><X size={15}/></button></div>}
+    {toast&&<div className="toast" role="status"><span><Sparkles size={17}/></span>{toast}{toastAction?.message===toast&&<button type="button" className="toast-action" onClick={()=>{const action=toastAction;setToast('');setToastAction(null);action.run();}}>{toastAction.label}</button>}<button onClick={()=>setToast('')} aria-label={tr('Zamknij', 'Close')}><X size={15}/></button></div>}
     {mobileMore && <>
-      <button className="mobile-more-scrim" type="button" aria-label="Zamknij dodatkowe menu" onClick={()=>setMobileMore(false)} />
-      <nav className="mobile-more-sheet" aria-label="Pozostałe moduły Momentum">
-        <div className="mobile-more-heading"><strong>Twoje Momentum</strong><button type="button" aria-label="Zamknij menu" onClick={()=>setMobileMore(false)}><X size={20}/></button></div>
+      <button className="mobile-more-scrim" type="button" aria-label={tr('Zamknij dodatkowe menu', 'Close the extra menu')} onClick={()=>setMobileMore(false)} />
+      <nav className="mobile-more-sheet" aria-label={tr('Pozostałe moduły Momentum', 'Other Momentum modules')}>
+        <div className="mobile-more-heading"><strong>{tr('Twoje Momentum', 'Your Momentum')}</strong><button type="button" aria-label={tr('Zamknij menu', 'Close menu')} onClick={()=>setMobileMore(false)}><X size={20}/></button></div>
         {NAV.filter(n => !(['overview','calendar','tasks','projects'] as Page[]).includes(n.id)).map(n =>
           <button key={n.id} type="button" onClick={()=>goPage(n.id)} className={page===n.id?'active':''}>
             <n.icon size={21}/><span>{n.label}</span><ChevronRight size={16}/>
           </button>
         )}
-        <button type="button" onClick={()=>{setMobileMore(false);setSettingsOpen(true);}}><Settings2 size={21}/><span>Ustawienia i kopie danych</span><ChevronRight size={16}/></button>
+        <button type="button" onClick={()=>{setMobileMore(false);setSettingsOpen(true);}}><Settings2 size={21}/><span>{tr('Ustawienia i kopie danych', 'Settings & backups')}</span><ChevronRight size={16}/></button>
       </nav>
     </>}
-    {(page === 'overview' || page === 'calendar' || page === 'tasks') && <button type="button" className="momentum-mobile-fab" onClick={()=>setTaskDialog({date:referenceDate})} aria-label="Nowe zadanie" title="Dodaj zadanie"><Plus size={28}/></button>}
-    {page === 'routines' && <button type="button" className="momentum-mobile-fab" onClick={()=>setEditorDialog({})} aria-label="Nowa rutyna" title="Dodaj rutynę"><Plus size={28}/></button>}
-    <nav className="mobile-bottom-nav" aria-label="Główna nawigacja mobilna">
+    {(page === 'overview' || page === 'calendar' || page === 'tasks') && <button type="button" className="momentum-mobile-fab" onClick={()=>setTaskDialog({date:referenceDate})} aria-label={tr('Nowe zadanie', 'New task')} title={tr('Dodaj zadanie', 'Add task')}><Plus size={28}/></button>}
+    {page === 'routines' && <button type="button" className="momentum-mobile-fab" onClick={()=>setEditorDialog({})} aria-label={tr('Nowa rutyna', 'New routine')} title={tr('Dodaj rutynę', 'Add routine')}><Plus size={28}/></button>}
+    <nav className="mobile-bottom-nav" aria-label={tr('Główna nawigacja mobilna', 'Main mobile navigation')}>
       {NAV.filter(n => (['overview','calendar','tasks','projects'] as Page[]).includes(n.id)).map(n =>
         <button key={n.id} type="button" className={page===n.id?'active':''} onClick={()=>goPage(n.id)} aria-current={page===n.id?'page':undefined}>
-          <n.icon size={21}/><span>{n.id==='overview'?'Pulpit':n.id==='calendar'?'Kalendarz':n.id==='tasks'?'Zadania':'Projekty'}</span>
+          <n.icon size={21}/><span>{n.id==='overview'?tr('Pulpit', 'Dashboard'):n.id==='calendar'?tr('Kalendarz', 'Calendar'):n.id==='tasks'?tr('Zadania', 'Tasks'):tr('Projekty', 'Projects')}</span>
         </button>
       )}
-      <button type="button" className={mobileMore || (['routines','insights','review'] as Page[]).includes(page) ? 'active' : ''} onClick={()=>setMobileMore(prev=>!prev)} aria-expanded={mobileMore} aria-label="Więcej funkcji">
-        <Menu size={21}/><span>Więcej</span>
+      <button type="button" className={mobileMore || (['routines','insights','review'] as Page[]).includes(page) ? 'active' : ''} onClick={()=>setMobileMore(prev=>!prev)} aria-expanded={mobileMore} aria-label={tr('Więcej funkcji', 'More features')}>
+        <Menu size={21}/><span>{tr('Więcej', 'More')}</span>
       </button>
     </nav>
   </div>;
@@ -955,10 +963,10 @@ function PageHeading({kicker,title,accent,description,action}:{kicker:string;tit
 function RightPanel({upcoming,routines,logFor,routineXpFor,categories,onTask,onToggle,onSeries,onToggleSeries,onAdd,onRoutine,onPreset}:{upcoming:TodoEntry[];routines:Routine[];logFor:(r:Routine)=>ReturnType<typeof emptyLog>;routineXpFor:(r:Routine)=>number;categories:ReturnType<typeof useAppData>[0]['categories'];onTask:(t:Task)=>void;onToggle:(id:string)=>void;onSeries:(entry:SeriesToday)=>void;onToggleSeries:(entry:SeriesToday)=>void;onAdd:()=>void;onRoutine:(r:Routine)=>void;onPreset:(title:string,category:CategoryKey,icon:IconKey,duration:number)=>void}) {
   const currentItems=upcoming.slice(0,5);
   const startDrag=(e:React.DragEvent,payload:string)=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('application/momentum',payload);e.dataTransfer.setData('text/plain',payload);};
-  return <aside className="right-panel"><div className="right-panel-header"><div><span className="eyebrow">TWÓJ DZISIEJSZY PLAN</span><h3>Do zrobienia <span>✦</span></h3></div><button className="tiny-icon-btn" title="Dodaj zadanie" onClick={onAdd}><Plus size={18}/></button></div><div className="mini-task-list">{currentItems.length?currentItems.map(entry=>{
-    if(entry.type==='series') return <div key={`series:${entry.routine.id}:${entry.occurrenceDate}`} className="mini-task mini-task--series" draggable title="Przeciągnij na kalendarz, aby przenieść to wystąpienie" onDragStart={e=>startDrag(e,JSON.stringify({kind:'routine',id:entry.routine.id,sourceDate:entry.occurrenceDate}))}><button className={`task-checkbox ${entry.done?'checked':''}`} aria-label="Ukończ zadanie" onClick={()=>onToggleSeries(entry)}><Check size={13}/></button><button className="mini-task-icon-btn" onClick={()=>onSeries(entry)} aria-label="Otwórz zadanie cykliczne"><TaskVisual icon={entry.routine.icon} image={entry.routine.image} category={entry.routine.category} categories={categories} size="mini"/></button><button className="mini-task-main" onClick={()=>onSeries(entry)}><strong>{entry.routine.title}</strong><small>{entry.time} · +{entry.xp} XP · <span className="mini-task-repeat"><Repeat2 size={11}/> cykliczne</span></small><CategoryBadge category={entry.routine.category} categories={categories} compact/></button><ChevronRight size={14}/></div>;
+  return <aside className="right-panel"><div className="right-panel-header"><div><span className="eyebrow">{tr('TWÓJ DZISIEJSZY PLAN', 'YOUR PLAN FOR TODAY')}</span><h3>{tr('Do zrobienia', 'To do')} <span>✦</span></h3></div><button className="tiny-icon-btn" title={tr('Dodaj zadanie', 'Add task')} onClick={onAdd}><Plus size={18}/></button></div><div className="mini-task-list">{currentItems.length?currentItems.map(entry=>{
+    if(entry.type==='series') return <div key={`series:${entry.routine.id}:${entry.occurrenceDate}`} className="mini-task mini-task--series" draggable title={tr('Przeciągnij na kalendarz, aby przenieść to wystąpienie', 'Drag onto the calendar to move this occurrence')} onDragStart={e=>startDrag(e,JSON.stringify({kind:'routine',id:entry.routine.id,sourceDate:entry.occurrenceDate}))}><button className={`task-checkbox ${entry.done?'checked':''}`} aria-label={tr('Ukończ zadanie', 'Complete task')} onClick={()=>onToggleSeries(entry)}><Check size={13}/></button><button className="mini-task-icon-btn" onClick={()=>onSeries(entry)} aria-label={tr('Otwórz zadanie cykliczne', 'Open recurring task')}><TaskVisual icon={entry.routine.icon} image={entry.routine.image} category={entry.routine.category} categories={categories} size="mini"/></button><button className="mini-task-main" onClick={()=>onSeries(entry)}><strong>{entry.routine.title}</strong><small>{entry.time} · +{entry.xp} XP · <span className="mini-task-repeat"><Repeat2 size={11}/> {tr('cykliczne', 'recurring')}</span></small><CategoryBadge category={entry.routine.category} categories={categories} compact/></button><ChevronRight size={14}/></div>;
     const t=entry.task;
-    return <div key={t.id} className="mini-task" draggable title="Przeciągnij na kalendarz, aby zaplanować" onDragStart={e=>startDrag(e,JSON.stringify({kind:'task',id:t.id,sourceDate:t.date}))}><button className={`task-checkbox ${t.done?'checked':''}`} aria-label="Ukończ zadanie" onClick={()=>onToggle(t.id)}><Check size={13}/></button><button className="mini-task-icon-btn" onClick={()=>onTask(t)} aria-label="Otwórz zadanie"><TaskVisual icon={t.icon} image={t.image} category={t.category} categories={categories} size="mini"/></button><button className="mini-task-main" onClick={()=>onTask(t)}><strong>{t.title}</strong><small>{t.time??(t.date?'Bez godziny':'Inbox')} · +{taskXp(t.duration,t.category)} XP</small><CategoryBadge category={t.category} categories={categories} compact/></button><ChevronRight size={14}/></div>}):<div className="empty-tasks"><CheckCircle2 size={26}/><strong>Wszystko gotowe!</strong><span>Dodaj zadanie, kiedy masz nowy plan.</span></div>}</div><button className="right-link" onClick={onAdd}><Plus size={15}/> Dodaj zadanie</button><div className="right-divider"/><div className="right-panel-header"><div><span className="eyebrow">CODZIENNE NAWYKI</span><h3>Moje rutyny</h3></div><span className="right-badge">{routines.length}</span></div><div className="mini-routines">{routines.map(r=>{const log=logFor(r),isDone=log.completed;return <button key={r.id} className="mini-routine" onClick={()=>onRoutine(r)}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="small" className="mini-routine-icon"/><span><strong>{r.title}</strong><small>{isDone?'Ukończona ✓':`${routineStepsOnDate(r.steps,todayKey()).filter(s=>log.checkedStepIds.includes(s.id)).length}/${routineStepsOnDate(r.steps,todayKey()).length} kroków · +${routineXpFor(r)} XP`}</small><CategoryBadge category={r.category} categories={categories} compact/></span><ArrowUpRight size={16}/></button>;})}</div><div className="right-divider"/><div className="quick-section"><div className="eyebrow">JEDNYM KLIKNIĘCIEM</div><h3>Szybkie dodawanie</h3><div className="quick-presets">{TASK_PRESETS.slice(1,5).map(p=><button key={p.title} onClick={()=>onPreset(p.title,p.category,p.icon,p.duration)}><TaskIcon name={p.icon} size={14}/>{p.title}<Plus size={14}/></button>)}</div></div><div className="right-tip"><Sparkles size={19}/><p><strong>Małe kroki się liczą.</strong><br/>Nie musisz zrobić wszystkiego. Najważniejsze to ruszyć naprzód.</p></div></aside>;
+    return <div key={t.id} className="mini-task" draggable title={tr('Przeciągnij na kalendarz, aby zaplanować', 'Drag onto the calendar to schedule')} onDragStart={e=>startDrag(e,JSON.stringify({kind:'task',id:t.id,sourceDate:t.date}))}><button className={`task-checkbox ${t.done?'checked':''}`} aria-label={tr('Ukończ zadanie', 'Complete task')} onClick={()=>onToggle(t.id)}><Check size={13}/></button><button className="mini-task-icon-btn" onClick={()=>onTask(t)} aria-label={tr('Otwórz zadanie', 'Open task')}><TaskVisual icon={t.icon} image={t.image} category={t.category} categories={categories} size="mini"/></button><button className="mini-task-main" onClick={()=>onTask(t)}><strong>{t.title}</strong><small>{t.time??(t.date?tr('Bez godziny', 'No time set'):'Inbox')} · +{taskXp(t.duration,t.category)} XP</small><CategoryBadge category={t.category} categories={categories} compact/></button><ChevronRight size={14}/></div>}):<div className="empty-tasks"><CheckCircle2 size={26}/><strong>{tr('Wszystko gotowe!', 'All done!')}</strong><span>{tr('Dodaj zadanie, kiedy masz nowy plan.', 'Add a task when you have a new plan.')}</span></div>}</div><button className="right-link" onClick={onAdd}><Plus size={15}/> {tr('Dodaj zadanie', 'Add task')}</button><div className="right-divider"/><div className="right-panel-header"><div><span className="eyebrow">{tr('CODZIENNE NAWYKI', 'DAILY HABITS')}</span><h3>{tr('Moje rutyny', 'My routines')}</h3></div><span className="right-badge">{routines.length}</span></div><div className="mini-routines">{routines.map(r=>{const log=logFor(r),isDone=log.completed;const stepsToday=routineStepsOnDate(r.steps,todayKey()),checkedToday=stepsToday.filter(s=>log.checkedStepIds.includes(s.id)).length;return <button key={r.id} className="mini-routine" onClick={()=>onRoutine(r)}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="small" className="mini-routine-icon"/><span><strong>{r.title}</strong><small>{isDone?tr('Ukończona ✓', 'Completed ✓'):tr(`${checkedToday}/${stepsToday.length} kroków · +${routineXpFor(r)} XP`, `${checkedToday}/${stepsToday.length} ${plural(stepsToday.length, ['krok', 'kroki', 'kroków'], ['step', 'steps'])} · +${routineXpFor(r)} XP`)}</small><CategoryBadge category={r.category} categories={categories} compact/></span><ArrowUpRight size={16}/></button>;})}</div><div className="right-divider"/><div className="quick-section"><div className="eyebrow">{tr('JEDNYM KLIKNIĘCIEM', 'ONE CLICK AWAY')}</div><h3>{tr('Szybkie dodawanie', 'Quick add')}</h3><div className="quick-presets">{TASK_PRESETS.slice(1,5).map(p=><button key={p.title} onClick={()=>onPreset(p.title,p.category,p.icon,p.duration)}><TaskIcon name={p.icon} size={14}/>{p.title}<Plus size={14}/></button>)}</div></div><div className="right-tip"><Sparkles size={19}/><p><strong>{tr('Małe kroki się liczą.', 'Small steps count.')}</strong><br/>{tr('Nie musisz zrobić wszystkiego. Najważniejsze to ruszyć naprzód.', 'You don’t have to do it all. What matters most is moving forward.')}</p></div></aside>;
 }
 type SeriesListItem = { routine: Routine; next: ReturnType<typeof nextOccurrence> };
 function TaskGroups({tasks,seriesToday,seriesList,categories,projects,onEdit,onToggle,onOpenSeries,onToggleSeries,onAdd}:{tasks:Task[];seriesToday:SeriesToday[];seriesList:SeriesListItem[];projects:Project[];categories:ReturnType<typeof useAppData>[0]['categories'];onEdit:(t:Task)=>void;onToggle:(id:string)=>void;onOpenSeries:(routineId:string,occurrenceDate?:string)=>void;onToggleSeries:(entry:SeriesToday)=>void;onAdd:()=>void}){
@@ -968,20 +976,21 @@ function TaskGroups({tasks,seriesToday,seriesList,categories,projects,onEdit,onT
   // „Dzisiaj” łączy zwykłe zadania i dzisiejsze wystąpienia zadań cyklicznych, posortowane po godzinie.
   const todayRows:Row[]=[...tasks.filter(t=>t.date===today).map(task=>({type:'task' as const,task})),...seriesToday.map(entry=>({type:'occurrence' as const,entry}))]
     .sort((a,b)=>(a.type==='task'?a.task.time??'z':a.type==='occurrence'?a.entry.time:'z').localeCompare(b.type==='task'?b.task.time??'z':b.type==='occurrence'?b.entry.time:'z'));
-  const groups:{title:string;rows:Row[]}[]=[
-    {title:'Dzisiaj',rows:todayRows},
-    {title:'Do zaplanowania',rows:sortTasks(tasks.filter(t=>!t.date)).map(task=>({type:'task' as const,task}))},
-    {title:'Zaplanowane na inne dni',rows:sortTasks(tasks.filter(t=>t.date&&t.date!==today)).map(task=>({type:'task' as const,task}))},
-    {title:'Cykliczne',rows:seriesList.map(item=>({type:'series' as const,...item}))},
+  // Logika (klasa, klucz) opiera się na `id` — tytuł zależy od języka.
+  const groups:{id:string;title:string;rows:Row[]}[]=[
+    {id:'today',title:tr('Dzisiaj', 'Today'),rows:todayRows},
+    {id:'unscheduled',title:tr('Do zaplanowania', 'Unscheduled'),rows:sortTasks(tasks.filter(t=>!t.date)).map(task=>({type:'task' as const,task}))},
+    {id:'later',title:tr('Zaplanowane na inne dni', 'Scheduled for other days'),rows:sortTasks(tasks.filter(t=>t.date&&t.date!==today)).map(task=>({type:'task' as const,task}))},
+    {id:'series',title:tr('Cykliczne', 'Recurring'),rows:seriesList.map(item=>({type:'series' as const,...item}))},
   ];
   const renderRow=(row:Row)=>{
-    if(row.type==='task'){const t=row.task;return <div className={`task-row ${t.done?'task-row--done':''}`} key={t.id}><button className={`task-checkbox ${t.done?'checked':''}`} aria-label="Zmień status" onClick={()=>onToggle(t.id)}><Check size={16}/></button><button className="task-row-icon" onClick={()=>onEdit(t)}><TaskVisual icon={t.icon} image={t.image} category={t.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={()=>onEdit(t)}><strong>{t.title}</strong><span className="task-row-sub"><CategoryBadge category={t.category} categories={categories} compact/>{t.date&&<span className="task-row-meta">{t.date===today?'Dzisiaj':t.date}</span>}{t.time&&<span className="task-row-meta task-row-time">{t.time}</span>}{t.projectId&&<span className="task-row-project"><FolderKanban size={12}/>{projects.find(p=>p.id===t.projectId)?.title??"Projekt"}</span>}</span></button><div className="task-row-xp"><Zap size={14}/> {taskXp(t.duration,t.category)} XP</div><button className="task-row-edit" onClick={()=>onEdit(t)} title="Edytuj"><MoreHorizontal size={20}/></button></div>;}
-    if(row.type==='occurrence'){const {entry}=row;const r=entry.routine;const open=()=>onOpenSeries(r.id,entry.occurrenceDate);return <div className={`task-row task-row--series ${entry.done?'task-row--done':''}`} key={`occurrence:${r.id}:${entry.occurrenceDate}`}><button className={`task-checkbox ${entry.done?'checked':''}`} aria-label="Zmień status" onClick={()=>onToggleSeries(entry)}><Check size={16}/></button><button className="task-row-icon" onClick={open}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={open}><strong>{r.title}</strong><span className="task-row-sub"><CategoryBadge category={r.category} categories={categories} compact/><span className="task-row-meta">Dzisiaj</span><span className="task-row-meta task-row-time">{entry.time}</span><span className="task-row-repeat"><Repeat2 size={12}/>{describeRepeat(r)}</span></span></button><div className="task-row-xp"><Zap size={14}/> {entry.xp} XP</div><button className="task-row-edit" onClick={open} title="Edytuj"><MoreHorizontal size={20}/></button></div>;}
+    if(row.type==='task'){const t=row.task;return <div className={`task-row ${t.done?'task-row--done':''}`} key={t.id}><button className={`task-checkbox ${t.done?'checked':''}`} aria-label={tr('Zmień status', 'Change status')} onClick={()=>onToggle(t.id)}><Check size={16}/></button><button className="task-row-icon" onClick={()=>onEdit(t)}><TaskVisual icon={t.icon} image={t.image} category={t.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={()=>onEdit(t)}><strong>{t.title}</strong><span className="task-row-sub"><CategoryBadge category={t.category} categories={categories} compact/>{t.date&&<span className="task-row-meta">{t.date===today?tr('Dzisiaj', 'Today'):t.date}</span>}{t.time&&<span className="task-row-meta task-row-time">{t.time}</span>}{t.projectId&&<span className="task-row-project"><FolderKanban size={12}/>{projects.find(p=>p.id===t.projectId)?.title??tr('Projekt', 'Project')}</span>}</span></button><div className="task-row-xp"><Zap size={14}/> {taskXp(t.duration,t.category)} XP</div><button className="task-row-edit" onClick={()=>onEdit(t)} title={tr('Edytuj', 'Edit')}><MoreHorizontal size={20}/></button></div>;}
+    if(row.type==='occurrence'){const {entry}=row;const r=entry.routine;const open=()=>onOpenSeries(r.id,entry.occurrenceDate);return <div className={`task-row task-row--series ${entry.done?'task-row--done':''}`} key={`occurrence:${r.id}:${entry.occurrenceDate}`}><button className={`task-checkbox ${entry.done?'checked':''}`} aria-label={tr('Zmień status', 'Change status')} onClick={()=>onToggleSeries(entry)}><Check size={16}/></button><button className="task-row-icon" onClick={open}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={open}><strong>{r.title}</strong><span className="task-row-sub"><CategoryBadge category={r.category} categories={categories} compact/><span className="task-row-meta">{tr('Dzisiaj', 'Today')}</span><span className="task-row-meta task-row-time">{entry.time}</span><span className="task-row-repeat"><Repeat2 size={12}/>{describeRepeat(r)}</span></span></button><div className="task-row-xp"><Zap size={14}/> {entry.xp} XP</div><button className="task-row-edit" onClick={open} title={tr('Edytuj', 'Edit')}><MoreHorizontal size={20}/></button></div>;}
     const r=row.routine;const open=()=>onOpenSeries(r.id);
-    return <div className={`task-row task-row--series ${row.next?'':'task-row--ended'}`} key={`series:${r.id}`}><span className="task-row-series-mark" aria-hidden="true"><Repeat2 size={13}/></span><button className="task-row-icon" onClick={open}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={open}><strong>{r.title}</strong><span className="task-row-sub"><CategoryBadge category={r.category} categories={categories} compact/><span className="task-row-repeat"><Repeat2 size={12}/>{describeRepeat(r)} · {r.time}</span><span className="task-row-meta task-row-next">{row.next?`Następnie: ${shortDayLabel(row.next.date,today)}${row.next.time!==r.time?` ${row.next.time}`:''}`:'Seria zakończona'}</span></span></button><div className="task-row-xp"><Zap size={14}/> {taskXp(r.duration,r.category)} XP</div><button className="task-row-edit" onClick={open} title="Edytuj serię"><MoreHorizontal size={20}/></button></div>;
+    return <div className={`task-row task-row--series ${row.next?'':'task-row--ended'}`} key={`series:${r.id}`}><span className="task-row-series-mark" aria-hidden="true"><Repeat2 size={13}/></span><button className="task-row-icon" onClick={open}><TaskVisual icon={r.icon} image={r.image} category={r.category} categories={categories} size="medium"/></button><button className="task-row-body" onClick={open}><strong>{r.title}</strong><span className="task-row-sub"><CategoryBadge category={r.category} categories={categories} compact/><span className="task-row-repeat"><Repeat2 size={12}/>{describeRepeat(r)} · {r.time}</span><span className="task-row-meta task-row-next">{row.next?`${tr('Następnie:', 'Next:')} ${shortDayLabel(row.next.date,today)}${row.next.time!==r.time?` ${row.next.time}`:''}`:tr('Seria zakończona', 'Series ended')}</span></span></button><div className="task-row-xp"><Zap size={14}/> {taskXp(r.duration,r.category)} XP</div><button className="task-row-edit" onClick={open} title={tr('Edytuj serię', 'Edit series')}><MoreHorizontal size={20}/></button></div>;
   };
   const empty=tasks.length===0&&seriesToday.length===0&&seriesList.length===0;
-  return <div className="task-groups">{groups.filter(g=>g.rows.length>0).map(group=><section className={`task-group ${group.title==='Cykliczne'?'task-group--series':''}`} key={group.title}><div className="task-group-heading"><h3>{group.title}<span>{group.rows.length}</span></h3></div><div className="task-rows">{group.rows.map(renderRow)}</div></section>)}{empty&&<div className="empty-list"><Target size={38}/><h3>Tu jest miejsce na nowe pomysły.</h3><p>Dodaj zadanie, zaplanuj termin i ruszaj po swoje.</p><button className="btn btn--primary" onClick={onAdd}><Plus size={17}/> Dodaj pierwsze zadanie</button></div>}</div>;
+  return <div className="task-groups">{groups.filter(g=>g.rows.length>0).map(group=><section className={`task-group ${group.id==='series'?'task-group--series':''}`} key={group.id}><div className="task-group-heading"><h3>{group.title}<span>{group.rows.length}</span></h3></div><div className="task-rows">{group.rows.map(renderRow)}</div></section>)}{empty&&<div className="empty-list"><Target size={38}/><h3>{tr('Tu jest miejsce na nowe pomysły.', 'This is the place for new ideas.')}</h3><p>{tr('Dodaj zadanie, zaplanuj termin i ruszaj po swoje.', 'Add a task, pick a date and go for it.')}</p><button className="btn btn--primary" onClick={onAdd}><Plus size={17}/> {tr('Dodaj pierwsze zadanie', 'Add your first task')}</button></div>}</div>;
 }
 function AchievementPopup({ achievement, onClose }: { achievement: AchievementView; onClose: () => void }) {
   const Icon = achievement.icon;
@@ -989,13 +998,13 @@ function AchievementPopup({ achievement, onClose }: { achievement: AchievementVi
     <div className="achievement-popup-confetti" aria-hidden="true">
       {Array.from({ length: 8 }, (_, index) => <span key={index} style={{ '--i': index } as React.CSSProperties} />)}
     </div>
-    <button className="achievement-popup-close" aria-label="Zamknij powiadomienie" onClick={onClose}><X size={16} /></button>
+    <button className="achievement-popup-close" aria-label={tr('Zamknij powiadomienie', 'Close notification')} onClick={onClose}><X size={16} /></button>
     <div className="achievement-popup-art" style={{ '--achievement-accent': achievement.accent, '--achievement-tint': achievement.tint } as React.CSSProperties}>
       <img src={achievement.art} alt="" loading="lazy" />
       <span className="achievement-popup-art-badge"><Icon size={16} /></span>
     </div>
     <div className="achievement-popup-body">
-      <span className="eyebrow eyebrow--indigo">NOWE OSIĄGNIĘCIE</span>
+      <span className="eyebrow eyebrow--indigo">{tr('NOWE OSIĄGNIĘCIE', 'NEW ACHIEVEMENT')}</span>
       <h3>{achievement.title}</h3>
       <p>{achievement.description}</p>
       <div className="achievement-popup-reward">{achievement.reward}</div>
