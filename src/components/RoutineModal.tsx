@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, CalendarX2, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CalendarX2, Camera, Check, CheckCircle2, Clock3, Flame, GripVertical, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Timer, Trash2, X } from 'lucide-react';
 import { TaskIcon } from '../lib/icons';
 import { CategoryBadge, TaskVisual } from './VisualIdentity';
 import { IconPicker } from './IconPicker';
@@ -15,6 +15,10 @@ import { useRoutineStepDrag } from '../lib/useRoutineStepDrag';
 import { normalizeStepWeekdays, routineStepsOnDate, stepWeekdaysLabel } from '../lib/routineStepSchedule';
 import { occursOn } from '../lib/recurrence';
 import { XP_RULES, routineXp } from '../lib/xp';
+import {
+  STEP_TIMER_MAX_SECONDS, STEP_TIMER_PRESETS, describeStepTimer, formatStepTimer, isStepTimerFor, primeStepTimerSound,
+  resetStepTimer, shortStepTimer, stepTimerRemainingMs, stepTimerSeconds, toggleStepTimer, useStepTimer,
+} from '../lib/stepTimer';
 import type { CategoryConfig, CategoryKey, IconKey, Routine, RoutineLog, RoutineStep } from '../types';
 
 interface SessionProps {
@@ -51,8 +55,10 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
   const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, date));
   const completed = visibleSteps.filter(step => log.checkedStepIds.includes(step.id)).length;
   const count = visibleSteps.length;
-  const [timer, setTimer] = useState<{ stepId: string; seconds: number; endAt: number | null } | null>(null);
-  const [timerNow, setTimerNow] = useState(() => Date.now());
+  // Stoper kroku żyje poza oknem — odlicza dalej po jego zamknięciu, a po upływie czasu App odhacza krok.
+  const { timer, now } = useStepTimer();
+  const occurrenceKey = sourceDate ?? date;
+  const timerFor = (step: RoutineStep) => isStepTimerFor(timer, routine.id, occurrenceKey, step.id) ? timer : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [moving, setMoving] = useState(false);
   const movedFrom = sourceDate && (sourceDate !== date || displayTime !== routine.time) ? { date: sourceDate, time: routine.time } : null;
@@ -73,28 +79,14 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', onKey); };
   }, [menuOpen]);
-  useEffect(() => {
-    if (!timer?.endAt) return;
-    const handle = window.setInterval(() => setTimerNow(Date.now()), 250);
-    return () => window.clearInterval(handle);
-  }, [timer?.endAt]);
-  useEffect(() => {
-    if (timer?.endAt && timerNow >= timer.endAt) {
-      setTimer(previous => previous?.endAt && timerNow >= previous.endAt
-        ? { ...previous, seconds: 0, endAt: null } : previous);
-    }
-  }, [timer?.endAt, timerNow]);
-  const remaining = (step: RoutineStep) => timer?.stepId !== step.id
-    ? (step.timerSeconds ?? 0)
-    : timer.endAt ? Math.max(0, Math.ceil((timer.endAt - timerNow) / 1000)) : timer.seconds;
-  function toggleTimer(step: RoutineStep) {
-    setTimer(previous => {
-      if (previous?.stepId !== step.id) return { stepId: step.id, seconds: step.timerSeconds ?? 30, endAt: Date.now() + (step.timerSeconds ?? 30) * 1000 };
-      if (previous.endAt) return { ...previous, seconds: Math.max(0, Math.ceil((previous.endAt - Date.now()) / 1000)), endAt: null };
-      const seconds = previous.seconds > 0 ? previous.seconds : step.timerSeconds ?? 30;
-      return { ...previous, seconds, endAt: Date.now() + seconds * 1000 };
-    });
-    setTimerNow(Date.now());
+  function toggleTimer(step: RoutineStep, totalSeconds: number) {
+    primeStepTimerSound();
+    toggleStepTimer({ routineId: routine.id, sourceDate: occurrenceKey, date, stepId: step.id, title: step.title, totalSeconds });
+  }
+  // Ręczne odhaczenie (albo odznaczenie) kroku z działającym stoperem kończy odliczanie — bez sygnału później.
+  function toggleStep(step: RoutineStep) {
+    if (timerFor(step)) resetStepTimer(routine.id, occurrenceKey);
+    onToggleStep(step.id);
   }
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-modal" role="dialog" aria-modal="true" aria-label="Rutyna">
     <div className="routine-session-scroll">
@@ -113,21 +105,26 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
           <span className="routine-step-title">{step.title}</span>
           <CheckCircle2 className="step-right" size={18}/>
         </>;
-        if (!step.timerSeconds) return <button key={step.id} type="button" data-routine-step-id={step.id}
+        if (!stepTimerSeconds(step.timerSeconds)) return <button key={step.id} type="button" data-routine-step-id={step.id}
           className={`routine-step ${step.parentId ? 'routine-step--child' : ''} ${isDone ? 'checked' : ''}`}
-          disabled={log.completed} onClick={() => onToggleStep(step.id)}>{body}</button>;
-        const active = timer?.stepId === step.id;
-        const running = active && Boolean(timer.endAt);
+          disabled={log.completed} onClick={() => toggleStep(step)}>{body}</button>;
+        const seconds = stepTimerSeconds(step.timerSeconds)!;
+        const active = timerFor(step);
+        const running = Boolean(active?.endAt);
+        const totalMs = (active?.totalSeconds ?? seconds) * 1000;
+        const remainingMs = active ? stepTimerRemainingMs(active, now) : totalMs;
+        const progress = active ? Math.min(100, Math.max(0, (1 - remainingMs / totalMs) * 100)) : 0;
         return <div key={step.id} data-routine-step-id={step.id}
-          className={`routine-step routine-step--timed ${step.parentId ? 'routine-step--child' : ''} ${isDone ? 'checked' : ''}`}>
+          className={`routine-step routine-step--timed ${step.parentId ? 'routine-step--child' : ''} ${isDone ? 'checked' : ''} ${active ? 'routine-step--timing' : ''}`}>
           <button type="button" className="routine-step-main" disabled={log.completed}
-            aria-label={`${isDone ? 'Odznacz' : 'Oznacz'} ${step.title}`} onClick={() => onToggleStep(step.id)}>{body}</button>
-          <button type="button" className={`routine-step-timer ${running ? 'routine-step-timer--running' : ''}`}
-            aria-label={`${running ? 'Pauza' : 'Uruchom stoper'}: ${step.title}`}
-            title="Stoper kroku — dotknij, aby uruchomić lub zatrzymać"
-            onClick={() => toggleTimer(step)}>
+            aria-label={`${isDone ? 'Odznacz' : 'Oznacz'} ${step.title}`} onClick={() => toggleStep(step)}>{body}</button>
+          <button type="button" className={`routine-step-timer ${running ? 'routine-step-timer--running' : active ? 'routine-step-timer--paused' : ''}`}
+            style={{ '--timer-progress': `${progress}%` } as React.CSSProperties} disabled={log.completed}
+            aria-label={running ? `Wstrzymaj stoper: ${step.title}` : active ? `Wznów stoper: ${step.title}` : `Uruchom stoper ${describeStepTimer(seconds)}: ${step.title}`}
+            title={`Stoper ${describeStepTimer(seconds)} — dotknij, aby uruchomić lub wstrzymać. Gdy czas minie, krok sam się odhaczy.`}
+            onClick={() => toggleTimer(step, seconds)}>
             {running ? <Pause size={13}/> : <Play size={13} fill="currentColor"/>}
-            <span>{remaining(step)} s</span>
+            <span>{formatStepTimer(remainingMs / 1000)}</span>
           </button>
         </div>;
       })}
@@ -184,6 +181,7 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
   const [reminders, setReminders] = useState<number[]>(() => routine ? [...(routine.reminders ?? [])] : [...defaultReminders]);
   const [steps, setSteps] = useState<RoutineStep[]>(routine?.steps ?? [{ id: crypto.randomUUID(), title: '' }]);
   const [scheduleStepId, setScheduleStepId] = useState<string | null>(null);
+  const [timerStepId, setTimerStepId] = useState<string | null>(null);
   const [picker, setPicker] = useState<'icons' | 'photos' | null>(null);
   const toggleStepWeekday = (stepId: string, weekday: number) => setSteps(previous => previous.map(step => {
     if (step.id !== stepId) return step;
@@ -199,13 +197,21 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => {
-    if (!scheduleStepId) return;
+    if (!scheduleStepId && !timerStepId) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.stopPropagation(); setScheduleStepId(null); }
+      if (event.key === 'Escape') { event.stopPropagation(); setScheduleStepId(null); setTimerStepId(null); }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [scheduleStepId]);
+  }, [scheduleStepId, timerStepId]);
+  /** Stoper kroku w edytorze: liczba sekund albo null (bez stopera); zapis razem z rutyną. */
+  const setStepTimer = (stepId: string, seconds: number | null) => setSteps(previous => previous.map(step => {
+    if (step.id !== stepId) return step;
+    const next = { ...step };
+    if (seconds && seconds > 0) next.timerSeconds = Math.min(STEP_TIMER_MAX_SECONDS, Math.max(1, Math.round(seconds)));
+    else delete next.timerSeconds;
+    return next;
+  }));
   // XP rutyny liczy aplikacja: czas × kategoria jak w zadaniach + 1 XP za krok; premia za regularność dochodzi przy wykonaniu.
   const namedSteps = steps.filter(s => s.title.trim()).length;
   const baseXp = routineXp(category, duration, namedSteps, 0);
@@ -235,11 +241,20 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
         {orderRoutineSteps(steps).map((s,i)=><div className={`editor-step ${s.parentId ? 'editor-step--child' : ''} ${editorHint?.id === s.id ? 'routine-step--dragging' : ''} ${editorHint?.action === 'nest' && editorHint.targetId === s.id ? 'routine-step--drop-parent' : ''} ${editorHint?.action === 'reorder' && editorHint.markerId === s.id ? `routine-step--drop-${editorHint.position}` : ''}`} data-routine-step-id={s.id} key={s.id}>
           <span className="editor-step-drag" data-step-drag-handle title="Przytrzymaj: w pionie zmienisz kolejność, w poziomie zagnieżdżenie" aria-label={`Przenieś krok ${s.title}`}><GripVertical size={18}/></span>
           <div className="editor-step-field">
+            {stepTimerSeconds(s.timerSeconds) && <span className="routine-step-timer-badge" title={`Stoper: ${describeStepTimer(stepTimerSeconds(s.timerSeconds)!)}`}>
+              <Timer size={10}/>{shortStepTimer(stepTimerSeconds(s.timerSeconds)!)}
+            </span>}
             <span className="routine-step-days-badge" title={`Harmonogram: ${stepWeekdaysLabel(s)}`}>
               <CalendarDays size={11}/>{stepWeekdaysLabel(s)}
             </span>
             <input className="editor-step-name" value={s.title} placeholder={`Krok ${i+1}`} onChange={e=>setSteps(arr=>arr.map(x=>x.id===s.id ? {...x,title:e.target.value} : x))}/>
           </div>
+          {(() => { const seconds = stepTimerSeconds(s.timerSeconds); return <button type="button" className={`routine-step-timer-toggle ${seconds ? 'routine-step-timer-toggle--set' : ''}`}
+            aria-label={seconds ? `Stoper kroku ${s.title || i+1}: ${describeStepTimer(seconds)}` : `Dodaj stoper do kroku ${s.title || i+1}`}
+            title={seconds ? `Stoper: ${describeStepTimer(seconds)}` : 'Dodaj stoper, np. mycie zębów 2 min'}
+            onClick={()=>setTimerStepId(s.id)}>
+            <Timer size={15}/>
+          </button>; })()}
           <button type="button" className={`routine-step-schedule-toggle ${Array.isArray(s.weekdays) || s.repeatEveryDays ? 'routine-step-schedule-toggle--custom' : ''}`}
             aria-label={`Harmonogram kroku ${s.title || i+1}: ${stepWeekdaysLabel(s)}`}
             title={`Wybierz dni wykonywania: ${stepWeekdaysLabel(s)}`}
@@ -254,7 +269,7 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
             const parent=[...ordered.slice(0,index)].reverse().find(item=>!item.parentId);
             return parent?placeRoutineStep(ordered,s.id,parent.id):ordered;
           })}>{s.parentId ? <ArrowLeft size={15}/> : <ArrowRight size={15}/>}</button>
-          <button type="button" aria-label="Usuń krok" onClick={()=>{setScheduleStepId(current=>current===s.id?null:current);setSteps(arr=>arr.filter(x=>x.id!==s.id).map(x=>x.parentId===s.id?{...x,parentId:undefined}:x));}}><X size={16}/></button>
+          <button type="button" aria-label="Usuń krok" onClick={()=>{setScheduleStepId(current=>current===s.id?null:current);setTimerStepId(current=>current===s.id?null:current);setSteps(arr=>arr.filter(x=>x.id!==s.id).map(x=>x.parentId===s.id?{...x,parentId:undefined}:x));}}><X size={16}/></button>
         </div>)}
       </div>
       {editorHint && <small className="routine-drag-hint" role="status">{editorHint.label}</small>}
@@ -303,6 +318,38 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
             <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:[],repeatEveryDays:undefined,repeatFrom:undefined}:step))}>Żaden dzień</button>
             <button type="button" className="btn btn--ghost" onClick={()=>setSteps(previous=>previous.map(step=>step.id===scheduledStep.id?{...step,weekdays:undefined,repeatEveryDays:undefined,repeatFrom:undefined}:step))}>Codziennie</button>
             <button type="button" className="btn btn--primary" onClick={()=>setScheduleStepId(null)}><Check size={15}/> Gotowe</button>
+          </div>
+        </div>
+      </div>;
+    })()}
+    {timerStepId && (() => {
+      const timedStep = steps.find(step => step.id === timerStepId);
+      if (!timedStep) return null;
+      const seconds = stepTimerSeconds(timedStep.timerSeconds);
+      const minutes = seconds ? Math.floor(seconds / 60) : 0;
+      const rest = seconds ? seconds % 60 : 0;
+      // Pole puste albo nieliczbowe = 0; zakres pilnuje setStepTimer (1 s – 60 min).
+      const parse = (value: string, max: number) => Math.min(max, Math.max(0, Number.parseInt(value, 10) || 0));
+      return <div className="routine-weekdays-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setTimerStepId(null);}}>
+        <div className="routine-weekdays-dialog routine-timer-dialog" role="dialog" aria-modal="true" aria-label={`Stoper kroku ${timedStep.title}`}>
+          <div className="routine-weekdays-heading"><div><span className="eyebrow">STOPER KROKU</span><h3>{timedStep.title || 'Krok rutyny'}</h3></div>
+            <button type="button" className="icon-btn" aria-label="Zamknij stoper" onClick={()=>setTimerStepId(null)}><X size={19}/></button>
+          </div>
+          <p className="routine-weekdays-description">W rutynie dotknij czasu po prawej stronie kroku, żeby uruchomić odliczanie. Gdy czas minie, krok sam się odhaczy (zawsze możesz go odznaczyć), a telefon da krótki sygnał.</p>
+          <div className="routine-timer-presets" role="group" aria-label="Gotowe czasy">
+            {STEP_TIMER_PRESETS.map(value => <button type="button" key={value} className={seconds === value ? 'selected' : ''} aria-pressed={seconds === value}
+              onClick={()=>setStepTimer(timedStep.id, value)}>{describeStepTimer(value)}</button>)}
+          </div>
+          <div className="routine-timer-custom">
+            <span>Własny czas</span>
+            <label><input type="number" inputMode="numeric" min={0} max={60} placeholder="0" aria-label="Minuty" value={seconds ? minutes : ''}
+              onChange={e=>setStepTimer(timedStep.id, parse(e.target.value, 60) * 60 + rest)}/> min</label>
+            <label><input type="number" inputMode="numeric" min={0} max={59} placeholder="0" aria-label="Sekundy" value={seconds ? rest : ''}
+              onChange={e=>setStepTimer(timedStep.id, minutes * 60 + parse(e.target.value, 59))}/> s</label>
+          </div>
+          <div className="routine-weekdays-actions">
+            <button type="button" className="btn btn--ghost" disabled={!seconds} onClick={()=>{setStepTimer(timedStep.id, null);setTimerStepId(null);}}>Bez stopera</button>
+            <button type="button" className="btn btn--primary" onClick={()=>setTimerStepId(null)}><Check size={15}/> Gotowe</button>
           </div>
         </div>
       </div>;

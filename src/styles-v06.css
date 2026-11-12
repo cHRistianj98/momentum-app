@@ -1359,3 +1359,58 @@
   .occurrence-bar-actions { gap: 7px; }
   .occurrence-bar-actions > button { min-height: 40px; padding: 0 12px; }
 }
+
+/* ---------- 28. Stoper kroku rutyny (np. mycie zębów 2 min) ---------- */
+/* Edytor: przycisk stopera obok nazwy kroku (stała szerokość — pola nazw zostają wyrównane),
+   a ustawiony czas widać na fioletowym znaczku na krawędzi pola, po lewej (dni kroku są po prawej). */
+.editor-steps .routine-step-timer-toggle {
+  display: inline-flex; flex: 0 0 31px; align-items: center; justify-content: center;
+  width: 31px; min-width: 31px; height: 35px; padding: 0;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--subtext); cursor: pointer;
+}
+.editor-steps .routine-step-timer-toggle--set {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--line));
+  background: color-mix(in srgb, var(--primary) 9%, var(--surface)); color: var(--primary);
+}
+.editor-steps .routine-step-timer-toggle:hover { border-color: var(--primary); color: var(--primary); }
+.editor-steps .routine-step-timer-badge {
+  position: absolute; top: 0; left: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--line)); border-radius: 999px;
+  background: var(--primary-pale); color: var(--primary); font-size: 9px; font-weight: 800; line-height: 1.2;
+  white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.editor-steps .routine-step-timer-badge svg { flex-shrink: 0; }
+
+/* Okno „Stoper kroku”: gotowe czasy i własny czas (min + s). */
+.routine-timer-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.routine-timer-presets button {
+  min-height: 44px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-2);
+  color: var(--text); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+}
+.routine-timer-presets button.selected { border-color: var(--primary); background: var(--primary); color: #fff; }
+.routine-timer-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; color: var(--subtext); font-size: 12.5px; font-weight: 750; }
+.routine-timer-custom > span { flex-basis: 100%; color: var(--text); font-size: 11px; font-weight: 800; }
+.routine-timer-custom label { display: inline-flex; align-items: center; gap: 7px; }
+.routine-timer-custom input {
+  width: 74px; min-height: 44px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 11px;
+  background: var(--surface-2); color: var(--text); font: inherit; font-size: 16px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums;
+}
+.routine-timer-custom input:focus { outline: none; border-color: #a99cf4; }
+
+/* Rutyna: znaczek stopera po prawej stronie kroku — odliczanie m:ss, w tle pasek upływającego czasu. */
+.routine-step-timer { position: relative; overflow: hidden; isolation: isolate; }
+.routine-step-timer::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; z-index: -1; width: var(--timer-progress, 0%);
+  background: color-mix(in srgb, var(--primary) 20%, transparent); transition: width .25s linear;
+}
+.routine-step-timer--running { border-color: var(--primary); }
+.routine-step-timer--paused { border-style: dashed; }
+.routine-step-timer:disabled { opacity: .5; }
+.routine-step--timing { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); }
+:root[data-theme='dark'] .routine-timer-presets button.selected { color: #17132e; }
+@media (max-width: 620px) {
+  .editor-steps .routine-step-timer-badge { left: 6px; padding: 2px 5px; font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .routine-step-timer::before { transition: none; }
+}

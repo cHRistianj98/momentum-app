@@ -34,6 +34,7 @@ import { eraseStoredData, resolveCategories, useAppData } from './lib/storage';
 import { getOfflineDatabaseStatus, readMomentumKey, saveMomentumKey } from './lib/offlineDatabase';
 import { buildAchievements, resolveNextRank, resolveRank, type AchievementView } from './lib/progression';
 import { buildXpLedger, focusXp, levelInfo, occurrenceXp, routineXp, sumXp, taskXp } from './lib/xp';
+import { playStepTimerSound, resetStepTimer, useStepTimerRuntime } from './lib/stepTimer';
 import { useReminders } from './lib/useReminders';
 import { useCloudSync } from './lib/useCloudSync';
 import { usePushNotifications } from './lib/push';
@@ -298,6 +299,16 @@ function App() {
     const timeout = window.setTimeout(() => setToast(''), toastAction?.message === toast ? 7000 : 3600);
     return () => window.clearTimeout(timeout);
   }, [toast, toastAction]);
+  // Stoper kroku rutyny: po upływie czasu krok sam się odhacza (także przy zamkniętym oknie rutyny) i słychać sygnał.
+  useStepTimerRuntime(timer => {
+    const routine = data.routines.find(r => r.id === timer.routineId);
+    const log = data.routineLogs[`${timer.routineId}:${timer.sourceDate}`];
+    const visible = Boolean(routine && routineStepsOnDate(routine.steps, timer.date).some(step => step.id === timer.stepId));
+    const willCheck = visible && !log?.completed && !log?.checkedStepIds.includes(timer.stepId);
+    playStepTimerSound();
+    if (willCheck) checkRoutineStep(timer.routineId, timer.sourceDate, timer.stepId, timer.date);
+    setToast(willCheck ? `Czas minął — krok „${timer.title}” zaliczony` : `Czas minął — „${timer.title}”`);
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -492,6 +503,7 @@ function App() {
     }
   }
   function deleteRoutine(id: string) {
+    resetStepTimer(id);
     setData(prev=>({...prev,routines:prev.routines.filter(r=>r.id!==id),routineLogs:Object.fromEntries(Object.entries(prev.routineLogs).filter(([key])=>!key.startsWith(`${id}:`)))}));
     setEditorDialog(null);setRoutineDialog(null);setToast('Rutyna usunięta');
   }
@@ -505,6 +517,19 @@ function App() {
     const activeSteps = routineStepsOnDate(routine.steps, displayDate);
     if (!activeSteps.some(step => step.id === stepId)) return;
     updateRoutineLog(id,date,log=>({...unskipped(log),checkedStepIds:toggleRoutineStepBranch(activeSteps, log.checkedStepIds, stepId)}));
+  }
+  /** Stoper kroku: po upływie czasu krok zostaje odhaczony (jeśli był już odhaczony — bez zmian). */
+  function checkRoutineStep(id: string, date: string, stepId: string, displayDate: string = date) {
+    setData(prev => {
+      const routine = prev.routines.find(r => r.id === id);
+      if (!routine) return prev;
+      const activeSteps = routineStepsOnDate(routine.steps, displayDate);
+      if (!activeSteps.some(step => step.id === stepId)) return prev;
+      const key = `${id}:${date}`;
+      const log = prev.routineLogs[key] ?? emptyLog(key);
+      if (log.completed || log.checkedStepIds.includes(stepId)) return prev;
+      return { ...prev, routineLogs: { ...prev.routineLogs, [key]: { ...unskipped(log), checkedStepIds: toggleRoutineStepBranch(activeSteps, log.checkedStepIds, stepId) } } };
+    });
   }
   function changeRoutineSteps(id: string, steps: RoutineStep[]) {
     setData(prev => ({
@@ -522,6 +547,7 @@ function App() {
     const activeSteps = routineStepsOnDate(routine.steps, displayDate);
     if (log.completed || activeSteps.length === 0 || activeSteps.some(s=>!log.checkedStepIds.includes(s.id))) return;
     updateRoutineLog(id,date,l=>({...unskipped(l),completed:true,completedAt:new Date().toISOString()}));
+    resetStepTimer(id, date);
     setRoutineDialog(null);
     setToast(`Rutyna zakończona! +${occurrenceXp(routine, data.routineLogs, date)} XP`);
   }
@@ -571,6 +597,7 @@ function App() {
     const previous = data.routineLogs[key];
     // Pusty log z flagą „skipped”: bez XP i bez wcześniejszych wyjątków terminu. „Cofnij” przywraca poprzedni stan.
     setData(prev => ({ ...prev, routineLogs: { ...prev.routineLogs, [key]: { id: key, checkedStepIds: [], completed: false, skipped: true } } }));
+    resetStepTimer(routineId, sourceDate);
     setTaskDialog(null);
     setRoutineDialog(null);
     showToast(`Usunięto „${routine.title}” (${shortDayLabel(previous?.dateOverride ?? sourceDate, today)}) — reszta ${isTaskSeries(routine) ? 'serii' : 'rutyny'} bez zmian`,

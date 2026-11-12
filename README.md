@@ -178,6 +178,12 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
 - Inbox dla zadań bez terminu, zadania zaplanowane i ukończone, filtrowanie, wyszukiwanie.
 - Szybkie dodawanie popularnych zadań, przeciąganie z panelu po prawej na kalendarz; skróty `N` (nowe zadanie) i `Ctrl/Cmd + K` (wyszukiwarka).
 - Rutyny: tworzenie szablonów, edytowanie kroków i dni tygodnia, wykonanie krok po kroku, jeden przycisk zamyka rutynę; jej blok w kalendarzu zostaje automatycznie oznaczony jako ukończony.
+- **Stoper kroku** (np. *Mycie zębów — 2 min*, *Plank — 45 s*): w edytorze rutyny przycisk ⏱ przy kroku — gotowe czasy
+  (30 s, 1, 2, 3, 5, 10 min) albo własny (do 60 min). W rutynie po prawej stronie kroku jest znaczek z czasem: dotknięcie
+  uruchamia odliczanie, kolejne wstrzymuje i wznawia. Gdy czas minie, krok sam się odhacza (można go odznaczyć), telefon daje
+  krótki sygnał i wibruje (o ile pozwala na to system), a w trakcie odliczania ekran nie gaśnie. Stoper liczy dalej po
+  zamknięciu okna rutyny i po zablokowaniu ekranu — po powrocie krok jest już zaliczony. Ręczne odhaczenie kroku zatrzymuje stoper.
+  W pliku rutyny (import JSON) to pole `timerSeconds` kroku.
 - XP, poziomy, seria aktywności, 100 odznak, statystyki, wykres ostatnich 7 dni i udział kategorii.
 - Konfigurowalne kolory pięciu kategorii, jasny/ciemny motyw, responsywny interfejs (na iPhonie dolne menu i stopki okien omijają zaokrąglone rogi ekranu i pasek Home — `viewport-fit=cover` + `env(safe-area-inset-*)`).
 - Automatyczny zapis w `localStorage`, działające przykładowe dane. W ustawieniach można je zresetować.
@@ -229,6 +235,7 @@ momentum-app/
       useReminders.ts         # harmonogram przypomnień w aplikacji
       progression.ts          # rangi i katalog 100 odznak (grupy, metryki postępu)
       xp.ts                   # klucz XP (zadania, Focus, rutyny), poziomy i rejestr zdobytych punktów
+      stepTimer.ts            # stoper kroku rutyny (odliczanie poza oknem, auto-odhaczenie, sygnał, wake lock)
       dayExport.ts            # tekstowy eksport wybranych dni (plan, wykonanie, kroki, kolory kategorii)
       cloudSync.ts            # silnik synchronizacji (migawka, rewizje, scalanie, historia wersji)
       syncMerge.ts            # scalanie trójstronne zmian z dwóch urządzeń (czyste funkcje)

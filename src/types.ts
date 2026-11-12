@@ -46,7 +46,7 @@ export interface RoutineStep {
   repeatEveryDays?: number;
   /** First date (YYYY-MM-DD) of interval recurrence. */
   repeatFrom?: string;
-  /** Optional countdown in seconds for timed exercises inside a routine. */
+  /** Stoper kroku w sekundach (1–3600), np. mycie zębów 120 s — po upływie czasu krok sam się odhacza. */
   timerSeconds?: number;
 }
 
