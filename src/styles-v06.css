@@ -6,7 +6,7 @@
 /* ---------- 1. Mobilny pasek kalendarza ---------- */
 .cal-mbar { display: none; }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-panel .calendar-toolbar > .calendar-heading,
   .calendar-panel .calendar-toolbar > .calendar-actions { display: none !important; }
   .calendar-panel .calendar-toolbar { display: block !important; padding: 10px 14px 11px !important; }
@@ -68,11 +68,11 @@
 }
 
 /* ---------- 2. Odstępy na dole stron i Projekty ---------- */
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .main-content > .main-footer { display: none !important; }
   .main-content { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .main-content { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
   /* Strony z pływającym przyciskiem „+”: ostatni element może przewinąć się nad przycisk. */
   .app-shell:has(> .momentum-mobile-fab) .main-content:not(:has(.overview-page)):not(:has(.momentum-month)) { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important; }
@@ -143,7 +143,7 @@
 }
 .notify-status-action--primary { border-color: transparent; background: var(--primary); color: #fff; box-shadow: 0 5px 14px rgba(112, 97, 238, .3); }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .notifications-popover.notify-center {
     position: fixed; top: calc(54px + env(safe-area-inset-top, 0px) + 8px); left: 10px; right: 10px;
     width: auto; border-radius: 20px; box-shadow: 0 22px 60px rgba(25, 20, 70, .24);
@@ -167,7 +167,7 @@
 .reminder-banner-open { flex: none; min-height: 34px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--primary); color: #fff; font-size: 12px; font-weight: 800; }
 .reminder-banner-close { display: grid; flex: none; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); }
 @keyframes reminder-banner-in { from { opacity: 0; transform: translate(-50%, -18px) scale(.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .reminder-banner { top: calc(62px + env(safe-area-inset-top, 0px)); }
 }
 
@@ -212,7 +212,7 @@
 .reminder-enable span { display: grid; gap: 2px; }
 .reminder-enable strong { color: var(--text); font-size: 12px; }
 .reminder-enable small { color: var(--subtext); font-size: 11px; line-height: 1.4; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .reminder-chip { min-height: 38px; padding: 0 12px; font-size: 13px; }
   .field .reminder-custom input { font-size: 16px; }
 }
@@ -238,7 +238,7 @@
 .notify-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .notify-settings-actions .btn { min-height: 40px; }
 .notify-settings-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .notify-settings-actions .btn { flex: 1 1 100%; }
 }
 
@@ -426,16 +426,16 @@
 .ins-badge-progress { width: 100%; height: 6px; margin-top: auto; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
 .ins-badge-progress span { display: block; height: 100%; border-radius: inherit; background: var(--achievement-accent); }
 
-@media (max-width: 1180px) {
+@media (max-width: 1180px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .ins-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ins-badges { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-@media (max-width: 900px) {
+@media (max-width: 900px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .ins-grid { grid-template-columns: 1fr; }
   .ins-hero-art { display: none; }
   .ins-hero-copy { padding-right: 0; }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .main-content:has(.ins-page) > .page-heading { display: none !important; }
   .ins-page { gap: 12px; padding: 12px 14px 0; }
   .ins-hero { gap: 14px; padding: 18px 16px 16px; border-radius: 24px; }
@@ -544,10 +544,10 @@
 .wrx-win-main small { color: var(--subtext); font-size: 11px; }
 .wrx-win-xp { padding: 4px 9px; border-radius: 999px; background: var(--primary-pale); color: var(--primary); font-size: 11px; font-weight: 800; white-space: nowrap; }
 
-@media (max-width: 1180px) {
+@media (max-width: 1180px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .wrx-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .main-content .wr-page.wrx-page { gap: 12px; padding: 12px 14px 0; }
   .wrx-hero { gap: 14px; padding: 14px 14px 16px; border-radius: 24px; }
   .wrx-hero-body { gap: 14px; }
@@ -603,7 +603,7 @@
    ========================================================================== */
 
 /* ---------- 9. Przycisk Focus po prawej stronie kafelka (telefon) ---------- */
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-event .event-body,
   .calendar-event--small .event-body { padding-right: 12px !important; }
   .calendar-event:has(.event-focus) .event-body { padding-right: 54px !important; }
@@ -631,7 +631,7 @@
 }
 
 /* ---------- 10. Widok miesiąca mieści się na ekranie bez przewijania ---------- */
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   html:has(.momentum-month), html:has(.momentum-month) body { overscroll-behavior-y: none; }
   .app-shell:has(.momentum-month) { min-height: 100dvh; }
   .main-content:has(.momentum-month) { padding-top: 0 !important; padding-bottom: 0 !important; }
@@ -643,7 +643,7 @@
   .momentum-month-grid { flex: 1 1 auto; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
   .momentum-month-cell { min-height: 0 !important; }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .momentum-month { height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - 66px - env(safe-area-inset-bottom, 0px)); }
 }
 
@@ -687,7 +687,7 @@
 :root[data-theme='dark'] .rcard--done .rcard-cta { background: #173c31; color: #87e2b8; }
 /* Wysokość wiersza wyznaczają karty rutyn, a nie karta „Stwórz własną rutynę”. */
 .routine-card.routine-card--add { min-height: 0; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .main-content:has(.routine-cards) .routine-cards { gap: 12px; padding: 12px 14px 0; }
   .routine-card.routine-card--add {
     display: grid; grid-template-columns: 46px minmax(0, 1fr); grid-template-rows: auto auto; align-items: center;
@@ -721,7 +721,7 @@
 .routine-actions-menu button svg { color: var(--primary); }
 .routine-actions-menu button.is-danger, .routine-actions-menu button.is-danger svg { color: #d4505d; }
 @keyframes routine-menu-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .routine-modal > .routine-session-actions.routine-actions { gap: 8px !important; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 
@@ -734,7 +734,7 @@
 }
 .routine-editor-delete:hover { background: #ffe6e9; }
 :root[data-theme='dark'] .routine-editor-delete { border-color: #6b3540; background: #3d2329; color: #ff9aa5; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .modal-backdrop > .routine-editor { padding-bottom: 0 !important; }
   .routine-editor > .routine-editor-footer {
     position: sticky; bottom: 0; z-index: 6; margin: 8px -17px 0; padding: 10px 17px calc(10px + env(safe-area-inset-bottom, 0px));
@@ -770,7 +770,7 @@
 :root[data-theme='dark'] .task-footer-delete { border-color: #6b3540; background: #3d2329; color: #ff9aa5; }
 :root[data-theme='dark'] .task-footer-status { border-color: #347e5d; background: #173c31; color: #87e2b8; }
 :root[data-theme='dark'] .task-footer-status.is-done { border-color: var(--line-strong); background: var(--surface-2); color: var(--subtext); }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .task-modal > .task-modal-footer.task-footer { gap: 8px !important; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
   .task-footer-long, .task-footer-tip { display: none !important; }
   .task-footer-short { display: inline; }
@@ -863,7 +863,7 @@
 .cloud-banner-text small { color: var(--subtext); font-size: 11.5px; }
 .cloud-banner-action { flex: none; min-height: 34px; padding: 0 13px; border: 0; border-radius: 10px; background: var(--primary); color: #fff; font-size: 12px; font-weight: 800; }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .cloud-sync-head strong { font-size: 15px; }
   .cloud-sync-actions .btn { flex: 1 1 100%; min-height: 46px; font-size: 13px; }
   .cloud-sync-status strong { font-size: 14px; }
@@ -897,7 +897,7 @@
 :root[data-theme='dark'] .nav-item.active .nav-count { background: color-mix(in srgb, var(--primary) 24%, var(--surface)); color: var(--text); }
 :root[data-theme='dark'] .routine-actions-badge { background: rgba(17, 12, 44, .3); }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Zwykłe okna (Ustawienia, projekt, potwierdzenia) przykrywają także górny pasek (z-index 110),
      jak arkusz w iOS — wcześniej pasek zasłaniał ich górę z przyciskiem zamknięcia. Okna zadań
      i rutyn celowo zaczynają się pod paskiem i zostają bez zmian. */
@@ -922,7 +922,7 @@
 .notify-push-note.is-error { color: #c2410c; }
 :root[data-theme='dark'] .notify-push-note { color: #87e2b8; }
 :root[data-theme='dark'] .notify-push-note.is-error { color: #fdba74; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .notify-push-head strong { font-size: 14px; }
   .notify-push-actions .btn { flex: 1 1 0; min-height: 44px; }
 }
@@ -1000,7 +1000,7 @@
 :root[data-theme='dark'] .series-delete-menu button.is-danger strong,
 :root[data-theme='dark'] .series-delete-menu button.is-danger > svg { color: #ff9aa5; }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .repeat-options { gap: 6px; }
   .repeat-options button { min-height: 40px; padding: 0 12px; font-size: 12.5px; }
   .repeat-weekdays button { height: 42px; font-size: 12px; }
@@ -1036,7 +1036,7 @@
 .cloud-history-preview .backup-import-title strong { font-size: 12.5px; }
 .cloud-history-refresh { justify-self: start; }
 :root[data-theme='dark'] .cloud-history-list li.is-selected { background: color-mix(in srgb, var(--primary) 14%, var(--surface)); }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .cloud-history { padding: 13px; }
   .cloud-history-open { justify-self: stretch; justify-content: center; min-height: 44px; }
   .cloud-history-list li { padding: 10px 10px 10px 12px; }
@@ -1046,7 +1046,7 @@
 }
 
 /* ---------- 20. Boczne menu (☰) na telefonie: ponad paskami, w całości widoczne ---------- */
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Szuflada miała z-index 20, więc górny pasek (110), przyklejone paski kalendarza i zadań (90–95),
      dolna nawigacja (75) i przycisk „+” (35) przykrywały logo u góry i Ustawienia na dole.
      Teraz leży nad nimi; okna (130), komunikaty (140) i banery (150–160) nadal są wyżej. */
@@ -1087,11 +1087,11 @@
 /* Zwinięta grupa: jeden rząd (4 kolumny; 3 do 1180 px; 2 na telefonie). Przycisk tylko, gdy coś jest ukryte. */
 .ins-badge-group:not(.is-expanded) .ins-badges > :nth-child(n+5) { display: none; }
 .ins-badge-group[data-count="3"] .ins-badge-more, .ins-badge-group[data-count="4"] .ins-badge-more { display: none; }
-@media (max-width: 1180px) {
+@media (max-width: 1180px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .ins-badge-group:not(.is-expanded) .ins-badges > :nth-child(n+4) { display: none; }
   .ins-badge-group[data-count="4"] .ins-badge-more { display: inline-flex; }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .ins-badge-groups { gap: 18px; }
   .ins-badge-group:not(.is-expanded) .ins-badges > :nth-child(n+3) { display: none; }
   .ins-badge-group[data-count="3"] .ins-badge-more { display: inline-flex; }
@@ -1167,7 +1167,7 @@
 :root[data-theme='dark'] .dx-day.is-active, :root[data-theme='dark'] .dx-option.is-on > span { color: #17132e; }
 :root[data-theme='dark'] .dx-day.is-active small, :root[data-theme='dark'] .dx-day.is-active span { color: rgba(23, 19, 46, .72); }
 :root[data-theme='dark'] .dx-status.is-warn { color: #fdba74; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .dx-modal { height: calc(100dvh - 18px); gap: 10px; padding-top: 16px; }
   .dx-intro { font-size: 12px; }
   .dx-days { gap: 5px; }
@@ -1243,7 +1243,7 @@
 }
 :root[data-theme='dark'] .occurrence-bar-move { color: #17132e; }
 :root[data-theme='dark'] .move-warning { background: #2f2a1f; color: #ffd497; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .move-modal { max-height: calc(100dvh - 18px); padding-top: 16px; }
   .move-body { gap: 10px; padding-top: 12px; }
   .occurrence-bar { gap: 9px; padding: 10px; }
@@ -1259,7 +1259,7 @@
 /* Aplikacja sięga krawędzi ekranu, a marginesy bezpieczne (env) trzymają przyciski z dala od rogów i paska Home.
    W poziomie (wycięcie z boku ekranu) cała aplikacja odsuwa się od krawędzi. */
 .app-shell { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Dolna nawigacja: tło do samej krawędzi (wypełnia rogi), przyciski nad paskiem Home i odsunięte od rogów. */
   .mobile-bottom-nav {
     height: calc(60px + max(6px, env(safe-area-inset-bottom, 0px)));
@@ -1268,7 +1268,7 @@
   .mobile-more-sheet { left: max(9px, env(safe-area-inset-left, 0px)); right: max(9px, env(safe-area-inset-right, 0px)); }
   .momentum-mobile-fab { right: max(20px, calc(env(safe-area-inset-right, 0px) + 12px)); }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Arkusze od dołu sięgają krawędzi ekranu (także pod paskiem Home); ich stopki mają własny margines od paska. */
   .modal { max-height: calc(100dvh - 18px); }
   /* Okna z przyklejoną stopką (Ustawienia, projekt, potwierdzenia): stopka dochodzi do samego dołu ekranu —
@@ -1303,7 +1303,7 @@
 .ins-xp-key ul { display: grid; gap: 7px; margin: 0; padding: 2px 14px 4px 30px; color: rgba(255, 255, 255, .92); font-size: 12.5px; line-height: 1.5; }
 .ins-xp-key li b { color: #fff; }
 .ins-xp-key p { padding: 6px 14px 12px; color: rgba(255, 255, 255, .78); font-size: 11.5px; line-height: 1.5; }
-@media (min-width: 851px) {
+@media (min-width: 851px) and (orientation: portrait), (min-width: 851px) and (min-height: 501px), (min-width: 851px) and (pointer: fine), (min-width: 851px) and (pointer: none) {
   .ins-xp-key summary small { order: 1; flex-basis: auto; margin-left: 4px; }
 }
 
@@ -1354,7 +1354,7 @@
 :root[data-theme='dark'] .occurrence-bar--skipped .occurrence-bar-icon { background: #3d2329; color: #ff9aa5; }
 :root[data-theme='dark'] .occurrence-bar--skipped .occurrence-bar-main small,
 :root[data-theme='dark'] .skipped-occurrences-title svg { color: #ff9aa5; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .occurrence-bar--actions { column-gap: 9px; }
   .occurrence-bar-actions { gap: 7px; }
   .occurrence-bar-actions > button { min-height: 40px; padding: 0 12px; }
@@ -1408,7 +1408,7 @@
 .routine-step-timer:disabled { opacity: .5; }
 .routine-step--timing { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); }
 :root[data-theme='dark'] .routine-timer-presets button.selected { color: #17132e; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .editor-steps .routine-step-timer-badge { left: 6px; padding: 2px 5px; font-size: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1418,7 +1418,7 @@
 /* ---------- 29. Górny pasek na telefonie: bez nieaktywnej lupki ---------- */
 /* Na wąskim ekranie pole wyszukiwania było schowane i zostawała sama ikona, która nic nie robiła.
    Na tablecie i komputerze pole działa jak dotąd. Zwolnione miejsce dostaje tytuł strony. */
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .topbar .global-search { display: none; }
   .topbar .breadcrumbs strong { max-width: min(62vw, 260px); }
 }
@@ -1433,3 +1433,237 @@
 }
 .language-switch button.is-active { background: var(--surface); color: var(--primary); box-shadow: 0 2px 8px rgba(40, 30, 100, .12); }
 :root[data-theme='dark'] .language-switch button.is-active { background: var(--surface-3); }
+
+/* ---------- 31. iPhone w poziomie (np. iPhone 16: 852×393) ---------- */
+/* Szerokość telefonu w poziomie (852 px) przekraczała próg 850 px, więc włączał się układ komputerowy
+   (boczne menu, ściśnięty górny pasek, rozjechany kalendarz). Reguły telefonu działają teraz także dla
+   „(orientation: landscape) and (max-height: 500px) and (pointer: coarse)” — ten sam warunek jest
+   w src/lib/viewport.ts. Tu dochodzą poprawki na niski ekran: niższe paski, kalendarz na całą
+   dostępną wysokość, okna w obrębie bezpiecznych marginesów (Dynamic Island z boku, zaokrąglone rogi,
+   pasek Home). Pion, iPad i komputer zostają bez zmian. */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  /* Wysokość dolnej nawigacji — od niej zależą przycisk „+”, komunikaty i odstępy na dole stron. */
+  :root { --landscape-nav: calc(44px + max(4px, env(safe-area-inset-bottom, 0px))); }
+
+  /* Górny pasek: 44 px zamiast 54 px; paski przyklejone pod nim przesuwają się razem z nim. */
+  .topbar { height: calc(44px + env(safe-area-inset-top, 0px)); }
+  .topbar .breadcrumbs strong { max-width: 420px; }
+  .calendar-panel .calendar-toolbar,
+  .tasks-page .task-filters,
+  .momentum-month-weekdays { top: calc(44px + env(safe-area-inset-top, 0px)); }
+
+  /* Dolna nawigacja: ikona i podpis w jednym rzędzie (jak pasek kart iOS w poziomie). */
+  .mobile-bottom-nav {
+    height: var(--landscape-nav); align-items: center;
+    padding-top: 4px; padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-bottom-nav button {
+    flex-direction: row; justify-content: center; gap: 8px;
+    height: 36px; min-height: 0; padding: 0 10px; font-size: 11.5px;
+  }
+  .mobile-bottom-nav button svg { width: 19px; height: 19px; flex: none; }
+
+  /* Przycisk „+”, komunikaty i odstępy liczone od niższej nawigacji. */
+  .momentum-mobile-fab { width: 50px; height: 50px; border-radius: 16px; bottom: calc(var(--landscape-nav) + 12px); }
+  .momentum-mobile-fab svg { width: 25px; height: 25px; }
+  .toast, .wr-notice, .achievement-popup, .momentum-update-notice, .focus-dock { bottom: calc(var(--landscape-nav) + 10px); }
+  .wr-notice, .achievement-popup {
+    left: auto; right: max(12px, calc(env(safe-area-inset-right, 0px) + 10px));
+    width: min(400px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 20px));
+  }
+  .focus-dock-stop { bottom: calc(var(--landscape-nav) + 72px); right: max(24px, calc(env(safe-area-inset-right, 0px) + 12px)); }
+  .reminder-banner { top: calc(50px + env(safe-area-inset-top, 0px)); }
+  .main-content { padding-bottom: calc(var(--landscape-nav) + 16px); }
+  .app-shell:has(> .momentum-mobile-fab) .main-content:not(:has(.overview-page)):not(:has(.momentum-month)) { padding-bottom: calc(var(--landscape-nav) + 76px) !important; }
+
+  /* „Więcej”: panel nad przyciskiem po prawej, pozycje w dwóch kolumnach (nie zasłania całego ekranu). */
+  .mobile-more-sheet {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 4px;
+    bottom: calc(var(--landscape-nav) + 6px); left: auto; right: max(9px, env(safe-area-inset-right, 0px));
+    width: min(440px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 18px));
+    max-height: calc(100dvh - var(--landscape-nav) - 60px); padding: 8px; border-radius: 20px;
+  }
+  .mobile-more-heading { grid-column: 1 / -1; padding: 2px 4px 6px 8px; }
+  .mobile-more-heading button { width: 34px; height: 34px; }
+  .mobile-more-sheet > button { gap: 10px; min-height: 46px; padding: 8px 10px; font-size: 12.5px; line-height: 1.25; }
+  .mobile-more-sheet > button > svg:last-child { display: none; }
+
+  /* Pulpit: pasek kalendarza w jednym rzędzie (data · Dzień/Tydzień · strzałki), siatka godzin
+     wypełnia resztę ekranu i strona się nie przewija — przewija się tylko siatka. */
+  .main-content:has(.overview-page) { padding-bottom: var(--landscape-nav); }
+  .calendar-panel .calendar-toolbar { display: flex !important; flex-direction: row; align-items: center; height: 50px; padding: 0 12px !important; }
+  .cal-mbar { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; min-width: 0; }
+  .cal-mbar-row { display: contents; }
+  .cal-mbar-title { flex-direction: row; align-items: baseline; gap: 9px; padding: 5px 8px 5px 6px; }
+  .cal-mbar-date { font-size: 18px; }
+  .cal-mbar-switch { order: 1; flex: 0 0 200px; }
+  .cal-mbar-switch button { height: 30px; }
+  .cal-mbar-nav { order: 2; padding: 2px; border-radius: 12px; }
+  .cal-mbar-nav button { min-width: 34px; height: 32px; border-radius: 10px; }
+  .cal-mbar-nav .cal-mbar-today { min-width: 54px; }
+  /* Wybór dnia z miesiąca: nagłówek i przyciski po lewej, dni po prawej — cały miesiąc mieści się nad paskiem Home. */
+  .cal-mbar .mini-month-popover {
+    display: grid; grid-template-columns: 150px minmax(0, 1fr); grid-template-rows: auto 1fr auto; column-gap: 16px;
+    grid-template-areas: 'header weekdays' 'header grid' 'footer grid';
+    width: min(480px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px)); padding: 12px 14px;
+    max-height: calc(100dvh - 44px - 50px - 12px - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain;
+  }
+  .cal-mbar .mini-month-header { grid-area: header; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; margin-bottom: 0; }
+  .cal-mbar .mini-month-weekdays { grid-area: weekdays; margin-bottom: 0; }
+  .cal-mbar .mini-month-weekdays > span { padding: 3px 0; }
+  .cal-mbar .mini-month-grid { grid-area: grid; }
+  .cal-mbar .mini-month-day { height: 32px; padding-bottom: 5px; }
+  .cal-mbar .mini-month-day-number { width: 26px; height: 26px; }
+  .cal-mbar .mini-month-footer { grid-area: footer; flex-direction: column; align-items: flex-start; margin-top: 0; padding-top: 10px; }
+  .calendar-body--day .calendar-head { height: 36px; }
+  .calendar-head-day { gap: 7px; }
+  .calendar-head-day span { font-size: 10.5px; }
+  .calendar-head-day strong { min-width: 26px; height: 26px; border-radius: 9px; font-size: 14px; }
+  .calendar-head .timezone { align-self: center; padding-top: 0; }
+  .overview-block--schedule .calendar-scroll,
+  .overview-block--schedule .calendar-panel--compact .calendar-scroll,
+  .calendar-page-layout .calendar-scroll { max-height: calc(100dvh - 44px - 50px - var(--landscape-nav)) !important; min-height: 150px; }
+  .overview-block--schedule .calendar-footer { display: none; }
+
+  /* Miesiąc: zamiast ściskać sześć tygodni w ~200 px — wiersze z miejscem na wydarzenia, strona się przewija,
+     a nazwy dni zostają przyklejone pod górnym paskiem. */
+  .momentum-month { height: auto; min-height: 0; }
+  .momentum-month-toolbar { padding: 5px 14px; }
+  .momentum-month-title { padding: 4px 0; font-size: 16px; }
+  .momentum-month-arrows button { width: 34px; height: 32px; }
+  .momentum-month-weekdays span { padding: 6px 0; }
+  .momentum-month-grid { grid-auto-rows: minmax(84px, auto); }
+  .main-content:has(.momentum-month) { padding-bottom: calc(var(--landscape-nav) + 12px) !important; }
+
+  /* Listy: niższe filtry zadań, rutyny w dwóch kolumnach. */
+  .tasks-page .task-filters { padding: 6px 11px 7px !important; }
+  .tasks-page .task-filters button { padding: 8px 4px !important; }
+  .routine-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Okna: w obrębie bezpiecznych marginesów (nie pod wycięciem i nie w zaokrąglonych rogach), prawie na całą
+     wysokość ekranu, wyśrodkowane. Okna zadania i rutyny przykrywają też górny pasek — w poziomie liczy się
+     każdy piksel wysokości, a każde okno ma własny nagłówek z zamknięciem. */
+  .modal-backdrop,
+  .task-modal-backdrop,
+  .modal-backdrop:has(> .routine-modal),
+  .modal-backdrop:has(> .routine-editor) {
+    inset: 0; align-items: flex-end; justify-content: center;
+    padding: 8px max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
+  }
+  .modal-backdrop > .modal { max-width: min(720px, 100%); max-height: calc(100dvh - 8px); border-radius: 20px 20px 0 0; }
+  .modal-backdrop > .resize-confirm-modal { max-width: min(510px, 100%); }
+  .task-modal-backdrop,
+  .modal-backdrop:has(> .routine-modal),
+  .modal-backdrop:has(> .routine-editor) { align-items: stretch; }
+  .task-modal-backdrop > .task-modal,
+  .modal-backdrop > .routine-modal,
+  .modal-backdrop > .routine-editor { flex: 0 1 100%; width: 100%; height: 100%; max-height: 100%; border-radius: 20px 20px 0 0; }
+  /* Niższe nagłówki okien: kategoria obok tytułu zamiast pod nim. */
+  .modal-heading { padding-bottom: 10px; }
+  .modal-heading h2 { font-size: 19px; margin-top: 4px; }
+  .modal-heading--identity { padding-bottom: 10px; }
+  .modal-heading-identity { gap: 12px; }
+  .modal-heading-art { width: 44px; height: 44px; flex-basis: 44px; border-radius: 12px; }
+  .modal-heading-identity > div { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 2px; }
+  .modal-heading-identity > div > .eyebrow { flex-basis: 100%; }
+  .modal-heading-identity h2 { margin: 0; font-size: 18px; }
+  /* Pary pól (data i godzina, czas i nagroda, projekt i etap) obok siebie — okno jest szerokie. */
+  .two-fields, .project-task-links { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  /* Ustawienia: opis i „Gotowe” w jednym rzędzie stopki. */
+  .settings-modal > .modal-bottom { flex-direction: row; align-items: center; gap: 14px; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .settings-modal > .modal-bottom > small { flex: 1 1 auto; justify-content: flex-start; text-align: left; }
+  .settings-modal > .modal-bottom > .btn { width: auto; min-width: 190px; min-height: 44px; }
+  /* Eksport dni: wybór dni i opcje po lewej, podgląd tekstu i przyciski po prawej. */
+  .dx-modal {
+    display: grid; height: calc(100dvh - 8px); overflow-y: auto; align-content: start;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; row-gap: 8px;
+    grid-template-areas: 'head head' 'intro intro' 'week preview' 'days preview' 'quick preview' 'options actions' 'options foot' 'status status';
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .dx-modal .dx-day { padding: 6px 1px 5px; }
+  .dx-modal > .dx-heading { grid-area: head; }
+  .dx-modal > .dx-intro { grid-area: intro; }
+  .dx-modal > .dx-week { grid-area: week; }
+  .dx-modal > .dx-days { grid-area: days; }
+  .dx-modal > .dx-quick { grid-area: quick; }
+  .dx-modal > .dx-options { grid-area: options; align-self: start; }
+  .dx-modal > .dx-preview { grid-area: preview; min-height: 140px; contain: size; }
+  .dx-modal > .dx-status { grid-area: status; }
+  .dx-modal > .dx-foot { grid-area: foot; }
+  .dx-modal > .dx-actions { grid-area: actions; }
+  /* Dni kroku i stoper kroku: szersze okno, gotowe czasy w jednym rzędzie — przyciski mieszczą się nad paskiem Home. */
+  .routine-weekdays-overlay { padding: 8px max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px)); }
+  .routine-weekdays-dialog { width: min(640px, 100%); max-height: calc(100dvh - 8px); padding: 14px 18px max(14px, env(safe-area-inset-bottom, 0px)); }
+  .routine-weekdays-description { margin: 8px 0 12px; }
+  .routine-timer-presets { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .routine-timer-custom { margin-top: 10px; }
+  .routine-weekdays-actions { margin-top: 12px; }
+  /* Wybór daty, godziny i czasu trwania: na środku ekranu zamiast pod polem — pod polem brakowało wysokości. */
+  .momentum-date-popover, .momentum-control-popover {
+    top: calc(50% - env(safe-area-inset-bottom, 0px) / 2) !important; left: 50% !important; transform: translate(-50%, -50%) !important;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .momentum-date-popover {
+    display: grid; grid-template-columns: 150px minmax(0, 1fr); grid-template-rows: auto 1fr auto; column-gap: 18px;
+    grid-template-areas: 'header weekdays' 'header grid' 'footer grid';
+    width: min(520px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px)); padding: 14px 16px;
+  }
+  .momentum-date-header { grid-area: header; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding-bottom: 0; }
+  .momentum-date-weekdays { grid-area: weekdays; margin-bottom: 2px; }
+  .momentum-date-weekdays > span { padding: 4px 0; }
+  .momentum-date-grid { grid-area: grid; }
+  .momentum-date-day { aspect-ratio: auto; height: 32px; }
+  .momentum-date-footer { grid-area: footer; flex-direction: column; align-items: stretch; gap: 6px; margin-top: 0; padding-top: 10px; border-top: 0; }
+
+  /* Powiadomienia: panel pod dzwonkiem po prawej zamiast na całą szerokość. */
+  .notifications-popover.notify-center {
+    top: calc(44px + env(safe-area-inset-top, 0px) + 6px); left: auto; right: max(10px, calc(env(safe-area-inset-right, 0px) + 6px));
+    width: min(440px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 20px));
+  }
+  .notify-center-body { max-height: calc(100dvh - 44px - env(safe-area-inset-top, 0px) - 90px - env(safe-area-inset-bottom, 0px)); }
+
+  /* Boczne menu (☰): odsunięte od wycięcia, niższe pozycje — Ustawienia widoczne bez przewijania. */
+  .sidebar {
+    width: calc(272px + env(safe-area-inset-left, 0px));
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+  }
+  .sidebar .brand { padding: 0 4px 12px; }
+  .sidebar .brand-mark { width: 36px; height: 36px; border-radius: 12px; }
+  .sidebar .brand-name { font-size: 18px; }
+  .sidebar .main-nav { gap: 1px; margin: 6px 0 14px; }
+  .sidebar .nav-item { height: 35px; }
+  .sidebar .sidebar-divider { margin-bottom: 14px; }
+  .sidebar .category-sidebar { padding: 6px 0 8px 14px; }
+  .sidebar .sidebar-category { height: 32px; }
+  .sidebar .sidebar-level-card { padding: 12px 13px 11px; margin-bottom: 10px; }
+
+  /* Focus: zegar po lewej, zadanie, przyciski i statystyki po prawej — wszystko na jednym ekranie. */
+  .focus-overlay { padding: 6px max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+  .focus-panel { width: 100%; max-height: calc(100dvh - 6px - max(6px, env(safe-area-inset-bottom, 0px))); border-radius: 20px; }
+  .focus-header { padding: 8px 14px; }
+  .focus-brand { font-size: 16px; }
+  .focus-close { padding: 8px; }
+  .focus-main {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 28px; align-items: center; align-content: center;
+    grid-template-areas: 'ring kicker' 'ring task' 'ring controls' 'ring meta' 'ring track' 'ring stats' 'ring finish';
+    padding: 12px 24px;
+  }
+  .focus-kicker { grid-area: kicker; }
+  .focus-task-header { grid-area: task; margin: 6px 0 10px; }
+  .focus-task-header .visual-tile { width: 44px; height: 44px; border-radius: 13px; }
+  .focus-task-header h2 { margin-bottom: 5px; font-size: 19px; }
+  .focus-clock-ring { grid-area: ring; width: min(230px, calc(100dvh - 150px)); }
+  .focus-clock-core { gap: 6px; padding: 14px; }
+  .focus-clock-time { font-size: 40px; }
+  .focus-controls { grid-area: controls; justify-content: flex-start; gap: 8px; margin-top: 0; }
+  .focus-control { min-height: 40px; padding: 8px 16px; }
+  .focus-progress-meta { grid-area: meta; width: 100%; margin-top: 10px; }
+  .focus-progress-track { grid-area: track; width: 100%; height: 7px; margin-top: 6px; }
+  .focus-stat-grid { grid-area: stats; width: 100%; margin-top: 10px; }
+  .focus-stat { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 6px; row-gap: 0; padding: 7px 6px; }
+  .focus-stat strong { font-size: 14px; }
+  .focus-finish-area { grid-area: finish; display: grid; grid-template-columns: auto minmax(0, 1fr); justify-items: start; align-items: center; gap: 8px; width: 100%; margin-top: 10px; }
+  .focus-complete { min-height: 40px; padding: 10px 16px; }
+  .focus-save { min-height: 36px; text-align: left; }
+  .focus-footer { padding: 6px 14px 8px; }
+}

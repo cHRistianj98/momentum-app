@@ -482,7 +482,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 :root[data-theme='dark'] .completion-message { background: #1d4037; color: #6aefbe; }
 :root[data-theme='dark'] .calendar-event { background: color-mix(in srgb,var(--event-color) 16%,var(--surface)); }
 
-@media (max-width: 1460px) {
+@media (max-width: 1460px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .sidebar { width: 222px; min-width: 222px; }
   .main-content { padding: 30px 26px 0; }
   .content-split { grid-template-columns: minmax(0,1fr) 258px; gap: 14px; }
@@ -491,7 +491,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
   .welcome-banner { padding-left: 29px; }
   .hero-illustration { right: -18px; }
 }
-@media (max-width: 1220px) {
+@media (max-width: 1220px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .sidebar { width: 204px; min-width: 204px; }
   .brand { gap: 9px; padding-left: 2px; }
   .brand-mark { width: 40px; height: 40px; }
@@ -506,7 +506,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
   .calendar-panel--compact .calendar-scroll { max-height: 470px; }
   .insight-chart-layout { grid-template-columns: 1fr; }
 }
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 260px; transform: translateX(-105%); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
   .sidebar--open { transform: translateX(0); }
   .mobile-close { display: grid; place-items: center; border: 0; background: transparent; color: var(--subtext); margin-left: auto; }
@@ -527,7 +527,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
   .mobile-bottom-nav button.active { color: var(--primary); font-weight: 800; }
   .main-footer { padding-bottom: 90px; }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .topbar { padding: 0 12px; }
   .global-search { width: 35px; border: 0; background: transparent; padding: 0; }
   .global-search input,.global-search>span { display: none; }
@@ -650,7 +650,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .resize-confirm-choice small { font-size: 10px; color: var(--subtext); line-height: 1.5; }
 .resize-confirm-choice > svg { color: var(--muted); }
 .resize-confirm-choice:hover > svg { color: var(--primary); }
-@media (max-width: 540px) {
+@media (max-width: 540px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .resize-confirm-summary { flex-wrap: wrap; }
   .resize-confirm-duration { margin-left: 53px; }
 }
@@ -698,7 +698,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .routine-selected-image img { height: 41px; width: 64px; border-radius: 8px; object-fit: cover; }
 .routine-selected-image button { display: grid; place-items: center; padding: 4px; background: var(--surface-3); color: var(--subtext); border-radius: 7px; }
 .routine-banner-image, .routine-card-image, .mini-routine-image, .event-thumb { display: block; height: 100%; width: 100%; object-fit: cover; border-radius: inherit; }
-@media (max-width: 650px) {
+@media (max-width: 650px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
  .category-card-options { grid-template-columns: 1fr; }
  .category-choice { padding: 10px 12px; }
  .category-choice-desc { margin-top: 4px; }
@@ -744,7 +744,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .mini-month-legend-dot { display: inline-block; vertical-align: 1px; width: 6px; height: 6px; border-radius: 2px; background: var(--primary); margin-right: 4px; }
 .mini-month-footer > button { border: 0; color: var(--primary); font-size: 10px; font-weight: 850; background: var(--primary-pale); border-radius: 8px; padding: 9px 11px; white-space: nowrap; }
 .mini-month-footer > button:hover { background: var(--surface-3); }
-@media (max-width: 650px) {
+@media (max-width: 650px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .mini-month-trigger { padding: 0 9px; }
   .calendar-actions { flex-wrap: wrap; }
   .mini-month-popover { width: min(325px, calc(100vw - 26px)); }
@@ -861,7 +861,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 :root[data-theme='dark'] .visual-tile { box-shadow: none; }
 :root[data-theme='dark'] .calendar-event { box-shadow: 0 3px 10px rgba(0,0,0,.14); }
 :root[data-theme='dark'] .routine-card { box-shadow: 0 5px 16px rgba(0,0,0,.13); }
-@media (max-width: 650px) {
+@media (max-width: 650px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .modal-heading-identity { gap: 10px; }
   .modal-heading-art { width: 48px; height: 48px; flex-basis: 48px; border-radius: 13px; }
   .modal-heading-identity h2 { font-size: 18px; margin-top: 4px; }
@@ -961,16 +961,16 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .achievement-popup-reward { margin-top: 10px; display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; background: var(--primary-pale); color: var(--primary); font-size: 10px; font-weight: 700; letter-spacing: 0.02em; }
 .achievement-popup-close { align-self: flex-start; width: 28px; height: 28px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
 
-@media (max-width: 1080px) {
+@media (max-width: 1080px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .achievement-grid { grid-template-columns: 1fr; }
   .activity-chart--deluxe { grid-template-columns: repeat(4, minmax(0,1fr)); }
 }
-@media (max-width: 860px) {
+@media (max-width: 860px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-scroll { max-height: 72vh; }
   .rank-hero-main, .donut-layout--3d { flex-direction: column; align-items: flex-start; }
   .chart-summary-row { grid-template-columns: 1fr; }
 }
-@media (max-width: 700px) {
+@media (max-width: 700px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .activity-chart--deluxe { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .achievement-popup { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
 }
@@ -1022,10 +1022,10 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
   100% { opacity: 0; transform: translateY(-82px) rotate(calc((var(--i) - 4) * 12deg)) scale(1.08); }
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1200px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .achievement-grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 960px) {
+@media (max-width: 960px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .chart-summary-row { grid-template-columns: 1fr; }
   .rank-hero-art { width: min(220px, 100%); }
   .achievement-card { flex-direction: column; align-items: stretch; }
@@ -1087,7 +1087,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .achievement-filters button.active { background: var(--primary-pale); border-color: color-mix(in srgb,var(--primary) 36%,var(--line)); color: var(--primary); }
 .achievement-card-body { justify-content: center; }
 .achievement-card.is-locked .achievement-card-art-wrap { filter: saturate(.5); }
-@media (max-width: 600px) {
+@media (max-width: 600px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .task-row { gap: 9px; padding: 10px; }
   .task-row-body > span.task-row-sub { gap: 6px; }
   .task-row-sub > .task-row-meta { white-space: normal; }
@@ -1216,7 +1216,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .routine-move-summary small { color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .6px; }
 .routine-move-summary strong { font-size: 11px; color: var(--text); }
 .routine-move-summary span { font-size: 13px; color: var(--primary); font-weight: 850; }
-@media(max-width:650px) {
+@media (max-width: 650px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .momentum-control-popover { padding: 11px; }
   .momentum-xp-input { gap: 2px; }
   .momentum-xp-input input { width: 34px; font-size: 12px; }
@@ -1352,7 +1352,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 :root[data-theme='dark'] .task-focus-row { background: #30294e; border-color: #58488e; }
 :root[data-theme='dark'] .task-focus-row strong { color: #f2efff; }
 :root[data-theme='dark'] .task-focus-row small { color: #c2b4ee; }
-@media (max-width: 680px) {
+@media (max-width: 680px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .focus-overlay { padding: 8px; }
   .focus-panel { border-radius: 20px; max-height: 98vh; }
   .focus-header { padding: 16px; }
@@ -1445,9 +1445,9 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .pv-extra-focus strong { color:var(--text); font-size:11px; }
 .pv-detail-footer { border-top:1px solid var(--line); padding-top:11px; margin-top:13px; color:var(--muted); font-size:10px; line-height:1.75; }
 .pv-detail-footer svg { vertical-align:middle; display:inline; }
-@media(max-width:1180px) { .pv-grid { grid-template-columns:1fr; } }
-@media(max-width:900px) { .pv-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:620px) { .pv-section { padding:14px; } .pv-metrics { grid-template-columns:1fr 1fr; gap:8px; } .pv-metric { padding:12px; min-height:122px; } .pv-metric strong { font-size:16px; } .pv-chart { gap:2px; } .pv-chart-column { padding:4px 1px; } .pv-bar-stage { gap:2px; padding:0 3px; } .pv-bar-label { font-size:9px; } .pv-panel-title { flex-direction:column; } .pv-topline > .analytics-switch { margin-top:0; } }
+@media (max-width: 1180px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .pv-grid { grid-template-columns:1fr; } }
+@media (max-width: 900px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .pv-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .pv-section { padding:14px; } .pv-metrics { grid-template-columns:1fr 1fr; gap:8px; } .pv-metric { padding:12px; min-height:122px; } .pv-metric strong { font-size:16px; } .pv-chart { gap:2px; } .pv-chart-column { padding:4px 1px; } .pv-bar-stage { gap:2px; padding:0 3px; } .pv-bar-label { font-size:9px; } .pv-panel-title { flex-direction:column; } .pv-topline > .analytics-switch { margin-top:0; } }
 
 /* Momentum v0.4.6 — Weekly Review */
 .wr-page { display:flex; flex-direction:column; gap:18px; min-width:0; }
@@ -1513,9 +1513,9 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .wr-plan-cta { margin-top:auto; min-height:41px; width:100%; background:var(--primary); color:white; border:0; border-radius:12px; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; box-shadow:0 10px 24px #7667e63b; }.wr-plan-cta:hover { filter:brightness(1.07); }
 .wr-dashboard-link { width:100%; padding:16px 20px; display:flex; text-align:left; align-items:center; gap:13px; border:1px solid color-mix(in srgb,var(--primary) 17%,var(--line)); background:linear-gradient(100deg,color-mix(in srgb,var(--primary-pale) 88%,var(--surface)),var(--surface)); border-radius:17px; margin:4px 0 18px; cursor:pointer; color:var(--text); }.wr-dashboard-link>span:nth-child(2) { flex:1; }.wr-dashboard-link strong { font-size:12px; display:block; }.wr-dashboard-link small { font-size:10px; color:var(--subtext); display:block; margin-top:4px; }.wr-dashboard-link>svg { color:var(--primary); }.wr-dashboard-icon { width:38px; height:38px; border-radius:12px; background:#e8e3ff; display:grid; place-items:center; color:#735ce6; flex-shrink:0; }
 .wr-notice { position:fixed; right:26px; bottom:26px; z-index:70; display:flex; align-items:flex-start; gap:13px; width:min(392px,calc(100vw - 30px)); padding:17px; border:1px solid var(--line); background:var(--surface); border-radius:20px; box-shadow:0 19px 50px rgba(30,20,71,.2); }.wr-notice-icon { width:41px; height:41px; display:grid; place-items:center; background:#fff4dc; border-radius:13px; color:#d19e3c; flex-shrink:0; }.wr-notice>div { flex:1; display:flex; flex-direction:column; align-items:flex-start; gap:7px; }.wr-notice strong { font-size:15px; color:var(--text); }.wr-notice small { font-size:11px; line-height:1.5; color:var(--subtext); }.wr-notice button:not(.wr-notice-close) { border:0; border-radius:10px; background:var(--primary); color:#fff; padding:9px 12px; cursor:pointer; display:flex; align-items:center; gap:6px; font-size:10px; font-weight:700; margin-top:5px; }.wr-notice-close { border:0; background:transparent; color:var(--muted); cursor:pointer; padding:3px; }
-@media(max-width:1260px) { .wr-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.wr-overview-grid,.wr-next-grid { grid-template-columns:1fr; } }
-@media(max-width:860px) { .wr-category-grid { grid-template-columns:1fr; }.wr-routine-grid { grid-template-columns:1fr; }.wr-hero-ornament { display:none; }.wr-hero { padding:26px; }.wr-toolbar { flex-wrap:wrap; } }
-@media(max-width:520px) { .wr-stats { grid-template-columns:1fr 1fr; gap:8px; }.wr-stat { padding:13px; }.wr-stat strong { font-size:20px; }.wr-card { padding:16px; }.wr-activity-plot { gap:5px; }.wr-hero-period { flex-wrap:wrap; }.wr-hero-period small { margin-left:0; }.wr-trend-row { flex-wrap:wrap; }.wr-trend-value { max-width:none; width:100%; text-align:left; padding-left:48px; } .wr-notice { right:15px; bottom:80px; } }
+@media (max-width: 1260px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .wr-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.wr-overview-grid,.wr-next-grid { grid-template-columns:1fr; } }
+@media (max-width: 860px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .wr-category-grid { grid-template-columns:1fr; }.wr-routine-grid { grid-template-columns:1fr; }.wr-hero-ornament { display:none; }.wr-hero { padding:26px; }.wr-toolbar { flex-wrap:wrap; } }
+@media (max-width: 520px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .wr-stats { grid-template-columns:1fr 1fr; gap:8px; }.wr-stat { padding:13px; }.wr-stat strong { font-size:20px; }.wr-card { padding:16px; }.wr-activity-plot { gap:5px; }.wr-hero-period { flex-wrap:wrap; }.wr-hero-period small { margin-left:0; }.wr-trend-row { flex-wrap:wrap; }.wr-trend-value { max-width:none; width:100%; text-align:left; padding-left:48px; } .wr-notice { right:15px; bottom:80px; } }
 
 /* Momentum v0.4.7 · Projekty & długoterminowe cele */
 .projects-root { min-width: 0; }
@@ -1596,8 +1596,8 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .project-task-subtasks{display:grid;gap:5px;}.project-task-subtask{display:flex;align-items:center;gap:9px;border-radius:9px;background:var(--surface-secondary);padding:8px;}.project-task-subtask label{display:flex;gap:8px;align-items:center;flex:1;font-size:12px;}.project-task-subtask button{background:transparent;border:0;color:var(--muted);cursor:pointer;}
 .project-task-add-subtask{display:flex;gap:8px;margin-top:7px;}.project-task-add-subtask input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:9px;padding:10px 12px;font-size:12px;}.project-task-add-subtask button{display:flex;align-items:center;gap:5px;border:0;border-radius:9px;padding:8px 11px;background:var(--primary-pale);color:var(--primary);font-weight:750;cursor:pointer;}.project-task-add-subtask button:disabled{opacity:.5;}
 :root[data-theme='dark'] .project-intro{background:linear-gradient(118deg,#30274c,#28243a);}.project-intro h2{color:var(--text);}.project-intro p{color:var(--subtext);}
-@media(max-width:1200px){.project-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@media(max-width:780px){.project-grid{grid-template-columns:1fr;}.project-detail-hero{flex-wrap:wrap;padding:19px;}.project-detail-ring{margin-left:auto;}.project-detail-metrics{grid-template-columns:1fr;}.project-intro{padding:24px;}.project-intro-ornament{display:none;}.project-search{margin-left:0;}.project-toolbar{align-items:stretch;}.project-milestone-heading{flex-wrap:wrap;}.project-add-milestone{flex-wrap:wrap;}}
+@media (max-width: 1200px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {.project-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width: 780px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {.project-grid{grid-template-columns:1fr;}.project-detail-hero{flex-wrap:wrap;padding:19px;}.project-detail-ring{margin-left:auto;}.project-detail-metrics{grid-template-columns:1fr;}.project-intro{padding:24px;}.project-intro-ornament{display:none;}.project-search{margin-left:0;}.project-toolbar{align-items:stretch;}.project-milestone-heading{flex-wrap:wrap;}.project-add-milestone{flex-wrap:wrap;}}
 .task-row-project{display:inline-flex;align-items:center;gap:4px;color:var(--primary);border-radius:7px;background:var(--primary-pale);padding:3px 6px;font-size:10px;font-weight:700;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* v0.4.8 — kopie danych i bezpieczny import */
@@ -1630,7 +1630,7 @@ h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif; }
 .backup-confirm-label input { margin-top: 2px; accent-color: var(--primary); }
 .backup-confirm-button { justify-self: start; min-height: 37px; }
 .backup-confirm-button:disabled { cursor: not-allowed; opacity: .45; }
-@media(max-width: 620px) { .backup-counts { grid-template-columns: repeat(2,minmax(0,1fr)); } .backup-actions .btn { flex: 1; } }
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .backup-counts { grid-template-columns: repeat(2,minmax(0,1fr)); } .backup-actions .btn { flex: 1; } }
 :root[data-theme='dark'] .backup-message--success { color: #89e9c4; background: #213d36; }
 :root[data-theme='dark'] .backup-message--error { color: #ffafba; background: #482d39; }
 :root[data-theme='dark'] .backup-import-warning { color: #ffd497; background: #4c392a; }
@@ -1667,7 +1667,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .calendar-event--overlap .event-focus { display: none; }
 }
 
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   body { overflow-x: hidden; }
   .app-workspace, .main-content, .app-shell { min-width: 0; }
   .mobile-bottom-nav {
@@ -1732,7 +1732,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .focus-clock-time { font-size: clamp(34px, 9vw, 52px); letter-spacing: -1.5px; }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
   .calendar-heading { min-width: 0; }
   .calendar-heading h2 { font-size: clamp(15px, 4vw, 20px); line-height: 1.4; }
@@ -1784,7 +1784,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .overview-block { min-width: 0; }
 .overview-schedule-layout { align-items: start; }
 
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .overview-page { gap: 16px; }
   .overview-block--schedule .content-split { grid-template-columns: minmax(0,1fr); gap: 14px; }
   .overview-schedule-layout .calendar-panel { order: 1; }
@@ -1810,7 +1810,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .project-grid { gap: 14px; }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .overview-page { gap: 14px; }
   .overview-block--heading .welcome-heading { margin-bottom: 0; }
   .overview-block--hero .welcome-banner { padding: 20px 18px; }
@@ -1960,7 +1960,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 /* Momentum v0.5.1 — mobile calendar polish requested by user */
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .overview-block--schedule .content-split,
   .overview-block--schedule .overview-schedule-layout {
     display: grid !important;
@@ -1972,7 +1972,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .page-heading,
   .welcome-heading {
     margin-bottom: 24px;
@@ -2189,7 +2189,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
    Desktop layout and event drag/drop behavior are intentionally unchanged. */
 .event-footer-badge--mobile { display: none; }
 
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* This must override the later desktop calendar-page-layout declaration.
      The earlier breakpoint only set a gap, leaving a 255px second column. */
   .calendar-page-layout,
@@ -2218,7 +2218,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .overview-schedule-layout > .right-panel { grid-row: 2; }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-page-layout,
   .overview-block--schedule .overview-schedule-layout { row-gap: 22px; }
 
@@ -2352,7 +2352,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .calendar-event--overlap .event-footer-badge { display: none; }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* The month picker is a popover extending beyond the header: don't clip it. */
   .calendar-page-layout > .calendar-panel,
   .overview-schedule-layout > .calendar-panel {
@@ -2367,7 +2367,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
 /* v0.5.3: mobile week overview. Desktop remains the detailed time-grid. */
 .mobile-week-agenda { display: none; }
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-panel:has(.mobile-week-agenda) .calendar-scroll,
   .calendar-panel:has(.mobile-week-agenda) .calendar-footer { display: none; }
   .mobile-week-agenda { display: block; padding: 0 0 14px; min-width: 0; }
@@ -2388,7 +2388,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .mobile-week-open { margin-top: auto; min-height: 30px; }
   .mobile-week-empty { text-align: center; color: var(--muted); opacity: .6; }
 }
-@media (max-width: 410px) {
+@media (max-width: 410px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .mobile-week-hint { font-size: 11px; }
   .mobile-week-item { height: 25px; }
   .mobile-week-item-title { font-size: 9px; }
@@ -2398,7 +2398,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 /* v0.5.4 — readable short calendar items and discoverable routine deletion */
 .routine-session-manage { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .routine-session-delete { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .routine-session-actions { display: flex; flex-wrap: wrap; gap: 12px; }
   .routine-session-manage { width: 100%; justify-content: space-between; }
   .routine-session-manage .btn { min-height: 42px; font-size: 12px; }
@@ -2422,7 +2422,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 .event-check.checked svg { opacity: 1; }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-panel .time-gutter,
   .calendar-panel .day-lane {
     min-height: 0;
@@ -2482,7 +2482,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   color: white;
   stroke: currentColor;
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-event:not(.calendar-event--overlap) .event-check {
     z-index: 11;
   }
@@ -2491,7 +2491,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 /* v0.5.7 — center focus trigger and smaller 15-minute checkbox */
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-event .event-body {
     position: relative;
   }
@@ -2562,7 +2562,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .overview-todo-heading h2 { font-size:17px; letter-spacing:-.4px; }
 .overview-todo-heading button { display:flex; align-items:center; gap:5px; border:0; color:var(--primary); background:transparent; font-weight:700; cursor:pointer; }
 .momentum-mobile-fab { display:none; }
-@media (max-width:620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .topbar { height:calc(54px + env(safe-area-inset-top, 0px)); padding:env(safe-area-inset-top, 0px) 14px 0; border-bottom:1px solid var(--line); background:var(--surface); }
   .topbar .breadcrumbs { font-size:14px; }
   .topbar .breadcrumbs > span, .topbar .breadcrumbs > svg { display:none; }
@@ -2605,7 +2605,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 /* v0.5.9 — iOS calendar: sticky controls, midnight, clean completion, long-press move */
-@media (max-width:620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .topbar { position:sticky !important; top:0; z-index:110 !important; }
   .calendar-panel .calendar-toolbar {
     position:sticky !important;
@@ -2632,7 +2632,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
 /* v0.5.10 — gestures on iPhone: no normal scroll while selecting/moving;
    scroll only at the upper/lower edge via CalendarView.autoScroll. */
-@media (max-width:620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .calendar-scroll--gesture { overscroll-behavior:contain; touch-action:none !important; }
   .calendar-range-preview {
     position:absolute;left:var(--lane-event-inset, 10px);right:10px;
@@ -2655,11 +2655,11 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
     box-shadow:0 3px 8px rgba(0,0,0,.12);
   }
 }
-@media (min-width:621px) { .focus-dock-stop {position:fixed;z-index:145;right:25px;bottom:95px;padding:8px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--text);cursor:pointer;} }
+@media (min-width: 621px) and (orientation: portrait), (min-width: 621px) and (min-height: 501px), (min-width: 621px) and (pointer: fine), (min-width: 621px) and (pointer: none) { .focus-dock-stop {position:fixed;z-index:145;right:25px;bottom:95px;padding:8px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--text);cursor:pointer;} }
 
 /* v0.5.11 — compact Google Calendar-like month grid; desktop unchanged. */
 .momentum-month { display:none; }
-@media (max-width: 850px) {
+@media (max-width: 850px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .momentum-month { display:block; min-width:0; width:100%; background:var(--surface); padding:0 0 16px; }
   .momentum-month-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 15px; border-bottom:1px solid var(--line); }
   .momentum-month-title { border:0; padding:6px 0; background:none; font-weight:800; font-size:18px; text-transform:capitalize; color:var(--text); cursor:pointer; }
@@ -2685,7 +2685,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .main-content:has(.momentum-month) .calendar-page-layout,
   .main-content:has(.momentum-month) > .page-heading { display:none !important; }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Daily date arrows on the overview stay together rather than drifting apart. */
   .overview-schedule-layout .calendar-actions .calendar-arrows { width:auto !important; display:inline-flex !important; justify-content:flex-start !important; gap:6px !important; flex:0 0 auto; }
   .overview-schedule-layout .calendar-actions .calendar-arrows button { width:37px !important; min-width:37px !important; height:37px !important; min-height:37px !important; }
@@ -2707,7 +2707,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .notifications-empty span { max-width:230px; font-size:11px; line-height:1.6; color:var(--subtext); }
 .notification-btn i { display:none; }
 
-@media (max-width:620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Calendar is a fullscreen-first surface. Keep the fixed floating add action. */
   .overview-page > .overview-block:not(.overview-block--schedule) { display:none !important; }
   .main-content:has(.overview-page) > .main-footer,
@@ -2736,7 +2736,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 /* v0.5.13 mobile navigation, tasks and projects */
-@media (max-width:620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Keep undated tasks under All, without a separate empty Inbox screen. */
   .tasks-page .task-filters {
     grid-template-columns:repeat(3,minmax(0,1fr)) !important;
@@ -2773,7 +2773,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 .projects-mobile-heading { display:contents; }
-@media(max-width:620px){ .projects-mobile-heading { display:none !important; } }
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .projects-mobile-heading { display:none !important; } }
 
 /* Momentum v0.5.14 — native-select replacement for project and milestone */
 .project-task-links { overflow: visible; }
@@ -2814,13 +2814,13 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .momentum-project-picker-option:focus-visible { background: rgba(112, 91, 242, .08); outline: none; }
 .momentum-project-picker-option.is-selected { color: #705bf2; font-weight: 700; background: rgba(112, 91, 242, .1); }
 .momentum-project-picker-option svg { flex-shrink: 0; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .project-task-links { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .momentum-project-picker-list { max-height: min(230px, 34vh); }
 }
 
 /* v0.5.16 — clean routine and weekly review mobile pages */
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .main-content:has(.routine-cards) > .page-heading,
   .main-content:has(.wr-page) > .page-heading {
     display: none !important;
@@ -2851,7 +2851,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .backup-health-result--warn { color:#ae6423; }
 .backup-health-reminder { width:100%; font-size:12px; margin:0; line-height:1.45; color:var(--muted, #817f92); }
 .backup-health--external { background:color-mix(in srgb, var(--primary, #745ef2) 3%, var(--surface, #fff)); }
-@media (max-width:620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .backup-health { padding:12px; }
   .backup-health > .btn { width:100%; justify-content:center; }
 }
@@ -2887,7 +2887,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .momentum-update-later { background: var(--surface-soft, #f3f1fa); color: var(--text, #27243f); }
 .momentum-update-apply { background: var(--primary, #745ef2); color: #fff; }
 .momentum-update-actions button:disabled { cursor: wait; opacity: .65; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .momentum-update-notice {
     bottom: calc(82px + env(safe-area-inset-bottom, 0px));
     max-width: calc(100vw - 22px);
@@ -2912,7 +2912,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .editor-step--child { margin-left: 24px; padding-left: 8px; border-left: 2px solid var(--primary); }
 .editor-step .editor-step-drag { width: 30px; height: 36px; flex: 0 0 30px; display: grid; place-items: center; background: var(--surface-3); color: var(--subtext); border-radius: 9px; cursor: grab; touch-action: none; }
 .editor-step input { min-width: 0; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .routine-step--child { margin-left: 18px; width: calc(100% - 18px); }
   .editor-step--child { margin-left: 18px; }
   .editor-step .editor-step-drag { min-width: 30px; }
@@ -3006,7 +3006,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .routine-weekdays-actions .btn { min-height: 41px; }
 .routine-step-schedule-info { display: block; margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .routine-no-steps { padding: 18px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--surface-2); color: var(--subtext); font-size: 12px; line-height: 1.5; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .editor-steps .editor-step { gap: 5px; }
   .editor-steps .editor-step--child { margin-left: 14px; padding-left: 4px; }
   .editor-steps .routine-step-schedule-toggle--custom { flex-basis: 44px; width: 44px; }
@@ -3082,7 +3082,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 14px 34px rgba(62,49,143,.23);
   border-radius: 12px;
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .editor-steps .editor-step { min-height: 60px; }
   .editor-steps .routine-step-days-badge { font-size: 8px; padding: 2px 5px; }
   .editor-steps .editor-step-field .editor-step-name { font-size: 12px; }
@@ -3118,7 +3118,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .routine-step--timed .step-right { display: none; }
 .routine-step-timer { display:flex; flex-shrink:0; align-items:center; justify-content:center; gap:4px; border:1px solid color-mix(in srgb, var(--primary) 25%, var(--line)); background:var(--surface); color:var(--primary); border-radius:10px; font-size:12px; font-weight:800; padding:6px 8px; min-width:67px; min-height:34px; font-variant-numeric:tabular-nums; }
 .routine-step-timer--running { background:color-mix(in srgb, var(--primary) 12%, var(--surface)); }
-@media (max-width:620px) { .routine-import-bar { padding: 8px 14px 0; } .routine-import-bar small { display:none; } .routine-step--timed { gap: 3px; } .routine-step-main { gap:6px; } }
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) { .routine-import-bar { padding: 8px 14px 0; } .routine-import-bar small { display:none; } .routine-step--timed { gap: 3px; } .routine-step-main { gap:6px; } }
 
 .routine-weekdays-actions { flex-wrap: wrap; }
 
@@ -3132,7 +3132,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   border-radius: 12px; padding: 9px 12px; }
 .task-modal-complete-btn:hover, .task-modal-complete-btn.is-complete { background: #dff4eb; color: #0c6c46; border-color: #63c79c; }
 :root[data-theme='dark'] .task-modal-complete-btn { background: #173c31; color: #87e2b8; border-color: #347e5d; }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   .task-modal-footer { padding-top: 12px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
   .task-modal-footer .task-modal-status-row .btn { min-height: 40px; font-size: 11px; padding: 9px 10px; white-space: nowrap; }
   .task-modal-footer .modal-bottom-right .btn--primary { flex: 1; }
@@ -3160,7 +3160,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .routine-session-back { display: inline-flex; align-items: center; gap: 7px; }
 .routine-modal .routine-session-actions { flex-wrap: wrap; }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Leave the global header visible, but reserve its actual height instead of
      rendering the dialog under it. This also fixes the first open at scroll 0. */
   .modal-backdrop:has(> .routine-modal),
@@ -3253,14 +3253,14 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 }
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Avoid even a one-pixel gap between the opaque sheet and the screen edge. */
   .modal-backdrop > .routine-modal { border: 0; }
 }
 
 
 /* v0.5.31 — ordinary task dialog: fully opaque, fixed bottom action bar on mobile. */
-@media (max-width: 620px) {
+@media (max-width: 620px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
   /* Just like the routine dialog, the task dialog begins below the global topbar. */
   .task-modal-backdrop {
     position: fixed;

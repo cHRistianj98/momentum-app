@@ -36,6 +36,7 @@ import { buildAchievements, resolveNextRank, resolveRank, type AchievementView }
 import { buildXpLedger, focusXp, levelInfo, occurrenceXp, routineXp, sumXp, taskXp } from './lib/xp';
 import { playStepTimerSound, resetStepTimer, useStepTimerRuntime } from './lib/stepTimer';
 import { LANGUAGES, applyLanguage, count, formatNumber, isLanguage, plural, tr, type Language } from './lib/i18n';
+import { isPhoneLayout } from './lib/viewport';
 import { useReminders } from './lib/useReminders';
 import { useCloudSync } from './lib/useCloudSync';
 import { usePushNotifications } from './lib/push';
@@ -833,7 +834,7 @@ function App() {
     setMobileMore(false);
     // Na małym ekranie pierwszy widok tygodnia jest trudny do obsługi.
     // Użytkownik może potem sam przełączyć kalendarz z powrotem na tydzień.
-    if (id === 'calendar' && typeof window !== 'undefined' && window.matchMedia('(max-width: 620px)').matches) {
+    if (id === 'calendar' && isPhoneLayout()) {
       setCalendarMode('day');
     }
     window.scrollTo(0, 0);

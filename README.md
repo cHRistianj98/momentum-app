@@ -190,6 +190,11 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
   W pliku rutyny (import JSON) to pole `timerSeconds` kroku.
 - XP, poziomy, seria aktywności, 100 odznak, statystyki, wykres ostatnich 7 dni i udział kategorii.
 - Konfigurowalne kolory pięciu kategorii, jasny/ciemny motyw, responsywny interfejs (na iPhonie dolne menu i stopki okien omijają zaokrąglone rogi ekranu i pasek Home — `viewport-fit=cover` + `env(safe-area-inset-*)`).
+- **Telefon w poziomie** (np. iPhone 16: 852×393) ma układ telefonu dopasowany do niskiego ekranu, a nie układ komputera:
+  niższy górny pasek i dolne menu (ikona obok podpisu), pasek kalendarza w jednym rzędzie i siatka godzin na całą wysokość,
+  okna w obrębie bezpiecznych marginesów (Dynamic Island z boku, zaokrąglone rogi, pasek Home), Focus i eksport dni w dwóch
+  kolumnach, wybór daty i godziny na środku ekranu. Warunek telefonu w poziomie: `(orientation: landscape) and (max-height: 500px)
+  and (pointer: coarse)` — w CSS dopisany do reguł telefonu, w kodzie `isPhoneLayout()` z `src/lib/viewport.ts`. iPad i komputer bez zmian.
 - Automatyczny zapis w `localStorage`, działające przykładowe dane. W ustawieniach można je zresetować.
 
 ## Zakres i ograniczenia MVP
@@ -223,7 +228,7 @@ momentum-app/
   src/
     App.tsx                   # layout, nawigacja, stan i logika aplikacji
     styles.css                # design system, responsywność i dark mode
-    styles-v06.css            # pasek kalendarza na iPhone, powiadomienia, statystyki, Weekly Review
+    styles-v06.css            # pasek kalendarza na iPhone, powiadomienia, statystyki, Weekly Review, telefon w poziomie (sekcja 31)
     types.ts                  # typy domenowe
     components/
       CalendarView.tsx        # kalendarz i natywny drag & drop

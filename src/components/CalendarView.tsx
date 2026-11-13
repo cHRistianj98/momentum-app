@@ -5,6 +5,7 @@ import { layoutOverlappingEvents } from '../lib/calendarOverlap';
 import { MiniMonthPicker } from './MiniMonthPicker';
 import { fullDate, minuteOfDay, mondayOf, monthTitle, parseDate, shiftDate, shortWeekday, timeFromMinutes, todayKey } from '../lib/date';
 import { locale, tr } from '../lib/i18n';
+import { isPhoneLayout } from '../lib/viewport';
 import type { CategoryConfig, CategoryKey, IconKey } from '../types';
 
 export interface CalendarBlock {
@@ -395,7 +396,7 @@ export function CalendarView({ referenceDate, onChangeDate, blocks, categories, 
 
   const gridSwipeStart = (event: React.TouchEvent<HTMLDivElement>) => {
     gridSwipeRef.current = null;
-    if (event.touches.length !== 1 || !window.matchMedia('(max-width: 850px)').matches) return;
+    if (event.touches.length !== 1 || !isPhoneLayout(850)) return;
     const target = event.target as HTMLElement;
     if (target.closest('button, input, .event-resize-handle, .momentum-control-popover')) return;
     const point = event.touches[0];
