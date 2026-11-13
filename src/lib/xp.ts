@@ -134,7 +134,8 @@ export function occurrenceXp(routine: Routine, logs: AppData['routineLogs'], sou
   const log = logs[`${routine.id}:${sourceDate}`];
   const minutes = log?.durationOverride ?? routine.duration;
   if (isTaskSeries(routine)) return taskXp(minutes, routine.category);
-  const steps = log?.completed ? checkedSteps(routine, log) : routineStepsOnDate(routine.steps, log?.dateOverride ?? sourceDate).length;
+  // Kroki wystąpienia wynikają z dnia w harmonogramie — także po przeniesieniu na inny dzień.
+  const steps = log?.completed ? checkedSteps(routine, log) : routineStepsOnDate(routine.steps, sourceDate).length;
   return routineXp(routine.category, minutes, steps, routineStreakBefore(routine, logs, sourceDate));
 }
 

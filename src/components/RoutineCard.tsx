@@ -47,7 +47,7 @@ export function RoutineCard({ routine, log, xp, stepsToday, checkedToday, occurs
   const frequency = routine.weekdays.length === 7 ? tr('Codziennie', 'Every day') : routine.weekdays.length === 0 ? tr('Bez harmonogramu', 'No schedule') : tr(`${routine.weekdays.length}× w tygodniu`, `${routine.weekdays.length}× a week`);
   const status = state === 'done' ? <><Check size={14} strokeWidth={3}/> {tr(`Ukończona dziś · +${xp} XP`, `Completed today · +${xp} XP`)}</>
     : state === 'progress' ? <><Play size={12} fill="currentColor"/> {tr('W trakcie', 'In progress')} · {checkedToday}/{stepsToday}</>
-    : state === 'todo' ? <><Sparkles size={13}/> {tr('Dziś', 'Today')} · {stepsLabel(stepsToday)}</>
+    : state === 'todo' ? <><Sparkles size={13}/> {tr('Dziś', 'Today')} · {stepsToday ? stepsLabel(stepsToday) : tr('bez kroków', 'no steps')}</>
     : <><CalendarOff size={13}/> {tr('Dziś wolne', 'Off today')}{nextDay !== null ? tr(` · następna: ${dayNames[nextDay]}`, ` · next: ${dayNames[nextDay]}`) : ''}</>;
 
   return <button type="button" className={`routine-card rcard rcard--${state}`} onClick={onOpen}
@@ -59,8 +59,8 @@ export function RoutineCard({ routine, log, xp, stepsToday, checkedToday, occurs
         <h3>{routine.title}</h3>
         {routine.description && <p>{routine.description}</p>}
       </span>
-      <span className="rcard-ring" aria-label={state === 'done' ? tr('Ukończona', 'Completed') : tr(`${checkedToday} z ${stepsToday} kroków`, `${checkedToday} of ${stepsToday} ${plural(stepsToday, ['krok', 'kroki', 'kroków'], ['step', 'steps'])}`)}>
-        <span>{state === 'done' ? <Check size={18} strokeWidth={3}/> : state === 'off' ? <CalendarOff size={16}/> : <><strong>{checkedToday}</strong><small>/{stepsToday}</small></>}</span>
+      <span className="rcard-ring" aria-label={state === 'done' ? tr('Ukończona', 'Completed') : !stepsToday ? tr('Bez kroków', 'No steps') : tr(`${checkedToday} z ${stepsToday} kroków`, `${checkedToday} of ${stepsToday} ${plural(stepsToday, ['krok', 'kroki', 'kroków'], ['step', 'steps'])}`)}>
+        <span>{state === 'done' ? <Check size={18} strokeWidth={3}/> : state === 'off' ? <CalendarOff size={16}/> : !stepsToday ? <Sparkles size={16}/> : <><strong>{checkedToday}</strong><small>/{stepsToday}</small></>}</span>
       </span>
     </span>
     <span className="rcard-chips">

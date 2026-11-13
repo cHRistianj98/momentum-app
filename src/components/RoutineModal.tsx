@@ -53,7 +53,8 @@ interface SessionProps {
 }
 
 export function RoutineSession({ routine, date, log, xp, duration, displayTime, categoryColor, categories, onToggleStep, onComplete, onUndo, onEdit, onDelete, onClose, sourceDate, otherTimesOn, onMove, onSkip, onRestore }: SessionProps) {
-  const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, date));
+  // Kroki z dnia w harmonogramie: przeniesione wystąpienie (np. środa → czwartek) zabiera swoje kroki ze sobą.
+  const visibleSteps = orderRoutineSteps(routineStepsOnDate(routine.steps, sourceDate ?? date));
   const completed = visibleSteps.filter(step => log.checkedStepIds.includes(step.id)).length;
   const count = visibleSteps.length;
   // Stoper kroku żyje poza oknem — odlicza dalej po jego zamknięciu, a po upływie czasu App odhacza krok.
@@ -96,9 +97,11 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
     {onMove && (skipped && onRestore
       ? <SkippedOccurrenceBar date={date} hint={tr('Odhaczenie kroku też przywróci rutynę na ten dzień.', 'Checking off a step will also restore the routine for this day.')} onRestore={onRestore}/>
       : <OccurrenceBar label={tr('To wystąpienie', 'This occurrence')} date={date} time={displayTime} movedFrom={movedFrom} onMove={() => setMoving(true)} onDelete={onSkip ? skipThisOccurrence : undefined}/>)}
-    <div className="routine-progress-heading"><strong>{tr('Twoje kroki', 'Your steps')}</strong><span>{completed}/{count} {tr('wykonane', 'done')}</span></div><div className="progress-track"><div style={{ width: `${count ? completed/count*100 : 0}%` }} /></div>
+    <div className="routine-progress-heading"><strong>{tr('Twoje kroki', 'Your steps')}</strong>{count > 0 && <span>{completed}/{count} {tr('wykonane', 'done')}</span>}</div>{count > 0 && <div className="progress-track"><div style={{ width: `${completed/count*100}%` }} /></div>}
     <div className="routine-checklist">
-      {count === 0 && <div className="routine-no-steps">{tr('W tym dniu nie zaplanowano żadnych kroków. Harmonogram każdego kroku zmienisz w „Edytuj szablon”.', 'No steps are scheduled for this day. You can change each step’s schedule in “Edit template”.')}</div>}
+      {count === 0 && <div className="routine-no-steps">{routine.steps.length === 0
+        ? tr('Ta rutyna nie ma kroków — zakończ ją jednym przyciskiem poniżej. Kroki możesz dodać w „Edytuj szablon”.', 'This routine has no steps — finish it with the button below. You can add steps in “Edit template”.')
+        : tr('W tym dniu nie zaplanowano żadnych kroków — możesz od razu zakończyć rutynę. Harmonogram każdego kroku zmienisz w „Edytuj szablon”.', 'No steps are scheduled for this day — you can finish the routine right away. You can change each step’s schedule in “Edit template”.')}</div>}
       {visibleSteps.map((step, i) => {
         const isDone = log.checkedStepIds.includes(step.id);
         const body = <>
@@ -136,8 +139,8 @@ export function RoutineSession({ routine, date, log, xp, duration, displayTime, 
       <button type="button" className="routine-actions-icon" onClick={onClose} aria-label={tr('Wróć do kalendarza', 'Back to calendar')} title={tr('Wróć do kalendarza', 'Back to calendar')}><ArrowLeft size={19}/></button>
       {log.completed
         ? <button type="button" className="btn btn--secondary routine-actions-main" onClick={onUndo}><RotateCcw size={16}/> {tr('Cofnij ukończenie', 'Undo completion')}</button>
-        : <button type="button" disabled={count === 0 || completed !== count} className="btn btn--primary routine-actions-main" onClick={onComplete}>
-          <Check size={17}/> {tr('Zakończ rutynę', 'Finish routine')} <span className="routine-actions-badge">{count > 0 && completed === count ? `+${xp} XP` : `${completed}/${count}`}</span>
+        : <button type="button" disabled={completed !== count} className="btn btn--primary routine-actions-main" onClick={onComplete}>
+          <Check size={17}/> {tr('Zakończ rutynę', 'Finish routine')} <span className="routine-actions-badge">{completed === count ? `+${xp} XP` : `${completed}/${count}`}</span>
         </button>}
       <div className="routine-actions-more-wrap" ref={menuRef}>
         <button type="button" className="routine-actions-icon routine-actions-more" aria-label={tr('Więcej opcji rutyny', 'More routine options')} title={tr('Więcej opcji', 'More options')}
@@ -220,7 +223,8 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
   const week = weekLabels();
   function save() {
     const validSteps = orderRoutineSteps(steps.filter(s => s.title.trim()).map(s => ({ ...s, title: s.title.trim() })));
-    if (!title.trim() || !validSteps.length || !weekdays.length) return;
+    // Kroki są opcjonalne — rutynę bez kroków kończy się jednym przyciskiem.
+    if (!title.trim() || !weekdays.length) return;
     onSave({ id: routine?.id ?? crypto.randomUUID(), title: title.trim(), description: description.trim(), icon, image, category, time, duration, xp: routineXp(category, duration, validSteps.length, 0), weekdays, steps: validSteps, active: routine?.active ?? true, ...(reminders.length ? { reminders } : {}) });
   }
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal routine-editor" role="dialog" aria-modal="true" aria-label={tr('Edytor rutyny', 'Routine editor')}>
@@ -285,7 +289,7 @@ export function RoutineEditor({ routine, categories, defaultReminders = [], noti
         ? <button type="button" className="routine-editor-delete" aria-label={tr('Usuń rutynę', 'Delete routine')} title={tr('Usuń rutynę', 'Delete routine')} onClick={()=>{if(window.confirm(tr('Usunąć rutynę i historię jej wykonań?', 'Delete the routine and its completion history?'))) onDelete(routine.id);}}><Trash2 size={18}/><span>{tr('Usuń', 'Delete')}</span></button>
         : <span className="modal-tip routine-editor-tip"><ArrowLeft size={13}/> {tr('Możesz edytować rutynę później', 'You can edit the routine later')}</span>}
       <button type="button" className="btn btn--ghost routine-editor-cancel" onClick={onClose}>{tr('Anuluj', 'Cancel')}</button>
-      <button type="button" className="btn btn--primary routine-editor-save" disabled={!title.trim() || !weekdays.length || !steps.some(s=>s.title.trim())} onClick={save}><Check size={16}/> {tr('Zapisz rutynę', 'Save routine')}</button>
+      <button type="button" className="btn btn--primary routine-editor-save" disabled={!title.trim() || !weekdays.length} onClick={save}><Check size={16}/> {tr('Zapisz rutynę', 'Save routine')}</button>
     </div>
   </div>
     {scheduleStepId && (() => {

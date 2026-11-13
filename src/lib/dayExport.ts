@@ -153,8 +153,8 @@ export function buildDayExport(input: DayExportInput): string {
     const routine = routineById.get(item.sourceId);
     const sourceDate = item.key.slice(`routine:${item.sourceId}:`.length);
     const checked = new Set(data.routineLogs[`${item.sourceId}:${sourceDate}`]?.checkedStepIds ?? []);
-    // Kroki jak w oknie rutyny: według dnia, w którym wystąpienie jest w kalendarzu.
-    const steps = item.series || !routine ? [] : orderRoutineSteps(routineStepsOnDate(routine.steps, item.date))
+    // Kroki jak w oknie rutyny: według dnia z harmonogramu — przeniesione wystąpienie zabiera swoje kroki ze sobą.
+    const steps = item.series || !routine ? [] : orderRoutineSteps(routineStepsOnDate(routine.steps, sourceDate))
       .map((step): Step => ({ title: step.title, done: checked.has(step.id), depth: step.parentId ? 1 : 0 }));
     return { minutes: item.plannedMinutes, steps, suffix: item.series ? tr(' (cykliczne)', ' (recurring)') : tr(' (rutyna)', ' (routine)'), note: routine?.description ?? '', project: undefined };
   };

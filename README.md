@@ -98,7 +98,8 @@ Zadanie, które się powtarza, ale nie ma listy kroków (np. siłownia w pn, śr
 - **Przenieś na inny dzień** (także na iPhonie, gdzie bloku nie da się przeciągnąć na inny dzień): w oknie rutyny, zadania
   cyklicznego albo zwykłego zadania pasek z terminem ma przycisk „Przenieś”. Szybki wybór (*Dzień wcześniej/później*, *Dziś*,
   *Jutro*), kalendarz i godzina. Przenosi się tylko ten jeden termin — np. piątkowa siłownia na poniedziałek — razem
-  z odhaczonymi krokami. „Pierwotny termin” cofa przeniesienie. Wystąpienie można przesunąć do 6 tygodni od terminu z harmonogramu.
+  z odhaczonymi krokami i krokami zaplanowanymi na pierwotny dzień (przeniesiona środa ma kroki środy, nawet w czwartek).
+  „Pierwotny termin” cofa przeniesienie. Wystąpienie można przesunąć do 6 tygodni od terminu z harmonogramu.
 - **Usuń to wystąpienie** (np. wolny dzień albo święto w środku tygodnia): w oknie rutyny lub zadania cyklicznego pasek
   „To wystąpienie” ma obok „Przenieś” przycisk „Usuń to wystąpienie” (w rutynie także w menu „…”). Znika tylko ten jeden
   termin — pozostałe dni, harmonogram i historia zostają bez zmian. Komunikat ma przycisk „Cofnij”, a usunięte dni (od dziś)
@@ -180,6 +181,7 @@ Podsumowanie dnia: ukończono 3 z 3 · czas ukończonych 3 h 30 min (🟢 2 h ·
 - Inbox dla zadań bez terminu, zadania zaplanowane i ukończone, filtrowanie, wyszukiwanie.
 - Szybkie dodawanie popularnych zadań, przeciąganie z panelu po prawej na kalendarz; skróty `N` (nowe zadanie) i `Ctrl/Cmd + K` (wyszukiwarka).
 - Rutyny: tworzenie szablonów, edytowanie kroków i dni tygodnia, wykonanie krok po kroku, jeden przycisk zamyka rutynę; jej blok w kalendarzu zostaje automatycznie oznaczony jako ukończony.
+  Kroki są opcjonalne: rutynę bez kroków (albo bez kroków zaplanowanych na dany dzień) kończy od razu przycisk „Zakończ rutynę”.
 - **Stoper kroku** (np. *Mycie zębów — 2 min*, *Plank — 45 s*): w edytorze rutyny przycisk ⏱ przy kroku — gotowe czasy
   (30 s, 1, 2, 3, 5, 10 min) albo własny (do 60 min). W rutynie po prawej stronie kroku jest znaczek z czasem: dotknięcie
   uruchamia odliczanie, kolejne wstrzymuje i wznawia. Gdy czas minie, krok sam się odhacza (można go odznaczyć), telefon daje
